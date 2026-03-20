@@ -1,0 +1,77 @@
+using Revise
+using PrefPol
+import PrefPol as pp
+
+year = 2006
+scenario = "lula_alckmin"
+
+overwrite_imputation = false
+overwrite_profiles = false
+overwrite_measures = false
+overwrite_group_metrics = false
+
+# ------------------------------------------------------------------
+# Bootstraps (load) + imputation index
+# ------------------------------------------------------------------
+bootstrap_index = pp.load_all_bootstraps(years = [year])
+#pp.impute_from_f3(bootstrap_index; overwrite = overwrite_imputation)
+
+imputed_year = pp.load_imputed_year(year)
+
+# ------------------------------------------------------------------
+# Profiles, measures, and group metrics
+# ------------------------------------------------------------------
+profiles_year = pp.generate_profiles_for_year_streamed_from_index(
+    year, bootstrap_index[year], imputed_year; overwrite = overwrite_profiles)
+
+measures_year = pp.save_or_load_measures_for_year(
+    year, profiles_year; overwrite = overwrite_measures, verbose = true)
+
+group_metrics_year = pp.save_or_load_group_metrics_for_year(
+    year, profiles_year, bootstrap_index[year];
+    overwrite = overwrite_group_metrics, verbose = true, two_pass = true)
+
+
+
+
+# ------------------------------------------------------------------
+# Scenario dot-whisker plots (mice, random, zero)
+# ------------------------------------------------------------------
+cfg = bootstrap_index[year][:cfg]
+
+plot_measures = Dict(year=> measures_year)
+
+fig_mice_dot = pp.plot_scenario_year(
+    year, scenario, bootstrap_index, plot_measures;
+    variant = "mice", plot_kind = :dotwhisker, connect_lines = true)
+
+fig_random_dot = pp.plot_scenario_year(
+    year, scenario, bootstrap_index, plot_measures;
+    variant = "random", plot_kind = :dotwhisker, connect_lines = true)
+
+fig_zero_dot = pp.plot_scenario_year(
+    year, scenario, bootstrap_index, plot_measures;
+    variant = "zero", plot_kind = :dotwhisker, connect_lines = true)
+
+pp.save_plot(fig_mice_dot, year, "$(scenario)_dot", cfg; variant = "mice")
+pp.save_plot(fig_random_dot, year, "$(scenario)_dot", cfg; variant = "random")
+pp.save_plot(fig_zero_dot, year, "$(scenario)_dot", cfg; variant = "zero")
+
+# ------------------------------------------------------------------
+# Group-demographics plots (all demographics)
+# ------------------------------------------------------------------
+
+
+
+fig_group_hm = pp.plot_group_demographics_heatmap(
+    Dict(year => group_metrics_year), bootstrap_index, year, scenario;
+    variants = [:mice],
+    measures = [:C, :D, :G],
+    maxcols = 3,
+    clist_size = 60,
+    colormaps = :RdBu |> pp.Makie.Reverse,
+    fixed_colorrange = true,
+    show_values = true,
+    simplified_labels = true)
+
+pp.save_plot(fig_group_hm, year, "$(scenario)_group_hm", cfg; variant = "mice")

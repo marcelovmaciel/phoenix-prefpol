@@ -1,0 +1,427 @@
+#+title: Codex Instructions
+
+
+
+* mar 6: refactor proposal
+
+You are working in a monorepo-like local setup with two Julia packages:
+
+- `Preferences/` is the general package for manipulating candidates, ballots, rankings, profiles, weighted profiles, etc.
+- `PrefPol/` depends on `Preferences/` and contains project-specific logic for political-preference analysis over survey data.
+
+Task:
+Audit `PrefPol/src/raw_profiles.jl` and implement a careful refactor that backports genuinely general functionality into `Preferences`, while keeping PrefPol’s current behavior and external surface stable.
+
+This is not a greenfield redesign. Do not change functionality. Do not break the current user-facing calls in PrefPol, especially anything touched by `PrefPol/exploratory/`. The point is to improve package boundaries, not to invent a new API for its own sake.
+
+## High-level goals
+
+1. Identify what in `PrefPol/src/raw_profiles.jl` is generic enough to belong in `Preferences`.
+2. Move or reimplement that generic functionality in `Preferences`.
+3. Simplify `PrefPol/src/raw_profiles.jl` so it mostly orchestrates PrefPol-specific concerns and delegates generic profile-building work to `Preferences`.
+4. Preserve current PrefPol behavior and call surface as much as possible.
+5. Keep the code simple, readable, and well commented. Prefer explicitness over clever abstractions.
+
+## Very important conceptual boundary
+
+`Preferences` should contain abstractions that make sense outside this project, such as:
+
+- converting tabular score/rating data into weak rankings or profiles
+- generic score normalization hooks or generic row-to-ballot logic
+- generic profile aggregation / pattern summarization over `Profile` and `WeightedProfile`
+- candidate-name normalization helpers only if they are truly domain-generic and not tied to Brazil/ESEB conventions
+
+`Preferences` should NOT absorb PrefPol-specific orchestration such as:
+
+- election year support constants
+- loading TOML configs
+- scenario lookup by name
+- `project_root`-based paths
+- assumptions tied specifically to ESEB file layout or PrefPol config machinery
+- selection of candidate columns from PrefPol election configs, unless there is a clearly generic core separated from the PrefPol wrapper
+
+## Concrete file to inspect first
+
+- `PrefPol/src/raw_profiles.jl`
+
+Also inspect the relevant files in both packages so you can refactor consistently:
+- `Preferences/src/Preferences.jl`
+- any files in `Preferences/src/` defining `CandidatePool`, `WeakRank`, `Profile`, `WeightedProfile`, `restrict`, `to_weakorder`, `ranks`, `nballots`, `weights`
+- any PrefPol files that call the raw profile functions, especially under `PrefPol/exploratory/`
+- any PrefPol module export/include files that need updates after the refactor
+
+## Required first deliverable before editing
+
+Before changing code, produce a short written audit in a new markdown or org file at the repo root, for example:
+
+- `raw_profiles_refactor_audit.md`
+
+In that file, classify each function or constant in `PrefPol/src/raw_profiles.jl` into one of:
+
+- MOVE TO PREFERENCES
+- KEEP IN PREFPOL
+- SPLIT: GENERIC CORE IN PREFERENCES + PREFPOL WRAPPER
+
+For each item, explain why in 1 to 4 sentences.
+
+Pay special attention to these groups:
+
+### Almost certainly PrefPol-specific unless split carefully
+- `RAW_PROFILE_SUPPORTED_YEARS`
+- `_RAW_PROFILE_CFG_DIR`
+- `_LOCAL_PREFERENCES_SRC`
+- `_load_raw_profile_cfg`
+- `_infer_m`
+- `_scenario_for_year`
+- `_resolve_candidate_cols`
+- `load_raw_pref_data`
+- `build_profile(df, year::Int; ...)`
+
+### Likely generic or partly generic
+- `_humanize_candidate_name`
+- `_canonical_candidate_key`
+- `_candidate_display_symbols`
+- `_guess_weight_col`
+- `_resolve_candidate_cols_from_set`
+- `_normalize_score`
+- `_normalize_weight`
+- `_row_to_weak_rank`
+- `_build_profile_with_candidates`
+- `build_profile(raw::NamedTuple; ...)` only partially
+- `_ballot_pattern_string`
+- `_validate_profile_input`
+- `_profile_pattern_mass_table`
+- `_pattern_block_sizes`
+- `ranked_count`
+- `has_ties`
+- `_profile_pattern_features`
+- `_empty_ranksize_rows`
+- `profile_pattern_proportions`
+- `ranking_type_support`
+- `ranking_type_template`
+- `profile_ranksize_summary`
+- `profile_ranking_type_proportions`
+- pretty-print helpers
+
+### Metadata question
+Decide whether `_PROFILE_BUILD_META`, `_profile_build_meta`, `_store_profile_build_meta!`, and zero-rank metadata recovery belong in `Preferences` or should remain in PrefPol.
+Do not hand-wave this. Decide explicitly.
+My prior is:
+- if metadata is about generic profile-construction diagnostics, it belongs in `Preferences`
+- if it is only needed because of PrefPol’s survey preprocessing conventions, keep it in PrefPol
+- a split is acceptable if needed
+
+## Refactor constraints
+
+1. Preserve PrefPol surface behavior.
+   Existing PrefPol calls should keep working. In particular, the exploratory files should not need semantic rewrites. Small import-path changes are acceptable, but avoid changing call signatures unless strictly necessary.
+
+2. Keep PrefPol-specific convenience wrappers.
+   It is acceptable, and probably desirable, that PrefPol still expose functions like:
+   - `load_raw_pref_data(...)`
+   - `build_profile(df, year::Int; ...)`
+   if these wrap more generic `Preferences` functionality.
+
+3. Prefer thin wrappers in PrefPol over duplicated logic.
+   After the refactor, PrefPol should mostly:
+   - load config/data
+   - choose candidate columns
+   - pass tabular data plus options into `Preferences`
+   - preserve old return shapes where necessary
+
+4. Do not overgeneralize.
+   If something is only “general” because of one fragile parameterization, keep it in PrefPol or split it carefully.
+
+5. Keep names boring and clear.
+   Do not introduce framework-y abstractions, traits, or submodules unless clearly necessary.
+
+## API design guidance
+
+If you move generic functionality into `Preferences`, prefer APIs along these lines:
+
+- a generic function that builds a weak-rank ballot from row-like/tabular score data
+- a generic function that builds `Profile` or `WeightedProfile` from a table plus candidate columns
+- optional keyword arguments for:
+  - score normalization function
+  - weight normalization function
+  - allow ties
+  - allow incomplete
+  - all unranked as indifferent
+  - weight column
+  - candidate label transformation / symbol creation
+- optional diagnostics metadata only if it is clearly generic
+
+A good outcome would be that PrefPol can delegate to something like a generic:
+- `Preferences.build_profile_from_scores(...)`
+or similarly named function,
+while PrefPol remains responsible for:
+- loading election config
+- deciding which candidate columns to use
+- applying ESEB-specific missing code conventions, if those should remain project-specific
+
+## Critical design issue to resolve
+
+Right now `_normalize_score` bakes in survey-specific assumptions:
+- valid range `[0, 10]`
+- codes `96, 97, 98, 99` treated as missing
+
+This is not generic as written.
+
+You must decide one of the following and implement it cleanly:
+
+Option A:
+Keep `_normalize_score` logic in PrefPol, and pass a PrefPol-specific normalization callback into generic `Preferences` functions.
+
+Option B:
+Move a parameterized generic score-normalization mechanism into `Preferences`, where PrefPol supplies:
+- valid score range
+- missing codes
+- parsing behavior
+
+Do not hardcode ESEB conventions into `Preferences`.
+
+## Expected code changes
+
+Implement the refactor across both packages. At minimum:
+
+### In Preferences
+- add the new generic functionality in the appropriate source file(s)
+- include/export it from `Preferences/src/Preferences.jl` as appropriate
+- add docstrings
+- add comments explaining intended boundary and usage
+
+### In PrefPol
+- simplify `src/raw_profiles.jl`
+- replace duplicated generic logic with calls into `Preferences`
+- keep PrefPol-specific orchestration local
+- preserve current wrappers and return values where feasible
+
+## Required compatibility work
+
+Search for all downstream call sites in PrefPol, especially exploratory scripts.
+Update imports or internal calls only as needed so that the same workflows still run.
+
+Do not silently change:
+- returned field names in named tuples
+- pattern-table column names
+- interpretation of weighting
+- candidate ordering conventions
+- behavior of `allow_ties`, `allow_incomplete`, `all_unranked_as_indifferent`
+
+## Testing and verification
+
+Add or update tests in whichever package is appropriate.
+
+You must verify at least the following:
+
+1. A DataFrame plus candidate score columns can still be converted into the same weak-rank profile as before.
+2. Weighted and unweighted profile construction still behave the same.
+3. Missing / invalid score handling is unchanged in PrefPol.
+4. Candidate subset behavior is unchanged in PrefPol.
+5. Pattern summarization outputs are unchanged, or if tiny formatting changes are unavoidable, document them explicitly.
+6. Existing exploratory scripts still run with no semantic change.
+
+If there is no adequate test coverage, create small focused tests rather than large complicated ones.
+
+## Final deliverables
+
+1. The code changes in both packages
+2. `raw_profiles_refactor_audit.md`
+3. A short migration summary file, for example:
+   - `raw_profiles_refactor_summary.md`
+
+That summary must contain:
+- what moved to `Preferences`
+- what stayed in `PrefPol`
+- what was split
+- any tiny API or import changes required internally
+- confirmation of what was checked for compatibility
+
+## Style requirements
+
+- Keep code compact but readable
+- Prefer ordinary Julia functions and clear keyword arguments
+- Avoid unnecessary metaprogramming
+- Add comments where package boundary decisions are non-obvious
+- Do not introduce a complicated abstraction hierarchy
+
+## Definition of success
+
+Success means:
+- `Preferences` gains genuinely reusable profile-building utilities
+- `PrefPol` becomes thinner and more project-specific
+- current PrefPol workflows still work
+- no behavior change
+- the package boundary is materially cleaner after the refactor
+
+
+
+* mar 7
+
+
+You are working in a Julia workspace where:
+
+- `Preferences/` is a general package for preferences, ballots, profiles, and reusable utilities.
+- `PrefPol/` depends on `Preferences/`.
+- I receive survey datasets with one column per candidate containing candidate scores.
+- I want a general utility that, given:
+  1. a DataFrame
+  2. a vector of candidate-score columns
+  3. optionally a weight column
+  4. a keyword saying whether to use weights or not
+
+  returns a table with missing percentages for each candidate column.
+
+This functionality is general and should live in `Preferences`, not `PrefPol`.
+But I also want a very simple REPL-driven exploratory script in `PrefPol/exploratory` so I can quickly inspect the structure of datasets.
+
+Your task is to implement this in a way that is idiomatic, small, well-documented, and easy to call interactively.
+
+## Functional requirements
+
+Implement a reusable function in `Preferences` that computes, for each candidate-score column:
+
+- candidate/column name
+- number of missing observations
+- total observations considered
+- missing proportion
+- missing percentage
+
+It must support:
+
+1. Unweighted mode:
+   - missing proportion = `count(ismissing, col) / nrow(df)`
+
+2. Weighted mode:
+   - requires a weight column
+   - missing proportion = sum of weights for rows where the candidate column is missing divided by sum of weights over all rows included in the calculation
+   - return the weighted percentage accordingly
+
+3. Output:
+   - return a `DataFrame`
+   - one row per candidate column
+   - preserve a human-readable candidate/column identifier
+   - sort descending by missing percentage by default, unless the local style in `Preferences` suggests otherwise
+
+4. API:
+   - accept columns as `Vector{Symbol}` and also work reasonably if user passes strings by converting or throwing a clear error
+   - keyword argument for weighted vs unweighted, something like `weighted::Bool=false`
+   - keyword argument for `weight_col`
+   - use clear argument validation and error messages
+
+## Important conceptual/documentation requirement
+
+In the docstring and comments, explicitly warn that:
+
+- unweighted missingness describes sample completeness
+- weighted missingness estimates missingness in the weighted survey population
+- survey weights do NOT in general solve item nonresponse bias
+- weighted missingness can still be useful descriptively, but should not be overinterpreted
+
+Keep this warning short but explicit. This requirement matters.
+
+## Design requirements
+
+Be smart about where this should live in the project structure.
+
+1. First inspect `Preferences` structure and place the new code where it naturally belongs.
+   - If there is already a module/file for survey helpers, tabulation, diagnostics, or dataframe utilities, use it.
+   - Otherwise create a small, well-named file rather than stuffing this into an unrelated one.
+   - Export the public function from the main module if that matches project style.
+
+2. Keep the implementation minimal.
+   - No clever abstractions.
+   - No unnecessary submodules.
+   - No overengineering.
+   - Prefer a straightforward loop or small helper.
+
+3. Follow project conventions.
+   - Use the package’s existing style for naming, docstrings, imports, and exports.
+   - Add tests if the package already has a test structure.
+   - If there are tests, include both weighted and unweighted cases.
+
+## Suggested API shape
+
+Use something close to this unless the project style strongly suggests a better name:
+
+`candidate_missingness_table(df, candidate_cols; weighted=false, weight_col=nothing, sort_desc=true)`
+
+Behavior:
+
+- `candidate_cols` is a vector of column identifiers
+- in unweighted mode:
+  - `total_observations = nrow(df)`
+  - `missing_count = number of missing rows for that candidate`
+- in weighted mode:
+  - `total_weight = sum(weights over valid rows in df used for denominator)`
+  - `missing_weight = sum(weights where candidate value is missing)`
+  - include columns named clearly enough that the output makes sense
+  - if weighted mode is on, it is acceptable that the “count” fields become weighted totals rather than raw counts, but name them accordingly to avoid ambiguity
+
+A good output schema would be one of these:
+- always use generic names like `missing_amount`, `total_amount`, `missing_proportion`, `missing_percent`
+- or include raw counts in all cases plus weighted columns only in weighted mode
+Choose the cleaner option for the existing package style.
+
+## Edge cases
+
+Handle these explicitly:
+
+- candidate column not found
+- weight column missing when `weighted=true`
+- nonnumeric or invalid weights
+- missing weights
+- zero or negative weights
+
+Preferred behavior:
+- throw clear errors for structurally invalid cases
+- for missing weights, either:
+  1. error clearly, or
+  2. drop those rows with an explicit documented rule
+Choose whichever is more consistent with project style, but be explicit and conservative.
+
+## PrefPol integration requirement
+
+After implementing the reusable function in `Preferences`, add a very simple REPL-driven exploratory script in `PrefPol/exploratory` that demonstrates usage on a dataset.
+
+This script should be easy to run line by line in Emacs/REPL. Keep it in the style of exploratory scripts, not a heavy pipeline.
+
+It should:
+
+- import/use `Preferences`
+- define a dataframe variable placeholder or load an existing obvious dataset if there is already a standard exploratory dataset in the project
+- define a vector of candidate columns (if there is a smart way, say using toml information, implement this possibility too!)
+- call the new function in unweighted mode
+- call it in weighted mode if a weight column exists in the dataset
+- print or display the resulting table
+- be short and readable
+- include a brief header comment explaining purpose and how it fits the project
+
+Do not build a complicated CLI or argument parser.
+
+## Deliverables
+
+Please make the actual code changes, not just propose them.
+
+Deliver:
+
+1. The new or modified file(s) in `Preferences`
+2. Export/module wiring if needed
+3. Tests, if appropriate
+4. One simple exploratory script in `PrefPol/exploratory`
+5. A short final note summarizing:
+   - where you placed the reusable function
+   - the function signature
+   - the warning about weighted missingness
+   - how to call it from `PrefPol`
+
+## Implementation preferences
+
+- Prioritize readability over abstraction.
+- Write compact docstrings.
+- Keep comments only where they help.
+- Do not create a large framework for survey diagnostics.
+- This is a small reusable utility.
+
+Before editing, briefly inspect the existing structure of `Preferences` and `PrefPol` so the placement is sensible.
+Then implement directly.

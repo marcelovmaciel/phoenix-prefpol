@@ -1,0 +1,39 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+*.code-workspace
+
+# Local package environments
+PrefPol/.CondaPkg/
+Preferences/.julia_depot/
+Preferences/.juliaup/
+
+# Embedded git metadata from the old nested PrefPol repo
+PrefPol/.git/
+
+# Downloaded/raw datasets and archive bundles
+PrefPol/data/
+replication_package_reboot.zip
+
+# Generated intermediate data and figures
+intermediate_data/
+PrefPol/intermediate_data/
+PrefPol/running/imgs/
+PrefPol/exploratory/imgs/
+PrefPol/exploratory/imgs (Copy)/
+PrefPol/old_+group/
+
+# LaTeX/Org export artifacts
+**/.auctex-auto/
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+PrefPol/design_notes/preprocessing_with_figures.pdf
+PrefPol/design_notes/preprocessing_with_figures.tex

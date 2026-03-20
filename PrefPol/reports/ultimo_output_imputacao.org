@@ -1,0 +1,145 @@
+* Auditoria de Imputação `mice` via `RCall`
+
+** Escopo desta etapa
+- Diagnóstico apenas, sem alterações em `src/`.
+- Teste isolado criado em `exploratory/test_single_bootstrap_imputation.jl`.
+
+** Diagnóstico consolidado
+*** Bug provável
+- O parâmetro `m` é parcialmente ignorado no retorno: a função sempre usa `complete(imp, 1)`.
+- Colunas com método `""` (constante/todas missing/tipo não tratado) ficam sem imputação e podem manter missing silenciosamente.
+
+*** Risco plausível
+- O `let` atual retorna função, mas é frágil de manutenção: depende da última expressão continuar sendo a definição de `f`.
+- `predictorMatrix` inclui colunas degeneradas; o `mice` gerou `loggedEvents` de constante.
+- `set.seed(...)` via `RCall.reval` afeta estado global do R.
+- Objetos intermediários no R (`imp`, `meth`, `completed_df`) vivem no escopo global do RCall e podem acoplar chamadas.
+- Em amostras pequenas/degeneradas, `logreg`/`cart` podem gerar warnings/falhas.
+
+*** Hipótese ainda não confirmada
+- Em datasets mais extremos, o `mice` pode abortar em vez de apenas registrar `loggedEvents`.
+- Pode haver perda prática maior por colunas não tratadas explicitamente (texto, fatores vazios etc.).
+
+** Resultado do teste mínimo
+- `typeof(PrefPol.GLOBAL_R_IMPUTATION)` retornou um tipo de função.
+- `PrefPol.GLOBAL_R_IMPUTATION isa Function` retornou `true`.
+- Imputação executou 1 vez com warnings do `mice` (`Number of logged events: 3`).
+- `meth` observado no R:
+  - `score_num = "pmm"`
+  - `score_bin = "logreg"`
+  - `score_multicat = "cart"`
+  - `constant_num = ""`
+  - `all_missing_factor = ""`
+  - `free_text = ""`
+- `loggedEvents` registrou colunas constantes: `constant_num`, `all_missing_factor`, `free_text`.
+- Após retorno para Julia:
+  - `score_num` sem missings (`Float64`).
+  - colunas categóricas preservadas como categóricas.
+  - `constant_num`, `all_missing_factor` e `free_text` mantiveram missing.
+
+** TODOs para etapa posterior (não aplicados aqui)
+*** TODO Tornar o retorno do `let` explícito com `f` na última linha (`...; f`)
+*** TODO Definir comportamento explícito para `m > 1` (não fixar `complete(..., 1)`)
+*** TODO Tratar e logar colunas com `meth = ""` (decidir imputar, excluir ou manter)
+*** TODO Expor `imp$loggedEvents` no lado Julia para não haver falha silenciosa
+*** TODO Revisar política de métodos (`logreg`/`cart`/`pmm`) para casos pequenos/degenerados
+
+** Output bruto da última execução
+#+BEGIN_EXAMPLE
+STATUS=0
+Julia VERSION: 1.12.2
+Active project: /home/marcelovmaciel/Sync/Projects/polarization_paper/replication_package/PrefPol/Project.toml
+PrefPol module loaded: true
+
+=== GLOBAL_R_IMPUTATION Introspection ===
+typeof(PrefPol.GLOBAL_R_IMPUTATION) = PrefPol.var"#f#f##0"{PrefPol.var"#f#29#30"}
+PrefPol.GLOBAL_R_IMPUTATION isa Function = true
+
+=== Input Preview ===
+8×6 DataFrame
+ Row │ score_num  score_bin  score_multicat  constant_num  all_missing_factor  free_text
+     │ Float64?   Cat…?      Cat…?           Int64?        Cat…?               String?
+─────┼───────────────────────────────────────────────────────────────────────────────────
+   1 │       1.0  yes        A                          7  missing             x
+   2 │ missing    no         B                          7  missing             x
+   3 │       3.5  missing    C                          7  missing             y
+   4 │       4.0  yes        missing              missing  missing             z
+   5 │ missing    no         A                          7  missing             missing
+   6 │       2.0  missing    B                          7  missing             x
+   7 │       5.0  yes        missing                    7  missing             y
+   8 │ missing    no         C                          7  missing             z
+
+=== Schema: input ===
+  score_num :: Union{Missing, Float64}
+  score_bin :: Union{Missing, CategoricalValue{String, UInt32}}
+  score_multicat :: Union{Missing, CategoricalValue{String, UInt32}}
+  constant_num :: Union{Missing, Int64}
+  all_missing_factor :: Union{Missing, CategoricalValue{String, UInt32}}
+  free_text :: Union{Missing, String}
+
+=== Missing Counts: input ===
+  score_num => 4
+  score_bin => 3
+  score_multicat => 3
+  constant_num => 2
+  all_missing_factor => 12
+  free_text => 2
+
+=== Categorical Ordering: input ===
+  score_bin => ordered=false, levels=["no", "yes"]
+  score_multicat => ordered=false, levels=["A", "B", "C"]
+  all_missing_factor => all missing categorical
+
+=== Running Single Imputation Call ===
+┌ Warning: RCall.jl: Warning: Number of logged events: 3
+└ @ RCall ~/.julia/packages/RCall/FKyW5/src/io.jl:166
+┌ Warning: RCall.jl: Warning: Number of logged events: 3
+└ @ RCall ~/.julia/packages/RCall/FKyW5/src/io.jl:166
+
+=== Output Preview ===
+8×6 DataFrame
+ Row │ score_num  score_bin  score_multicat  constant_num  all_missing_factor  free_text
+     │ Float64    Cat…       Cat…            Int64?        CategoricalValue…?  String?
+─────┼───────────────────────────────────────────────────────────────────────────────────
+   1 │       1.0  yes        A                          7  missing             x
+   2 │       4.0  no         B                          7  missing             x
+   3 │       3.5  no         C                          7  missing             y
+   4 │       4.0  yes        A                    missing  missing             z
+   5 │       3.5  no         A                          7  missing             missing
+   6 │       2.0  yes        B                          7  missing             x
+   7 │       5.0  yes        A                          7  missing             y
+   8 │       3.5  no         C                          7  missing             z
+
+=== Schema: output ===
+  score_num :: Float64
+  score_bin :: CategoricalValue{String, UInt32}
+  score_multicat :: CategoricalValue{String, UInt32}
+  constant_num :: Union{Missing, Int64}
+  all_missing_factor :: Union{Missing, CategoricalValue{String, UInt32}}
+  free_text :: Union{Missing, String}
+
+=== Missing Counts: output ===
+  score_num => 0
+  score_bin => 0
+  score_multicat => 0
+  constant_num => 2
+  all_missing_factor => 12
+  free_text => 2
+
+=== Categorical Ordering: output ===
+  score_bin => ordered=false, levels=["no", "yes"]
+  score_multicat => ordered=false, levels=["A", "B", "C"]
+  all_missing_factor => all missing categorical
+
+=== R mice Internals (Last Run) ===
+meth:
+         score_num          score_bin     score_multicat       constant_num 
+             "pmm"           "logreg"             "cart"                 "" 
+all_missing_factor          free_text 
+                ""                 "" 
+loggedEvents:
+  it im dep     meth                out
+1  0  0     constant       constant_num
+2  0  0     constant all_missing_factor
+3  0  0     constant          free_text
+#+END_EXAMPLE
