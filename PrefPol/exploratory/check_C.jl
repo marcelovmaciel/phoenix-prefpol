@@ -39,38 +39,49 @@ imputed_year_2018 = pp.load_imputed_year(2018)
 imputed_year_2022 = pp.load_imputed_year(2022)
 
 # ------------------------------------------------------------------
-# Generate streamed profiles per year
+# Generate streamed weak profiles per year
 # ------------------------------------------------------------------
-profiles_2006 = pp.generate_profiles_for_year_streamed_from_index(
+weak_profiles_2006 = pp.generate_profiles_for_year_streamed_from_index(
                     2006, bootstrap_index[2006], imputed_year_2006; overwrite = false)
 
-
-
-
-profiles_2018 = pp.generate_profiles_for_year_streamed_from_index(
+weak_profiles_2018 = pp.generate_profiles_for_year_streamed_from_index(
                     2018, bootstrap_index[2018], imputed_year_2018; overwrite = false)
 
 
 
 
 
-profiles_2022 = pp.generate_profiles_for_year_streamed_from_index(
+weak_profiles_2022 = pp.generate_profiles_for_year_streamed_from_index(
                     2022, bootstrap_index[2022], imputed_year_2022; overwrite = false)
+
+# ------------------------------------------------------------------
+# Linearize saved profiles and reload the linearized index
+# ------------------------------------------------------------------
+pp.linearize_profiles_for_year_streamed_from_index(
+    2006, bootstrap_index[2006], weak_profiles_2006; overwrite = false)
+pp.linearize_profiles_for_year_streamed_from_index(
+    2018, bootstrap_index[2018], weak_profiles_2018; overwrite = false)
+pp.linearize_profiles_for_year_streamed_from_index(
+    2022, bootstrap_index[2022], weak_profiles_2022; overwrite = false)
+
+linearized_profiles_2006 = pp.load_linearized_profiles_index(2006)
+linearized_profiles_2018 = pp.load_linearized_profiles_index(2018)
+linearized_profiles_2022 = pp.load_linearized_profiles_index(2022)
 
 # ------------------------------------------------------------------
 # # Global measures (per year)
 # # ------------------------------------------------------------------
-# measures_2006 = pp.save_or_load_measures_for_year(2006, profiles_2006;
+# measures_2006 = pp.save_or_load_measures_for_year(2006, linearized_profiles_2006;
 #                     overwrite = false,   # set true to rebuild
 #                     verbose   = true)    # progress / info logs
 
 
 
-# measures_2018 = pp.save_or_load_measures_for_year(2018, profiles_2018;
+# measures_2018 = pp.save_or_load_measures_for_year(2018, linearized_profiles_2018;
 #                     overwrite = false,   # set true to rebuild
 #                     verbose   = true)    # progress / info logs
 
-# measures_2022 = pp.save_or_load_measures_for_year(2022, profiles_2022;
+# measures_2022 = pp.save_or_load_measures_for_year(2022, linearized_profiles_2022;
 #                     overwrite = false,   # set true to rebuild
 #                     verbose   = true)    # progress / info logs
 
@@ -81,7 +92,7 @@ profiles_2022 = pp.generate_profiles_for_year_streamed_from_index(
 
 
 group_metrics_2006 = pp.save_or_load_group_metrics_for_year(
-                        2006, profiles_2006, bootstrap_index[2006];
+                        2006, linearized_profiles_2006, bootstrap_index[2006];
                         overwrite = false, verbose = true, two_pass = true)
 
 
@@ -111,7 +122,7 @@ pp.save_plot(fig_group_hm1, 2006,
 
 
 group_metrics_2018 = pp.save_or_load_group_metrics_for_year(
-                        2018, profiles_2018, bootstrap_index[2018];
+                        2018, linearized_profiles_2018, bootstrap_index[2018];
                         overwrite = false, verbose = true, two_pass = true)
 
 fig_group_hm2 = pp.plot_group_demographics_heatmap(
@@ -131,7 +142,7 @@ fig_group_hm2 = pp.plot_group_demographics_heatmap(
 pp.save_plot(fig_group_hm2, 2018, "main_four_group_hm_Cstar", cfg_2018; variant = "mice")
 
 group_metrics_2022 = pp.save_or_load_group_metrics_for_year(
-                        2022, profiles_2022, bootstrap_index[2022];
+                        2022, linearized_profiles_2022, bootstrap_index[2022];
                         overwrite = false, verbose = true, two_pass = true)
 
 fig_group_hm3 = pp.plot_group_demographics_heatmap(

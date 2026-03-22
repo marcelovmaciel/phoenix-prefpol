@@ -487,6 +487,48 @@ function force_scores_become_linear_rankings(score_dict; rng=MersenneTwister())
     return linear_ranking
 end
 
+"""
+    linearize_ranking_dict(ranking_dict; rng=MersenneTwister())
+
+Break ties in a ranking dictionary where smaller rank numbers are better,
+returning a strict linear ranking.
+"""
+function linearize_ranking_dict(ranking_dict::Dict{Symbol,<:Integer};
+                                rng = MersenneTwister())
+    grouped = Dict(rank => Symbol[] for rank in unique(values(ranking_dict)))
+
+    for (cand, rank) in ranking_dict
+        push!(grouped[rank], cand)
+    end
+
+    linear_ranking = Dict{Symbol,Int}()
+    next_rank = 1
+
+    for rank in sort(collect(keys(grouped)))
+        tied = grouped[rank]
+        shuffle!(rng, tied)
+        for cand in tied
+            linear_ranking[cand] = next_rank
+            next_rank += 1
+        end
+    end
+
+    return linear_ranking
+end
+
+"""
+    linearize_profile_column!(df; col=:profile, rng=Random.GLOBAL_RNG)
+
+Replace weak rankings in `df[col]` with strict linear rankings by breaking ties
+within each rank bucket.
+"""
+function linearize_profile_column!(df::DataFrame;
+                                   col::Symbol = :profile,
+                                   rng = Random.GLOBAL_RNG)
+    df[!, col] = map(profile -> linearize_ranking_dict(profile; rng = rng), df[!, col])
+    return df
+end
+
 
 
 

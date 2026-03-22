@@ -1,0 +1,28 @@
+#+title: Pinning Julia Project
+
+
+
+I confirmed directly that julia +1.11 is the right channel and starts instantly. I’m switching
+  the Emacs wrapper to call-process with explicit arguments instead of call-process-shell-
+  command, which should avoid the odd shell behavior I hit on the first retry.
+
+
+  Use Julia via emacs --batch, and use the manifest-matched Julia channel, not the system default.
+
+  Recommended command for this repo:
+
+  emacs -Q --batch --eval "(let* ((buf (get-buffer-create \"*julia-test*\")) (status (call-process-shell-command \"julia +1.11 --project=PrefPol PrefPol/test/runtests.jl 2>&1\" nil buf t)))
+  (princ (format \"STATUS=%s\n\" status)) (with-current-buffer buf (princ (buffer-string))))"
+
+  If that hangs or precompilation is the issue, use:
+
+  emacs -Q --batch --eval "(let* ((buf (get-buffer-create \"*julia-test*\")) (status (call-process-shell-command \"timeout 180 julia +1.11 --compiled-modules=no --project=PrefPol PrefPol/test/
+  runtests.jl 2>&1\" nil buf t))) (princ (format \"STATUS=%s\n\" status)) (with-current-buffer buf (princ (buffer-string))))"
+
+  Instruction for future agents:
+
+  - Do not use the default julia in this repo; PrefPol/Manifest.toml targets Julia 1.11.9.
+  - Use julia +1.11 --project=PrefPol ....
+  - Prefer wrapping Julia execution in emacs -Q --batch --eval ... so output is captured reliably.
+  - If normal startup/precompilation hangs, retry with --compiled-modules=no and a timeout.
+  - For this project, 1.12.x produced startup hangs/crashes that were not caused by repo code.

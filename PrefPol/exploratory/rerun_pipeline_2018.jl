@@ -25,22 +25,26 @@ bootstrap_index = pp.load_all_bootstraps(years = [year])
 imputed_year = pp.load_imputed_year(year)
 
 # ------------------------------------------------------------------
-# Generate streamed profiles for the year
+# Generate streamed weak profiles for the year
 # ------------------------------------------------------------------
-profiles_year = pp.generate_profiles_for_year_streamed_from_index(
+weak_profiles_year = pp.generate_profiles_for_year_streamed_from_index(
     year, bootstrap_index[year], imputed_year; overwrite = overwrite_profiles)
 
+pp.linearize_profiles_for_year_streamed_from_index(
+    year, bootstrap_index[year], weak_profiles_year; overwrite = overwrite_profiles)
+linearized_profiles_year = pp.load_linearized_profiles_index(year)
+
 # ------------------------------------------------------------------
-# Global measures (per year)
+# Global measures (per year, from loaded linearized profiles)
 # ------------------------------------------------------------------
 measures_year = pp.save_or_load_measures_for_year(
-    year, profiles_year; overwrite = overwrite_measures, verbose = true)
+    year, linearized_profiles_year; overwrite = overwrite_measures, verbose = true)
 
 # ------------------------------------------------------------------
 # Group metrics (per year)
 # ------------------------------------------------------------------
 group_metrics_year = pp.save_or_load_group_metrics_for_year(
-    year, profiles_year, bootstrap_index[year];
+    year, linearized_profiles_year, bootstrap_index[year];
     overwrite = overwrite_group_metrics, verbose = true, two_pass = true)
 
 # TODO: PAREI AQUI 

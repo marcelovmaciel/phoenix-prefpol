@@ -18,7 +18,8 @@ import PrefPol: build_candidate_score_distributions, convert_keys_to_int,
     get_most_known_candidates, select_top_candidates, compute_candidate_set,
     get_df_just_top_candidates, GLOBAL_R_IMPUTATION, imputation_variants,
     weighted_bootstrap, get_row_candidate_score_pairs, get_order_dict,
-    force_scores_become_linear_rankings, build_profile, profile_dataframe,
+    force_scores_become_linear_rankings, linearize_ranking_dict,
+    linearize_profile_column!, build_profile, profile_dataframe,
     dict2svec, decode_rank, perm2dict, perm_to_dict,
     compress_rank_column!, decode_profile_column!, decode_each!, load_spss_file
 
@@ -176,6 +177,20 @@ end
     @test ord[:A] == 1 && ord[:B] == 1
     lin = force_scores_become_linear_rankings(Dict(:A=>10,:B=>10,:C=>5,:D=>1); rng=MersenneTwister(1))
     @test Set(values(lin)) == Set(1:4) # strict ranks 1..4
+end
+
+@testset "linearize_ranking_dict / linearize_profile_column!" begin
+    weak = Dict(:A => 1, :B => 1, :C => 2, :D => 3)
+    lin1 = linearize_ranking_dict(weak; rng = MersenneTwister(1))
+    lin2 = linearize_ranking_dict(weak; rng = MersenneTwister(1))
+
+    @test lin1 == lin2
+    @test sort(collect(values(lin1))) == [1, 2, 3, 4]
+    @test lin1[:C] < lin1[:D]
+
+    df = DataFrame(profile = [weak, weak], Sex = ["F", "M"], Race = ["W", "B"])
+    linearize_profile_column!(df; rng = MersenneTwister(2))
+    @test all(sort(collect(values(p))) == [1, 2, 3, 4] for p in df.profile)
 end
 
 @testset "build_profile / profile_dataframe" begin

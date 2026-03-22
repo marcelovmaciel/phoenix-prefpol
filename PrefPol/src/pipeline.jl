@@ -738,10 +738,10 @@ end
 """
     generate_profiles_for_year(year, f3_entry, imps_entry) -> OrderedDict
 
-For each `Scenario` and each `m ∈ cfg.m_values_range`, build a profile
+For each `Scenario` and each `m ∈ cfg.m_values_range`, build a weak-profile
 `DataFrame` for every imputation variant and replicate:
 - load the precomputed year-level candidate ordering for the scenario,
-- build `profile_dataframe`, compress and attach `metadata!(…, "candidates", …)`.
+- build `profile_dataframe(...; kind = :weak)` and attach candidate metadata.
 
 Returns a nested `OrderedDict`:
 `scenario ⇒ m ⇒ (variant ⇒ Vector{DataFrame})`.
@@ -774,11 +774,10 @@ function generate_profiles_for_year(year::Int,
                     df = profile_dataframe(
                              df_imp;
                              score_cols = trimmed,
-                             demo_cols  = cfg.demographics)
-                    compress_rank_column!(df, trimmed; col = :profile)
-                    # ------------- NEW LINE ----------------------------------
+                             demo_cols  = cfg.demographics,
+                             kind       = :weak)
                     metadata!(df, "candidates", Symbol.(trimmed))
-                    # ---------------------------------------------------------
+                    metadata!(df, "profile_kind", "weak")
 
                     profiles[i] = df
                 end
@@ -792,10 +791,13 @@ function generate_profiles_for_year(year::Int,
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
-# directories / tiny types (unchanged)
+# directories / tiny types
 # ─────────────────────────────────────────────────────────────────────────────
 const PROFILES_DATA_DIR = joinpath(INT_DIR, "profiles_data")
 mkpath(PROFILES_DATA_DIR)
+
+const LINEARIZED_PROFILES_DATA_DIR = joinpath(INT_DIR, "linearized_profiles_data")
+mkpath(LINEARIZED_PROFILES_DATA_DIR)
 
 """
     ProfilesSlice
@@ -806,7 +808,7 @@ Lightweight handle to per‑replicate profile files for a fixed `(year, scenario
 - `year::Int`
 - `scenario::String`
 - `m::Int`
-- `cand_list::Vector{Symbol}`: ordered candidate list used for (en/de)coding
+- `cand_list::Vector{Symbol}`: ordered candidate list used for later linearization
 - `paths::Dict{Symbol,Vector{String}}`: `variant ⇒ replicate paths`
 """
 struct ProfilesSlice
@@ -817,8 +819,47 @@ struct ProfilesSlice
     paths::Dict{Symbol,Vector{String}}     # variant ⇒ file paths
 end
 
-Base.getindex(ps::ProfilesSlice, var::Symbol, i::Int) = begin
-    p = ps.paths[var][i]; df = nothing; JLD2.@load p df; df
+"""
+    LinearizedProfilesSlice
+
+Lightweight handle to per-replicate linearized profile files for a fixed
+`(year, scenario, m)`.
+"""
+struct LinearizedProfilesSlice
+    year::Int
+    scenario::String
+    m::Int
+    cand_list::Vector{Symbol}
+    paths::Dict{Symbol,Vector{String}}
+end
+
+function _load_profile_dataframe(path::AbstractString)
+    df = nothing
+    JLD2.@load path df
+    return df
+end
+
+Base.getindex(ps::ProfilesSlice, var::Symbol, i::Int) =
+    _load_profile_dataframe(ps.paths[var][i])
+
+Base.getindex(ps::LinearizedProfilesSlice, var::Symbol, i::Int) = begin
+    df = _load_profile_dataframe(ps.paths[var][i])
+    decode_profile_column!(df)
+    return df
+end
+
+function load_profiles_index(year::Int;
+                             dir::AbstractString = PROFILES_DATA_DIR)
+    idxfile = joinpath(dir, "profiles_index_$(year).jld2")
+    isfile(idxfile) || error("profiles index not found: $(idxfile)")
+    return JLD2.load(idxfile, "result")
+end
+
+function load_linearized_profiles_index(year::Int;
+                                        dir::AbstractString = LINEARIZED_PROFILES_DATA_DIR)
+    idxfile = joinpath(dir, "linearized_profiles_index_$(year).jld2")
+    isfile(idxfile) || error("linearized profiles index not found: $(idxfile)")
+    return JLD2.load(idxfile, "result")
 end
 
 """
@@ -827,8 +868,8 @@ end
                                                    overwrite=false)
 
 Streaming variant of `generate_profiles_for_year` that reads imputed replicates
-on demand from an `ImputedYear` index, writing each profile `DataFrame` to disk
-and returning an index:
+on demand from an `ImputedYear` index, writing each weak-profile `DataFrame` to
+disk and returning an index:
 `scenario ⇒ m ⇒ ProfilesSlice`.
 """
 function generate_profiles_for_year_streamed_from_index(
@@ -839,6 +880,7 @@ function generate_profiles_for_year_streamed_from_index(
             out_dir::AbstractString = PROFILES_DATA_DIR,
             overwrite::Bool         = false)
 
+    mkpath(out_dir)
     cfg            = f3_entry.cfg
     m_values       = cfg.m_values_range
     variants       = collect(keys(iy.paths))           # e.g. (:zero,:random,:mice)
@@ -878,9 +920,10 @@ function generate_profiles_for_year_streamed_from_index(
 
                     df = profile_dataframe(df_imp;
                             score_cols = cand_syms,
-                            demo_cols  = cfg.demographics)
-                    compress_rank_column!(df, cand_syms; col = :profile)
+                            demo_cols  = cfg.demographics,
+                            kind       = :weak)
                     metadata!(df, "candidates", cand_syms)
+                    metadata!(df, "profile_kind", "weak")
 
                     JLD2.@save fprof df
                     @info "writing $(basename(fprof))"
@@ -900,7 +943,92 @@ function generate_profiles_for_year_streamed_from_index(
 
     idxfile = joinpath(out_dir, "profiles_index_$(year).jld2")
     JLD2.@save idxfile result
-    @info "Encoded profiles for $year written; index at $(idxfile)"
+    @info "Weak profiles for $year written; index at $(idxfile)"
+    return result
+end
+
+function _next_linearization_rng!(seed_stream::AbstractRNG)
+    return MersenneTwister(rand(seed_stream, UInt32))
+end
+
+"""
+    linearize_profiles_for_year_streamed_from_index(year, f3_entry, profiles_year;
+                                                    out_dir=LINEARIZED_PROFILES_DATA_DIR,
+                                                    overwrite=false)
+
+Read weak profile files from `profiles_year`, linearize them in a dedicated
+pass, write the linearized profile DataFrames to disk, and return a parallel
+index:
+`scenario ⇒ m ⇒ LinearizedProfilesSlice`.
+"""
+function linearize_profiles_for_year_streamed_from_index(
+            year::Int,
+            f3_entry::NamedTuple,
+            profiles_year::OrderedDict{String,<:Any};
+            out_dir::AbstractString = LINEARIZED_PROFILES_DATA_DIR,
+            overwrite::Bool         = false)
+
+    mkpath(out_dir)
+    cfg         = f3_entry.cfg
+    seed_stream = MersenneTwister(cfg.rng_seed)
+    result = OrderedDict{String,OrderedDict{Int,LinearizedProfilesSlice}}()
+
+    for (scen, m_map) in profiles_year
+        scen_map = OrderedDict{Int,LinearizedProfilesSlice}()
+
+        for (m, slice) in m_map
+            slice isa ProfilesSlice || throw(ArgumentError(
+                "linearize_profiles_for_year_streamed_from_index expects ProfilesSlice inputs; got $(typeof(slice)) for scenario=$scen, m=$m.",
+            ))
+
+            variants   = collect(keys(slice.paths))
+            paths_prof = Dict(v => Vector{String}(undef, length(slice.paths[v])) for v in variants)
+            rep_counter = 0
+
+            for var in variants
+                n_rep = length(slice.paths[var])
+
+                for i in 1:n_rep
+                    rng = _next_linearization_rng!(seed_stream)
+                    flin = joinpath(out_dir,
+                                    "linprof_$(year)_$(scen)_m$(m)_rep$(i)_$(String(var)).jld2")
+
+                    if !overwrite && isfile(flin)
+                        paths_prof[var][i] = flin
+                        @debug "exists, skipping $(basename(flin))"
+                        continue
+                    end
+
+                    df = slice[var, i]
+                    linearize_profile_column!(df; rng = rng)
+                    compress_rank_column!(df, slice.cand_list; col = :profile)
+                    metadata!(df, "candidates", slice.cand_list)
+                    metadata!(df, "profile_kind", "linearized")
+
+                    JLD2.@save flin df
+                    @info "writing $(basename(flin))"
+                    paths_prof[var][i] = flin
+
+                    df = nothing
+                    rep_counter += 1
+                    rep_counter % 10 == 0 && GC.gc()
+                end
+            end
+
+            scen_map[m] = LinearizedProfilesSlice(
+                year,
+                scen,
+                m,
+                copy(slice.cand_list),
+                paths_prof,
+            )
+        end
+        result[scen] = scen_map
+    end
+
+    idxfile = joinpath(out_dir, "linearized_profiles_index_$(year).jld2")
+    JLD2.@save idxfile result
+    @info "Linearized profiles for $year written; index at $(idxfile)"
     return result
 end
 
@@ -931,6 +1059,7 @@ function save_or_load_profiles_for_year(year::Int,
                                         overwrite::Bool     = false,
                                         verbose::Bool       = true)
 
+    mkpath(dir)
     path = joinpath(dir, "profiles_$(year).jld2")
 
     if isfile(path) && !overwrite
@@ -940,11 +1069,11 @@ function save_or_load_profiles_for_year(year::Int,
         return profiles
     end
 
-    verbose && @info "Generating profiles for year $year…"
+    verbose && @info "Generating weak profiles for year $year…"
     profiles = generate_profiles_for_year(year, f3[year], imps[year];
                                           candidate_sets = candidate_sets)
     @save path profiles
-    verbose && @info "Saved profiles for year $year → $path"
+    verbose && @info "Saved weak profiles for year $year → $path"
     return profiles
 end
 
@@ -972,6 +1101,14 @@ end
     return
 end
 
+function _require_linearized_slice(slice, scen, m)
+    slice isa LinearizedProfilesSlice && return
+    throw(ArgumentError(
+        "Downstream measurement for scenario=$scen, m=$m expects LinearizedProfilesSlice inputs. " *
+        "Run `linearize_profiles_for_year_streamed_from_index` and load the resulting index before applying measures.",
+    ))
+end
+
 """
     apply_measures_for_year(profiles_year) -> OrderedDict
 
@@ -989,15 +1126,14 @@ function apply_measures_for_year(
     for (scen, m_map) in profiles_year
         scen_out = OrderedDict{Int,Dict{Symbol,Dict{Symbol,Vector{Float64}}}}()
 
-        for (m, slice) in m_map            # slice :: ProfilesSlice
-            @assert slice isa ProfilesSlice
+        for (m, slice) in m_map
+            _require_linearized_slice(slice, scen, m)
 
             variants   = collect(keys(slice.paths))
             n_rep_max  = maximum(length(slice.paths[v]) for v in variants)
 
             #####  first replicate: discover measure names  #####
             var_map1 = Dict(var => [slice[var, 1]] for var in variants)
-            decode_each!(var_map1)
             meas1     = apply_all_measures_to_bts(var_map1)
             meas_syms = collect(keys(meas1))
 
@@ -1015,7 +1151,6 @@ function apply_measures_for_year(
                 for var in variants
                     length(slice.paths[var]) < i && continue
                     df = slice[var, i]
-                    decode_profile_column!(df)
                     var_map[var] = [df]
                 end
                 isempty(var_map) && continue
@@ -1041,7 +1176,7 @@ const GLOBAL_MEASURE_DIR = joinpath(INT_DIR, "global_measures")
 mkpath(GLOBAL_MEASURE_DIR)   # ensure the directory exists
 
 """
-    save_or_load_measures_for_year(year, profiles_year;
+    save_or_load_measures_for_year(year, linearized_profiles_year;
                                    dir       = GLOBAL_MEASURE_DIR,
                                    overwrite = false,
                                    verbose   = true)
@@ -1049,14 +1184,15 @@ mkpath(GLOBAL_MEASURE_DIR)   # ensure the directory exists
 For a single `year`:
 
 - If `dir/measures_YEAR.jld2` exists and `overwrite == false`, emits a warning and loads `measures` from disk.
-- Otherwise, runs `apply_measures_for_year(profiles_year)`, saves the result under the name `measures`, and returns it.
+- Otherwise, runs `apply_measures_for_year(linearized_profiles_year)`, saves the result under the name `measures`, and returns it.
 """
 function save_or_load_measures_for_year(year,
-                                        profiles_year;
+                                        linearized_profiles_year;
                                         dir::AbstractString = GLOBAL_MEASURE_DIR,
                                         overwrite::Bool     = false,
                                         verbose::Bool       = true)
 
+    mkpath(dir)
     path = joinpath(dir, "measures_$(year).jld2")
 
     if isfile(path) && !overwrite
@@ -1067,7 +1203,7 @@ function save_or_load_measures_for_year(year,
     end
 
     verbose && @info "Computing global measures for year $year…"
-    measures = apply_measures_for_year(profiles_year)
+    measures = apply_measures_for_year(linearized_profiles_year)
     @save path measures
     verbose && @info "Saved global measures for year $year → $path"
     return measures
@@ -1095,10 +1231,11 @@ end
 
 # ─────────────────── streaming apply_group_metrics_for_year ───────────────────
 """
-    apply_group_metrics_for_year_streaming(profiles_year, cfg) -> OrderedDict
+    apply_group_metrics_for_year_streaming(linearized_profiles_year, cfg) -> OrderedDict
 
 Stream over all replicates to compute group metrics (`C`, `D`, optionally `G`)
-for every scenario, `m`, and demographic in `cfg.demographics`.
+for every scenario, `m`, and demographic in `cfg.demographics`, using loaded
+linearized profile slices.
 
 Returns: `scenario ⇒ m ⇒ dem ⇒ metric ⇒ variant ⇒ Vector`.
 """
@@ -1111,7 +1248,8 @@ function apply_group_metrics_for_year_streaming(
     for (scen, m_map) in profiles_year
         scen_out = OrderedDict()
 
-        for (m, slice) in m_map             # slice :: ProfilesSlice
+        for (m, slice) in m_map
+            _require_linearized_slice(slice, scen, m)
             variants   = collect(keys(slice.paths))
             n_rep_max  = maximum(length(slice.paths[v]) for v in variants)
 
@@ -1129,10 +1267,9 @@ function apply_group_metrics_for_year_streaming(
                     for var in variants
                         length(slice.paths[var]) < i && continue
                         df = slice[var, i]
-                        decode_profile_column!(df)
                         var_map[var] = [df]
                     end
-                    isempty(var_map) && (next!(prog); continue)
+                    isempty(var_map) && (pm.next!(prog); continue)
 
                     res = bootstrap_group_metrics(var_map, dem_sym)
                     update_accum!(accum, res, variants)
@@ -1185,7 +1322,7 @@ function _safe_load_res(path::AbstractString)
 end
 
 """
-    compute_and_cache_group_metrics_per_df!(year, profiles_year, cfg;
+    compute_and_cache_group_metrics_per_df!(year, linearized_profiles_year, cfg;
                                             dir=GROUP_DIR, overwrite=false,
                                             verbose=true)
 
@@ -1201,7 +1338,8 @@ function compute_and_cache_group_metrics_per_df!(
         verbose::Bool       = true)
 
     for (scen, m_map) in profiles_year
-        for (m, slice) in m_map                 # slice :: ProfilesSlice
+        for (m, slice) in m_map
+            _require_linearized_slice(slice, scen, m)
             variants   = collect(keys(slice.paths))
             n_rep_max  = maximum(length(slice.paths[v]) for v in variants)
 
@@ -1221,7 +1359,6 @@ function compute_and_cache_group_metrics_per_df!(
                     for var in variants
                         length(slice.paths[var]) < rep && continue
                         df = slice[var, rep]                 # load
-                        decode_profile_column!(df)
                         var_map[var] = [df]
                     end
                     isempty(var_map) && (pm.next!(pbar); continue)
@@ -1239,7 +1376,7 @@ end
 
 # ────────────────── pass 2: aggregate caches ──────────────────
 """
-    accumulate_cached_group_metrics_for_year!(year, profiles_year, cfg;
+    accumulate_cached_group_metrics_for_year!(year, linearized_profiles_year, cfg;
                                               dir=GROUP_DIR, verbose=true)
 
 Pass 2 of the two‑pass pipeline: aggregate previously cached per‑DataFrame
@@ -1257,6 +1394,7 @@ function accumulate_cached_group_metrics_for_year!(
     for (scen, m_map) in profiles_year
         scen_out = OrderedDict()
         for (m, slice) in m_map
+            _require_linearized_slice(slice, scen, m)
             variants   = collect(keys(slice.paths))
             n_rep_max  = maximum(length(slice.paths[v]) for v in variants)
 
@@ -1281,7 +1419,6 @@ function accumulate_cached_group_metrics_for_year!(
                         for var in variants
                             length(slice.paths[var]) < rep && continue
                             df = slice[var, rep]
-                            decode_profile_column!(df)
                             var_map[var] = [df]
                         end
                         isempty(var_map) && error("Missing data for $cache_path")
@@ -1305,7 +1442,7 @@ end
 
 # ────────────────── public API (drop‑in) ──────────────────
 """
-    save_or_load_group_metrics_for_year(year, profiles_year, f3_entry;
+    save_or_load_group_metrics_for_year(year, linearized_profiles_year, f3_entry;
                                         dir=GROUP_DIR, overwrite=false,
                                         two_pass=false, verbose=true)
 
@@ -1322,6 +1459,7 @@ function save_or_load_group_metrics_for_year(year::Int,
                                              two_pass::Bool      = false,
                                              verbose::Bool       = true)
 
+    mkpath(dir)
     final_path = joinpath(dir, "group_metrics_$(year).jld2")
 
     if isfile(final_path) && !overwrite && !two_pass
