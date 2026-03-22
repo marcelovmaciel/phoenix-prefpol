@@ -839,12 +839,18 @@ function _load_profile_dataframe(path::AbstractString)
     return df
 end
 
-Base.getindex(ps::ProfilesSlice, var::Symbol, i::Int) =
-    _load_profile_dataframe(ps.paths[var][i])
+function Base.getindex(ps::ProfilesSlice, var::Symbol, i::Int)
+    df = _load_profile_dataframe(ps.paths[var][i])
+    metadata!(df, "candidates", copy(ps.cand_list))
+    metadata!(df, "profile_kind", "weak")
+    return df
+end
 
 Base.getindex(ps::LinearizedProfilesSlice, var::Symbol, i::Int) = begin
     df = _load_profile_dataframe(ps.paths[var][i])
     decode_profile_column!(df)
+    metadata!(df, "candidates", copy(ps.cand_list))
+    metadata!(df, "profile_kind", "linearized")
     return df
 end
 
