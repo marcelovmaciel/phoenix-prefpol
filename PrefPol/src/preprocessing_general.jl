@@ -73,6 +73,91 @@ function compute_dont_know_her(countmaps::Dict{String,Dict{Int,Int}}, nresponden
     ], by = x -> x[2])
 end
 
+@inline function _is_missing_score_value(v)
+    ismissing(v) && return true
+    v isa Integer && return v in (96, 97, 98, 99)
+    if v isa AbstractFloat
+        isfinite(v) || return false
+        r = round(Int, v)
+        return isapprox(v, r; atol = 1e-8) && (r in (96, 97, 98, 99))
+    end
+    return false
+end
+
+function _normalize_weight_vector(weights)
+    out = zeros(Float64, length(weights))
+    have_valid = false
+
+    for i in eachindex(weights)
+        w = weights[i]
+        if ismissing(w)
+            continue
+        elseif !(w isa Real)
+            throw(ArgumentError("Weight at row $i is not numeric: $(typeof(w))."))
+        end
+
+        wf = Float64(w)
+        if !isfinite(wf) || wf < 0
+            continue
+        end
+        out[i] = wf
+        have_valid = true
+    end
+
+    have_valid || throw(ArgumentError("No valid non-negative weights found for weighted candidate-set computation."))
+    return out
+end
+
+function _select_top_candidates_from_poplist(poplist::Vector{String};
+                                             m::Int,
+                                             force_include::Vector{String}=String[])
+    inc = unique(force_include)
+
+    if length(inc) > m
+        @warn "force_include has more than $m names; truncating to first $m."
+        inc = inc[1:m]
+    end
+
+    filtered = [name for name in poplist if name ∉ inc]
+    needed   = m - length(inc)
+    extra    = needed > 0 ? filtered[1:min(needed, length(filtered))] : String[]
+    selected = vcat(inc, extra)
+
+    if length(selected) < m
+        @warn "Only $(length(selected)) unique candidates available; requested $m."
+    end
+
+    return selected
+end
+
+"""
+    compute_weighted_dont_know_her(scores_df, candidate_cols; weights)
+
+Compute the weighted percentage of missing / "don't know" scores (96–99 or
+`missing`) for each candidate and return a deterministic ascending ordering of
+`(name, percent)` pairs.
+"""
+function compute_weighted_dont_know_her(scores_df::DataFrame,
+                                        candidate_cols;
+                                        weights)
+    w = _normalize_weight_vector(weights)
+    total_weight = sum(w)
+    total_weight > 0 || throw(ArgumentError("Total valid weight is zero; cannot rank candidates by weighted missingness."))
+
+    return sort([
+        begin
+            miss_weight = 0.0
+            col = scores_df[!, cand]
+            for i in eachindex(col)
+                _is_missing_score_value(col[i]) || continue
+                miss_weight += w[i]
+            end
+            (String(cand), 100 * miss_weight / total_weight)
+        end
+        for cand in candidate_cols
+    ], by = x -> (x[2], x[1]))
+end
+
 
 
 """
@@ -138,31 +223,8 @@ function select_top_candidates(countmaps::Dict{String,<:AbstractDict},
                                nrespondents::Int;
                                m::Int,
                                force_include::Vector{String}=String[])
-
-    # remove duplicates, keep order
-    inc = unique(force_include)
-
-    # truncate if too many
-    if length(inc) > m
-        @warn "force_include has more than $m names; truncating to first $m."
-        inc = inc[1:m]
-    end
-
-    # ---------- popularity list, already sorted ascending by “don't-know-her” ----
-    poplist = [name
-               for (name, _) in compute_dont_know_her(countmaps, nrespondents)
-               if name ∉ inc]                         # drop forced names, duplicates
-
-    needed  = m - length(inc)
-    extra   = needed > 0 ? poplist[1:min(needed, length(poplist))] : String[]
-
-    selected = vcat(inc, extra)
-
-    if length(selected) < m
-        @warn "Only $(length(selected)) unique candidates available; requested $m."
-    end
-
-    return selected
+    poplist = [name for (name, _) in compute_dont_know_her(countmaps, nrespondents)]
+    return _select_top_candidates_from_poplist(poplist; m = m, force_include = force_include)
 end
 
 
@@ -183,6 +245,27 @@ function compute_candidate_set(scores_df::DataFrame;
     return select_top_candidates(countmaps2, nrespondents;
                                  m = m, force_include = force_include)
 end
+
+"""
+    compute_global_candidate_set(scores_df; candidate_cols, m, force_include=String[], weights)
+
+Determine the globally ordered candidate set of size `m` using weighted missing
+rates from the raw score table. Forced candidates are pinned first in the order
+they were declared, and the remaining candidates are filled by ascending
+weighted missingness.
+"""
+function compute_global_candidate_set(scores_df::DataFrame;
+                                      candidate_cols,
+                                      m::Int,
+                                      force_include::Vector{String} = String[],
+                                      weights)
+    ordering = compute_weighted_dont_know_her(scores_df, candidate_cols; weights = weights)
+    poplist = [name for (name, _) in ordering]
+    return _select_top_candidates_from_poplist(poplist; m = m, force_include = force_include)
+end
+
+
+dont_know_her = Tuple{String,Float64}[]
 
 
 

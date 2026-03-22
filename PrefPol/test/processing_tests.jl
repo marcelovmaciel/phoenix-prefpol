@@ -106,6 +106,30 @@ using RCall
         @test set == ["B","A"]
     end
 
+    @testset "compute_weighted_dont_know_her / compute_global_candidate_set" begin
+        df = DataFrame(
+            A = [96, 1, 1, 1],
+            B = [1, 96, 1, 1],
+            C = [96, 1, 1, 1],
+            peso = [10.0, 1.0, missing, -2.0],
+        )
+
+        dkh = PrefPol.compute_weighted_dont_know_her(df, ["A","B","C"]; weights = df.peso)
+        @test dkh[1][1] == "B"
+        @test isapprox(dkh[1][2], 100 / 11; atol = 1e-12)
+        @test dkh[2][1] == "A"
+        @test isapprox(dkh[2][2], 1000 / 11; atol = 1e-12)
+        @test dkh[3][1] == "C"
+        @test isapprox(dkh[3][2], 1000 / 11; atol = 1e-12)
+
+        chosen = PrefPol.compute_global_candidate_set(df;
+                                                      candidate_cols = ["A","B","C"],
+                                                      m = 3,
+                                                      force_include = ["C"],
+                                                      weights = df.peso)
+        @test chosen == ["C", "B", "A"]
+    end
+
     @testset "get_df_just_top_candidates" begin
         df = DataFrame(A=1:3, B=4:6, C=7:9, Age=[20,30,40])
         PrefPol.dont_know_her = [("A",0.0),("B",10.0),("C",20.0)]

@@ -93,11 +93,6 @@ function plot_scenario_over_years(
     return hcat(figs...)
 end
 
-
-
-
-const CANDLOG = joinpath(INT_DIR, "candidate_set_warnings.log")
-
 """
     plot_scenario_year(
       year::Int,
@@ -116,11 +111,10 @@ the style of your example.
 - `all_meas[year][scenario]` is the `m ⇒ (measure ⇒ (variant ⇒ Vector{Float64}))` map.  
 
 The function will:
-1.  Compute the full candidate set with `compute_candidate_set(..., m=cfg.max_candidates, force_include=scen.candidates)` on each raw DF,  
-2.  Ensure it’s unique (warn + log otherwise),  
-3.  Build the two‐line header (Year…, Candidates…),  
-4.  Call `lines_alt_by_variant` for that one plot, and  
-5.  Return the single‐panel Figure.
+1.  Load the precomputed year-level candidate list for the scenario,  
+2.  Build the two-line header (Year…, Candidates…),  
+3.  Call `lines_alt_by_variant` for that one plot, and  
+4.  Return the single-panel Figure.
 """
 function plot_scenario_year(
     year::Int,
@@ -142,28 +136,11 @@ function plot_scenario_year(
     meas_map  = year_meas[scenario]     # Dict{Int,Dict{Symbol,Dict{String,Vector{Float64}}}}
 
     cfg       = f3[year].cfg
-    scen_obj  = findfirst(s->s.name == scenario, cfg.scenarios)
-    scen_obj !== nothing           || error("Scenario object “$scenario” missing in cfg for $year")
+    scen_obj  = _lookup_scenario(cfg, scenario)
 
     # —───────────────────────────────────────────────────────────────────────────
-    # 2) recompute full candidate set
-    raw_reps  = f3[year].data         # Vector{DataFrame}
-    sets = unique(map(df ->
-        compute_candidate_set(df;
-            candidate_cols = cfg.candidates,
-            m              = cfg.max_candidates,
-            force_include  = scen_obj.candidates),
-      raw_reps))
-
-    if length(sets) != 1
-        msg = "Year $year scenario $scenario: found $(length(sets)) distinct candidate sets; using first."
-        @warn msg
-        open(CANDLOG, "a") do io
-            println(io, "[$(Dates.format(now(), "yyyy-mm-dd HH:MM:SS"))] $msg")
-        end
-    end
-
-    full_list = sets[1]
+    # 2) load the precomputed candidate set
+    full_list = _full_candidate_list(cfg, scen_obj)
     candidate_label = describe_candidate_set(full_list)
 
     # —───────────────────────────────────────────────────────────────────────────

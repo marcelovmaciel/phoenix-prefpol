@@ -200,6 +200,126 @@ end
 const INT_DIR = "../intermediate_data"
 mkpath(INT_DIR)
 
+const CANDIDATE_SET_DIR = joinpath(INT_DIR, "candidate_sets")
+mkpath(CANDIDATE_SET_DIR)
+
+function _candidate_weight_col(df::DataFrame)
+    for nm in (:peso, :weight, :weights)
+        hasproperty(df, nm) && return nm
+    end
+    throw(ArgumentError("Could not find a survey weight column. Expected one of :peso, :weight or :weights."))
+end
+
+function _lookup_scenario(cfg::ElectionConfig, scenario_name)
+    sname = String(scenario_name)
+    for sc in cfg.scenarios
+        sc.name == sname && return sc
+    end
+    available = [sc.name for sc in cfg.scenarios]
+    throw(ArgumentError(
+        "Unknown scenario `$sname` for year $(cfg.year). Available scenarios: $(available).",
+    ))
+end
+
+"""
+    compute_global_candidate_list(cfg; scenario=nothing, m=cfg.max_candidates, data=nothing)
+
+Compute the deterministic year-level candidate ordering from the raw weighted
+survey table. When `scenario` is provided, its forced candidates are pinned to
+the front of the list before filling the remaining slots by weighted
+missingness.
+"""
+function compute_global_candidate_list(cfg::ElectionConfig;
+                                       scenario = nothing,
+                                       m::Int = cfg.max_candidates,
+                                       data = nothing)
+    df = data === nothing ? load_election_data(cfg) : data
+
+    force_include = if scenario === nothing
+        String[]
+    elseif scenario isa Scenario
+        Vector{String}(scenario.candidates)
+    else
+        Vector{String}(_lookup_scenario(cfg, scenario).candidates)
+    end
+
+    weight_col = _candidate_weight_col(df)
+    return compute_global_candidate_set(df;
+                                        candidate_cols = cfg.candidates,
+                                        m = m,
+                                        force_include = force_include,
+                                        weights = df[!, weight_col])
+end
+
+"""
+    compute_global_candidate_sets(cfg; data=nothing)
+
+Precompute the year-level ordered candidate list for every configured scenario.
+"""
+function compute_global_candidate_sets(cfg::ElectionConfig; data = nothing)
+    df = data === nothing ? load_election_data(cfg) : data
+    out = OrderedDict{String,Vector{String}}()
+
+    for scen in cfg.scenarios
+        out[scen.name] = compute_global_candidate_list(cfg;
+                                                       scenario = scen,
+                                                       m = cfg.max_candidates,
+                                                       data = df)
+    end
+
+    return out
+end
+
+"""
+    save_or_load_candidate_sets_for_year(cfg; dir=CANDIDATE_SET_DIR, overwrite=false, verbose=true, data=nothing)
+
+Persist the deterministic year-level candidate ordering for each scenario and
+reuse it across downstream profile and plotting stages.
+"""
+function save_or_load_candidate_sets_for_year(cfg::ElectionConfig;
+                                              dir::AbstractString = CANDIDATE_SET_DIR,
+                                              overwrite::Bool = false,
+                                              verbose::Bool = true,
+                                              data = nothing)
+    path = joinpath(dir, "candidate_sets_$(cfg.year).jld2")
+
+    if isfile(path) && !overwrite
+        verbose && @warn "Candidate sets for $(cfg.year) already exist at $path; loading cache."
+        candidate_sets = nothing
+        @load path candidate_sets
+        return candidate_sets
+    end
+
+    verbose && @info "Computing global candidate sets for year $(cfg.year)…"
+    candidate_sets = compute_global_candidate_sets(cfg; data = data)
+    @save path candidate_sets
+    verbose && @info "Saved candidate sets for year $(cfg.year) → $path"
+    return candidate_sets
+end
+
+function _resolve_year_candidate_sets(cfg::ElectionConfig; candidate_sets = nothing)
+    return candidate_sets === nothing ?
+           save_or_load_candidate_sets_for_year(cfg; verbose = false) :
+           candidate_sets
+end
+
+function _full_candidate_list(candidate_sets, scen::Scenario)
+    haskey(candidate_sets, scen.name) || throw(ArgumentError(
+        "Missing candidate list for scenario `$(scen.name)` in year-level cache.",
+    ))
+    return Vector{String}(candidate_sets[scen.name])
+end
+
+function _trim_candidate_list(full_list::Vector{String}, m::Int;
+                              year::Int,
+                              scenario::AbstractString)
+    if length(full_list) < m
+        @warn "Year $year, scenario $scenario: only $(length(full_list)) candidates available; requested $m."
+        return Symbol.(full_list)
+    end
+    return Symbol.(first(full_list, m))
+end
+
 
 """
     save_bootstrap(cfg; dir = INT_DIR, overwrite = false, quiet = false)
@@ -615,14 +735,12 @@ end
 # TODO: later, write a variant that takes just imp and config
 # and loads f3 from disk, cakculate the sets, cleans it from disk, and proceeds
 
-const CANDLOG = joinpath(INT_DIR, "candidate_set_warnings.log")
-
 """
     generate_profiles_for_year(year, f3_entry, imps_entry) -> OrderedDict
 
 For each `Scenario` and each `m ∈ cfg.m_values_range`, build a profile
 `DataFrame` for every imputation variant and replicate:
-- compute candidate set consistent with the scenario and bootstrap draw,
+- load the precomputed year-level candidate ordering for the scenario,
 - build `profile_dataframe`, compress and attach `metadata!(…, "candidates", …)`.
 
 Returns a nested `OrderedDict`:
@@ -630,30 +748,23 @@ Returns a nested `OrderedDict`:
 """
 function generate_profiles_for_year(year::Int,
                                     f3_entry::NamedTuple,
-                                    imps_entry::NamedTuple)
+                                    imps_entry::NamedTuple;
+                                    candidate_sets = nothing)
 
     cfg            = f3_entry.cfg
-    reps_raw       = f3_entry.data
     variants_dict  = imps_entry.data
     m_values       = cfg.m_values_range
+    year_csets     = _resolve_year_candidate_sets(cfg; candidate_sets = candidate_sets)
 
     result = OrderedDict{String,OrderedDict{Int,OrderedDict{Symbol,Vector{DataFrame}}}}()
 
     for scen in cfg.scenarios
-        sets = unique(map(df ->
-            compute_candidate_set(df;
-                candidate_cols = cfg.candidates,
-                m              = cfg.max_candidates,
-                force_include  = scen.candidates),
-            reps_raw))
-
-        length(sets) != 1 && @warn "Year $year, scenario $(scen.name): $(length(sets)) candidate sets; using first."
-        full_list = sets[1]
+        full_list = _full_candidate_list(year_csets, scen)
 
         m_map = OrderedDict{Int,OrderedDict{Symbol,Vector{DataFrame}}}()
 
         for m in m_values
-            trimmed  = Symbol.(first(full_list, m))          # ordered Vector{String}
+            trimmed  = _trim_candidate_list(full_list, m; year = year, scenario = scen.name)
             var_map  = OrderedDict{Symbol,Vector{DataFrame}}()
 
             for (variant, reps_imp) in variants_dict
@@ -724,32 +835,25 @@ function generate_profiles_for_year_streamed_from_index(
             year::Int,
             f3_entry::NamedTuple,
             iy::ImputedYear;
+            candidate_sets = nothing,
             out_dir::AbstractString = PROFILES_DATA_DIR,
             overwrite::Bool         = false)
 
     cfg            = f3_entry.cfg
-    reps_raw       = f3_entry.data
     m_values       = cfg.m_values_range
     variants       = collect(keys(iy.paths))           # e.g. (:zero,:random,:mice)
     n_by_var       = Dict(v => length(iy.paths[v]) for v in variants)
+    year_csets     = _resolve_year_candidate_sets(cfg; candidate_sets = candidate_sets)
 
     result = OrderedDict{String,OrderedDict{Int,ProfilesSlice}}()
 
     for scen in cfg.scenarios
-        sets = unique(map(df ->
-            compute_candidate_set(df;
-                candidate_cols = cfg.candidates,
-                m              = cfg.max_candidates,
-                force_include  = scen.candidates),
-            reps_raw))
-        length(sets) != 1 && @warn "Year $year, scenario $(scen.name): " *
-                                   "$(length(sets)) candidate sets; using the first."
-        full_cset = sets[1]
+        full_cset = _full_candidate_list(year_csets, scen)
 
         scen_map = OrderedDict{Int,ProfilesSlice}()
 
         for m in m_values
-            cand_syms  = Symbol.(first(full_cset, m))
+            cand_syms  = _trim_candidate_list(full_cset, m; year = year, scenario = scen.name)
             paths_prof = Dict(v => Vector{String}(undef, n_by_var[v]) for v in variants)
 
             rep_counter = 0      # throttle GC
@@ -822,6 +926,7 @@ issues a warning and loads it.  Otherwise:
 function save_or_load_profiles_for_year(year::Int,
                                         f3,
                                         imps;
+                                        candidate_sets = nothing,
                                         dir::AbstractString = PROFILE_DIR,
                                         overwrite::Bool     = false,
                                         verbose::Bool       = true)
@@ -836,7 +941,8 @@ function save_or_load_profiles_for_year(year::Int,
     end
 
     verbose && @info "Generating profiles for year $year…"
-    profiles = generate_profiles_for_year(year, f3[year], imps[year])
+    profiles = generate_profiles_for_year(year, f3[year], imps[year];
+                                          candidate_sets = candidate_sets)
     @save path profiles
     verbose && @info "Saved profiles for year $year → $path"
     return profiles
@@ -1470,10 +1576,9 @@ end
 
 Convenience wrapper to produce a single‑scenario plot for `year` and
 `scenario` using either `lines_alt_by_variant` or
-`dotwhisker_alt_by_variant`. Reconstructs the candidate set
-exactly as in `generate_profiles_for_year`, warns if different sets were found
-across replicates, and passes a human‑readable candidate label to the plotting
-helper.
+`dotwhisker_alt_by_variant`. Loads the precomputed year-level candidate list
+used by `generate_profiles_for_year` and passes a human-readable label to the
+plotting helper.
 """
 function plot_scenario_year(
     year,
@@ -1490,26 +1595,11 @@ function plot_scenario_year(
     f3_entry   = f3[year]
     cfg        = f3_entry.cfg
 
-    reps_raw   = f3_entry.data
     year_meas  = all_meas[year]
     meas_map   = year_meas[scenario]
-    scen_obj   = findfirst(s->s.name==scenario, cfg.scenarios)
+    scen_obj   = _lookup_scenario(cfg, scenario)
 
-    # recompute full candidate set exactly as in generate_profiles_for_year
-    sets = unique(map(df->
-        compute_candidate_set(df;
-            candidate_cols = cfg.candidates,
-            m              = cfg.max_candidates,
-            force_include  = cfg.scenarios[scen_obj].candidates),
-        reps_raw))
-    if length(sets)!=1
-        msg = "Year $year scenario $scenario: found $(length(sets)) distinct candidate sets; using first."
-        @warn msg
-        open(CANDLOG,"a") do io
-            println(io,"[$(Dates.format(now(),"yyyy-mm-dd HH:MM:SS"))] $msg")
-        end
-    end
-    full_list = sets[1]
+    full_list = _full_candidate_list(cfg, scen_obj)
     candidate_label = describe_candidate_set(full_list)
 
     # delegate to your Makie helper
@@ -1542,20 +1632,13 @@ end
 # helper: replicate the candidate-set logic from generate_profiles…
 # ──────────────────────────────────────────────────────────────────
 """
-    _full_candidate_list(cfg, reps_raw, scen_obj) -> Vector{String}
+    _full_candidate_list(cfg, scen_obj; candidate_sets=nothing) -> Vector{String}
 
-Compute the unique candidate list used by `generate_profiles_for_year`,
-warning and picking the first when multiple sets appear across bootstrap draws.
+Load the precomputed candidate list used by `generate_profiles_for_year`.
 """
-function _full_candidate_list(cfg, reps_raw, scen_obj)
-    sets = unique(map(df ->
-        compute_candidate_set(df;
-            candidate_cols = cfg.candidates,
-            m              = cfg.max_candidates,
-            force_include  = scen_obj.candidates),
-        reps_raw))
-    length(sets) != 1 && @warn "Multiple candidate sets; using first"
-    return sets[1]
+function _full_candidate_list(cfg::ElectionConfig, scen_obj::Scenario; candidate_sets = nothing)
+    year_csets = _resolve_year_candidate_sets(cfg; candidate_sets = candidate_sets)
+    return _full_candidate_list(year_csets, scen_obj)
 end
 
 """
@@ -1597,9 +1680,9 @@ function plot_group_demographics_lines(
     xs_m          = Float32.(m_values_int)                  # Makie prefers Float32
     n_demo        = length(demographics)
 
-    scenobj = only(filter(s->s.name==scenario, f3[year].cfg.scenarios))
+    scenobj = _lookup_scenario(f3[year].cfg, scenario)
     cand_lbl = describe_candidate_set(
-                 _full_candidate_list(f3[year].cfg, f3[year].data, scenobj))
+                 _full_candidate_list(f3[year].cfg, scenobj))
 
     # any slice gives the bootstrap length
     sample_slice = gm[first(m_values_int)][Symbol(first(demographics))]
@@ -1741,9 +1824,9 @@ function plot_group_demographics_heatmap(
     group_labels  = string.(groupings_vec)
     n_groups      = length(groupings_vec)
 
-    scenobj = only(filter(s->s.name==scenario, f3[year].cfg.scenarios))
+    scenobj = _lookup_scenario(f3[year].cfg, scenario)
     cand_lbl = describe_candidate_set(
-                 _full_candidate_list(f3[year].cfg, f3[year].data, scenobj))
+                 _full_candidate_list(f3[year].cfg, scenobj))
 
     # any slice gives the bootstrap length
     sample_slice = gm[first(m_values_int)][group_syms[1]]

@@ -115,10 +115,10 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
             "Requested k/m = $mm is smaller than forced candidates in scenario " *
             "`$(sc.name)` ($n_forced). Increase k/m or choose another scenario.",
         ))
-        return compute_candidate_set(df;
-                                     candidate_cols = configured_universe,
-                                     m = mm,
-                                     force_include = Vector{String}(sc.candidates))
+        full_list = compute_global_candidate_list(cfg;
+                                                  scenario = sc,
+                                                  m = cfg.max_candidates)
+        return length(full_list) < mm ? full_list : first(full_list, mm)
     end
 
     if candidate_set !== nothing
@@ -126,9 +126,9 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
     end
 
     mm = m === nothing ? _infer_m(cfg) : Int(m)
-    return compute_candidate_set(df;
-                                 candidate_cols = configured_universe,
-                                 m = mm)
+    full_list = compute_global_candidate_list(cfg;
+                                              m = max(mm, cfg.max_candidates))
+    return length(full_list) < mm ? full_list : first(full_list, mm)
 end
 
 # PrefPol keeps ESEB score conventions local and injects this into Preferences.
@@ -202,10 +202,11 @@ Returns a named tuple with:
 
 Selection rules:
 - `candidate_set`: use exactly this subset (`k = length(candidate_set)`).
-- `scenario_name`: use TOML `forced_scenarios` behavior (force-include scenario
-  candidates and fill up to year `m` via `compute_candidate_set`).
+- `scenario_name`: use the year-level weighted candidate ordering for that TOML
+  scenario (forced candidates first, then fill up to year `m` by weighted
+  missingness from the raw loaded table).
 - `k`: optional override for how many candidates to keep when using
-  `scenario_name` (or default selection with no scenario).
+  `scenario_name` (or default year-level selection with no scenario).
 """
 function load_raw_pref_data(year::Int;
                             config_path = nothing,
@@ -284,9 +285,9 @@ as an all-indifferent weak ballot (all candidates tied).
 
 Candidate selection:
 - `candidate_set`: exact subset.
-- `scenario_name`: scenario force-include + fill to year `m`.
+- `scenario_name`: year-level weighted scenario ordering, trimmed to `m`.
 - `k`: optional override for the number of candidates when using
-  `scenario_name` (or default selection).
+  `scenario_name` (or default year-level selection).
 """
 function build_profile(df::DataFrame, year::Int;
                        weighted::Bool = false,
