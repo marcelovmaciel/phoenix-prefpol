@@ -472,34 +472,59 @@ end
 
 Base.getindex(iy::ImputedYear, variant::Symbol, i::Int) = getrep(iy, variant, i)
 
+function _select_available_imputation_variants(available, variants; context::AbstractString = "available data")
+    requested = normalize_imputation_variants(variants)
+    available_set = Set(Symbol(var) for var in available)
+    selected = Tuple(var for var in requested if var in available_set)
+
+    isempty(selected) || return selected
+    throw(ArgumentError(
+        "Requested imputation variants $(collect(requested)) are unavailable in $(context). " *
+        "Available variants: $(collect(Symbol(var) for var in available)).",
+    ))
+end
+
+function _index_covers_variants(index::ImputedYear, variants, nboot::Int)
+    for var in variants
+        haskey(index.paths, var) || return false
+        paths = index.paths[var]
+        length(paths) == nboot || return false
+        all(isfile, paths) || return false
+    end
+    return true
+end
+
 const IMP_DATA_DIR = joinpath(INT_DIR, "imputed_data"); mkpath(IMP_DATA_DIR)
 
 """
     impute_bootstrap_to_files(path_boot;
                               imp_dir=IMP_DATA_DIR,
                               overwrite=false,
-                              most_known_candidates=String[]) -> String
+                              most_known_candidates=String[],
+                              variants=DEFAULT_PIPELINE_IMPUTATION_VARIANTS) -> String
 
-Run all imputation variants for every bootstrap replicate stored in
+Run the requested imputation variants for every bootstrap replicate stored in
 `path_boot::String`, save each imputed DataFrame to JLD2, and write a compact
 `ImputedYear` index (`index_YEAR.jld2`). Returns the index file path.
 """
 function impute_bootstrap_to_files(path_boot::String;
                                    imp_dir::AbstractString = IMP_DATA_DIR,
                                    overwrite::Bool         = false,
-                                   most_known_candidates   = String[])
+                                   most_known_candidates   = String[],
+                                   variants                = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
 
     reps = cfg = nothing
     @load path_boot reps cfg                 # same vars saved by save_bootstrap
     year = cfg.year
+    var_syms = normalize_imputation_variants(variants)
 
     # ---------------- per-variant path collectors -----------------
-    var_syms = (:zero, :random, :mice)
     paths_dict = Dict(var => Vector{String}(undef, length(reps)) for var in var_syms)
 
     for (i, df_raw) in enumerate(reps)
         imp = imputation_variants(df_raw, cfg.candidates, cfg.demographics;
-                                  most_known_candidates)
+                                  most_known_candidates = most_known_candidates,
+                                  variants = var_syms)
 
         for var in var_syms
             file = joinpath(imp_dir,
@@ -529,7 +554,8 @@ end
 
 """
     impute_all_bootstraps(; years=nothing, base_dir=INT_DIR, imp_dir=IMP_DATA_DIR,
-                           overwrite=false, most_known_candidates=String[])
+                           overwrite=false, most_known_candidates=String[],
+                           variants=DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
         -> OrderedDict{Int,String}
 
 Batch version of `impute_bootstrap_to_files` over all `boot_YYYY.jld2` found in
@@ -539,7 +565,8 @@ function impute_all_bootstraps(; years = nothing,
                                base_dir = INT_DIR,
                                imp_dir  = IMP_DATA_DIR,
                                overwrite = false,
-                               most_known_candidates = String[])
+                               most_known_candidates = String[],
+                               variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
 
     rx = r"boot_(\d{4})\.jld2$"
     files = filter(p -> occursin(rx, basename(p)), readdir(base_dir; join=true))
@@ -564,7 +591,8 @@ function impute_all_bootstraps(; years = nothing,
         out[yr] = impute_bootstrap_to_files(p;
                      imp_dir = imp_dir,
                      overwrite = overwrite,
-                     most_known_candidates = most_known_candidates)
+                     most_known_candidates = most_known_candidates,
+                     variants = variants)
         GC.gc()
         pm.next!(prog)
     end
@@ -573,7 +601,8 @@ end
 
 """
     _impute_year_to_files(reps, cfg; imp_dir=IMP_DATA_DIR, overwrite=false,
-                          most_known_candidates=String[]) -> String
+                          most_known_candidates=String[],
+                          variants=DEFAULT_PIPELINE_IMPUTATION_VARIANTS) -> String
 
 Internal worker that mirrors `impute_bootstrap_to_files`, but receives
 in‑memory bootstrap `reps::Vector{DataFrame}` and an `ElectionConfig` instead
@@ -583,19 +612,24 @@ function _impute_year_to_files(reps::Vector{DataFrame},
                                cfg::ElectionConfig;
                                imp_dir::AbstractString = IMP_DATA_DIR,
                                overwrite::Bool = false,
-                               most_known_candidates = String[])
+                               most_known_candidates = String[],
+                               variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
 
     year      = cfg.year
     idxfile   = joinpath(imp_dir, "index_$(year).jld2")
-    variants  = (:zero, :random, :mice)
+    variant_syms = normalize_imputation_variants(variants)
     nboot     = length(reps)
 
     # ────────────────────────────────────────────────────────────────────
     # 1. Fast path: cached index exists
     # ────────────────────────────────────────────────────────────────────
     if !overwrite && isfile(idxfile)
-        @info "Reusing cached imputed index for year $year → $(idxfile)"
-        return idxfile
+        index = JLD2.load(idxfile, "index")
+        if index isa ImputedYear && _index_covers_variants(index, variant_syms, nboot)
+            @info "Reusing cached imputed index for year $year → $(idxfile)"
+            return idxfile
+        end
+        @info "Cached imputed index for year $year does not cover requested variants; rebuilding."
     end
 
     # helper that lists all expected replicate files
@@ -607,12 +641,12 @@ function _impute_year_to_files(reps::Vector{DataFrame},
     # ────────────────────────────────────────────────────────────────────
     if !overwrite
         all_exist = true
-        for i in 1:nboot, var in variants
+        for i in 1:nboot, var in variant_syms
             isfile(expected_path(var, i)) || (all_exist = false; break)
         end
         if all_exist
             paths = Dict(var => [expected_path(var, i) for i in 1:nboot]
-                         for var in variants)
+                         for var in variant_syms)
             index = ImputedYear(year, paths)
             @save idxfile index
             @info "Rebuilt index for year $year without re-imputation."
@@ -624,16 +658,17 @@ function _impute_year_to_files(reps::Vector{DataFrame},
     # 3.  Run full imputation (some files missing or overwrite=true)
     # ────────────────────────────────────────────────────────────────────
     @info "Running imputation for year $year …"
-    paths = Dict(var => Vector{String}(undef, nboot) for var in variants)
+    paths = Dict(var => Vector{String}(undef, nboot) for var in variant_syms)
 
     for i in 1:nboot
         df_raw = reps[i]
         imp    = imputation_variants(df_raw,
                                      cfg.candidates,
                                      cfg.demographics;
-                                     most_known_candidates)
+                                     most_known_candidates = most_known_candidates,
+                                     variants = variant_syms)
 
-        for var in variants
+        for var in variant_syms
             file = expected_path(var, i)
             if overwrite || !isfile(file)
                 df = imp[var]
@@ -657,7 +692,8 @@ end
 # ---------------------------------------------------------------------
 """
     impute_from_f3(f3; years=nothing, imp_dir=IMP_DATA_DIR, overwrite=false,
-                   most_known_candidates=String[]) -> OrderedDict{Int,String}
+                   most_known_candidates=String[],
+                   variants=DEFAULT_PIPELINE_IMPUTATION_VARIANTS) -> OrderedDict{Int,String}
 
 Top‑level driver when you already have the `f3` object in memory. For each
 requested `year`, runs `_impute_year_to_files` and returns `year => index_path`.
@@ -666,7 +702,8 @@ function impute_from_f3(f3::OrderedDict;
                         years = nothing,
                         imp_dir::AbstractString = IMP_DATA_DIR,
                         overwrite::Bool = false,
-                        most_known_candidates = String[])
+                        most_known_candidates = String[],
+                        variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
 
     wanted = years === nothing        ? sort(collect(keys(f3))) :
              isa(years,Integer)       ? [years]                 :
@@ -684,7 +721,8 @@ function impute_from_f3(f3::OrderedDict;
         out[yr] = _impute_year_to_files(reps, cfg;
                                         imp_dir    = imp_dir,
                                         overwrite  = overwrite,
-                                        most_known_candidates = most_known_candidates)
+                                        most_known_candidates = most_known_candidates,
+                                        variants = variants)
 
         GC.gc()                             # reclaim before next year
         pm.next!(prog)
@@ -749,10 +787,13 @@ Returns a nested `OrderedDict`:
 function generate_profiles_for_year(year::Int,
                                     f3_entry::NamedTuple,
                                     imps_entry::NamedTuple;
-                                    candidate_sets = nothing)
+                                    candidate_sets = nothing,
+                                    variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
 
     cfg            = f3_entry.cfg
     variants_dict  = imps_entry.data
+    variant_syms   = _select_available_imputation_variants(keys(variants_dict), variants;
+                                                           context = "imputed profiles for year $year")
     m_values       = cfg.m_values_range
     year_csets     = _resolve_year_candidate_sets(cfg; candidate_sets = candidate_sets)
 
@@ -767,7 +808,8 @@ function generate_profiles_for_year(year::Int,
             trimmed  = _trim_candidate_list(full_list, m; year = year, scenario = scen.name)
             var_map  = OrderedDict{Symbol,Vector{DataFrame}}()
 
-            for (variant, reps_imp) in variants_dict
+            for variant in variant_syms
+                reps_imp = variants_dict[variant]
                 profiles = Vector{DataFrame}(undef, length(reps_imp))
 
                 for (i, df_imp) in enumerate(reps_imp)
@@ -871,6 +913,7 @@ end
 """
     generate_profiles_for_year_streamed_from_index(year, f3_entry, iy;
                                                    out_dir=PROFILES_DATA_DIR,
+                                                   variants=DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
                                                    overwrite=false)
 
 Streaming variant of `generate_profiles_for_year` that reads imputed replicates
@@ -884,13 +927,15 @@ function generate_profiles_for_year_streamed_from_index(
             iy::ImputedYear;
             candidate_sets = nothing,
             out_dir::AbstractString = PROFILES_DATA_DIR,
+            variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
             overwrite::Bool         = false)
 
     mkpath(out_dir)
     cfg            = f3_entry.cfg
     m_values       = cfg.m_values_range
-    variants       = collect(keys(iy.paths))           # e.g. (:zero,:random,:mice)
-    n_by_var       = Dict(v => length(iy.paths[v]) for v in variants)
+    variant_syms   = _select_available_imputation_variants(keys(iy.paths), variants;
+                                                           context = "imputed index for year $year")
+    n_by_var       = Dict(v => length(iy.paths[v]) for v in variant_syms)
     year_csets     = _resolve_year_candidate_sets(cfg; candidate_sets = candidate_sets)
 
     result = OrderedDict{String,OrderedDict{Int,ProfilesSlice}}()
@@ -902,11 +947,11 @@ function generate_profiles_for_year_streamed_from_index(
 
         for m in m_values
             cand_syms  = _trim_candidate_list(full_cset, m; year = year, scenario = scen.name)
-            paths_prof = Dict(v => Vector{String}(undef, n_by_var[v]) for v in variants)
+            paths_prof = Dict(v => Vector{String}(undef, n_by_var[v]) for v in variant_syms)
 
             rep_counter = 0      # throttle GC
 
-            for var in variants
+            for var in variant_syms
                 n_rep = n_by_var[var]
 
                 for i in 1:n_rep
@@ -1063,7 +1108,8 @@ function save_or_load_profiles_for_year(year::Int,
                                         candidate_sets = nothing,
                                         dir::AbstractString = PROFILE_DIR,
                                         overwrite::Bool     = false,
-                                        verbose::Bool       = true)
+                                        verbose::Bool       = true,
+                                        variants            = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
 
     mkpath(dir)
     path = joinpath(dir, "profiles_$(year).jld2")
@@ -1077,7 +1123,8 @@ function save_or_load_profiles_for_year(year::Int,
 
     verbose && @info "Generating weak profiles for year $year…"
     profiles = generate_profiles_for_year(year, f3[year], imps[year];
-                                          candidate_sets = candidate_sets)
+                                          candidate_sets = candidate_sets,
+                                          variants = variants)
     @save path profiles
     verbose && @info "Saved weak profiles for year $year → $path"
     return profiles
@@ -1504,14 +1551,17 @@ function describe_candidate_set(candidates::Vector{String})
 end
 
 function lines_alt_by_variant(measures_over_m::AbstractDict;
-                              variants   = ["zero","random","mice"],
+                              variants   = DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
                               palette    = Makie.wong_colors(),
                               figsize    = (1000, 900),
                               candidate_label::String = "", year)
 
     ms        = sort(collect(keys(measures_over_m)))                # alt counts
     measures  = sort(collect(keys(first(values(measures_over_m))))) # :C, :D, …
-    nv        = length(variants)
+    sample_variant_map = first(values(first(values(measures_over_m))))
+    variant_syms = collect(_select_available_imputation_variants(keys(sample_variant_map), variants;
+                                                                 context = "scenario measures"))
+    nv        = length(variant_syms)
 
     # legend labels
     mlabels = Dict(
@@ -1528,8 +1578,8 @@ function lines_alt_by_variant(measures_over_m::AbstractDict;
 
     # header
     first_m, last_m = first(ms), last(ms)
-    first_var = first(variants)
-    n_bootstrap = length(first(values(first(values(measures_over_m))))[Symbol(first_var)])
+    first_var = first(variant_syms)
+    n_bootstrap = length(sample_variant_map[first_var])
 
     titlegrid = GridLayout(tellwidth = true)
     fig[0, 1] = titlegrid
@@ -1542,7 +1592,7 @@ function lines_alt_by_variant(measures_over_m::AbstractDict;
 
     # axes
     axes = [Axis(fig[i, 1];
-                 title   = variants[i],
+                 title   = string(variant_syms[i]),
                  xlabel  = "number of alternatives",
                  ylabel  = "value",
                  yticks  = (0:0.1:1, string.(0:0.1:1)),
@@ -1553,7 +1603,7 @@ function lines_alt_by_variant(measures_over_m::AbstractDict;
     legend_labels  = AbstractString[]
 
     # plot
-    for (row, var) in enumerate(variants)
+    for (row, var) in enumerate(variant_syms)
         ax = axes[row]
 
         for (j, meas) in enumerate(measures)
@@ -1564,7 +1614,7 @@ function lines_alt_by_variant(measures_over_m::AbstractDict;
             p05s = Float64[]; p95s = Float64[]          # 5–95%
 
             for m in ms
-                vals = measures_over_m[m][meas][Symbol(var)]
+                vals = measures_over_m[m][meas][var]
                 push!(meds, median(vals))
                 push!(q25s, quantile(vals, 0.25))
                 push!(q75s, quantile(vals, 0.75))
@@ -1596,7 +1646,7 @@ function lines_alt_by_variant(measures_over_m::AbstractDict;
 end
 
 function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
-                                   variants   = ["zero","random","mice"],
+                                   variants   = DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
                                    palette    = Makie.wong_colors(),
                                    figsize    = (1000, 900),
                                    candidate_label::String = "", year,
@@ -1611,7 +1661,10 @@ function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
 
     ms        = sort(collect(keys(measures_over_m)))                # alt counts
     measures  = sort(collect(keys(first(values(measures_over_m))))) # :C, :D, …
-    nv        = length(variants)
+    sample_variant_map = first(values(first(values(measures_over_m))))
+    variant_syms = collect(_select_available_imputation_variants(keys(sample_variant_map), variants;
+                                                                 context = "scenario measures"))
+    nv        = length(variant_syms)
 
     # legend labels
     mlabels = Dict(
@@ -1628,8 +1681,8 @@ function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
 
     # header
     first_m, last_m = first(ms), last(ms)
-    first_var = first(variants)
-    n_bootstrap = length(first(values(first(values(measures_over_m))))[Symbol(first_var)])
+    first_var = first(variant_syms)
+    n_bootstrap = length(sample_variant_map[first_var])
 
     titlegrid = GridLayout(tellwidth = true)
     fig[0, 1] = titlegrid
@@ -1642,7 +1695,7 @@ function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
 
     # axes
     axes = [Axis(fig[i, 1];
-                 title   = variants[i],
+                 title   = string(variant_syms[i]),
                  xlabel  = "number of alternatives",
                  ylabel  = "value",
                  yticks  = (0:0.1:1, string.(0:0.1:1)),
@@ -1656,7 +1709,7 @@ function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
     spacing = length(ms) > 1 ? float(minimum(diff(ms))) : 1.0
     offsets = length(measures) > 1 ? collect(range(-dodge, dodge; length = length(measures))) : [0.0]
 
-    for (row, var) in enumerate(variants)
+    for (row, var) in enumerate(variant_syms)
         ax = axes[row]
 
         for (j, meas) in enumerate(measures)
@@ -1668,7 +1721,7 @@ function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
             p05s = Float64[]; p95s = Float64[]          # 5–95%
 
             for m in ms
-                vals = measures_over_m[m][meas][Symbol(var)]
+                vals = measures_over_m[m][meas][var]
                 push!(meds, median(vals))
                 push!(q25s, quantile(vals, 0.25))
                 push!(q75s, quantile(vals, 0.75))
@@ -1787,7 +1840,7 @@ end
 
 """
     plot_group_demographics_lines(all_gm, f3, year, scenario;
-                                  variants=[:zero,:random,:mice],
+                                  variants=DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
                                   measures=[:C,:D,:G], maxcols=3,
                                   n_yticks=5, ytick_step=nothing,
                                   palette=Makie.wong_colors(),
@@ -1809,7 +1862,7 @@ function plot_group_demographics_lines(
         f3,
         year::Int,
         scenario::String;
-        variants      = [:zero, :random, :mice],
+        variants      = DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
         measures      = [:C, :D, :G],
         maxcols::Int  = 3,
         n_yticks::Int = 5,
@@ -1830,7 +1883,9 @@ function plot_group_demographics_lines(
 
     # any slice gives the bootstrap length
     sample_slice = gm[first(m_values_int)][Symbol(first(demographics))]
-    n_boot       = length(sample_slice[variants[1]][:C])
+    variant_syms = collect(_select_available_imputation_variants(keys(sample_slice), variants;
+                                                                 context = "group metrics for year $year"))
+    n_boot       = length(sample_slice[variant_syms[1]][:C])
 
     # ── colour / style dictionaries ────────────────────────────────────
     measure_cols   = Dict(measures[i] => palette[i] for i in eachindex(measures))
@@ -1865,7 +1920,7 @@ function plot_group_demographics_lines(
 
         allvals = Float32[]                        # for nice y-ticks
 
-        for meas in measures, var in variants
+        for meas in measures, var in variant_syms
             vals_per_m = map(m_values_int) do m
                 v = gm[m][Symbol(demo)][var]
                 arr = meas === :G ? sqrt.(v[:C] .* v[:D]) : v[meas]
@@ -1916,7 +1971,7 @@ end
 
 """
     plot_group_demographics_heatmap(all_gm, f3, year, scenario;
-                                    variants=[:zero,:random,:mice],
+                                    variants=DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
                                     measures=[:C,:D,:G],
                                     modified_C=false,
                                     modified_G=false,
@@ -1943,7 +1998,7 @@ function plot_group_demographics_heatmap(
         f3,
         year::Int,
         scenario::String;
-        variants      = [:zero, :random, :mice],
+        variants      = DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
         measures      = [:C, :D, :G],
         modified_C::Bool = false,
         modified_G::Bool = false,
@@ -1974,13 +2029,15 @@ function plot_group_demographics_heatmap(
 
     # any slice gives the bootstrap length
     sample_slice = gm[first(m_values_int)][group_syms[1]]
-    n_boot       = length(sample_slice[variants[1]][:C])
+    variant_syms = collect(_select_available_imputation_variants(keys(sample_slice), variants;
+                                                                 context = "group metrics for year $year"))
+    n_boot       = length(sample_slice[variant_syms[1]][:C])
 
     # ── precompute matrices & shared colorrange ────────────────────────
     panel_vals = Dict{Tuple{Symbol,Symbol}, Matrix{Float32}}()
     allvals = Float32[]
 
-    for meas in measures, var in variants
+    for meas in measures, var in variant_syms
         z = Matrix{Float32}(undef, length(m_values_int), n_groups)
         for (mi, m) in enumerate(m_values_int)
             for (gi, demo_sym) in enumerate(group_syms)
@@ -2011,7 +2068,7 @@ function plot_group_demographics_heatmap(
     colorrange = fixed_colorrange ? (0.0f0, 1.0f0) : (data_min, data_max)
 
     # ── figure geometry ────────────────────────────────────────────────
-    n_panels   = length(measures) * length(variants)
+    n_panels   = length(measures) * length(variant_syms)
     ncol       = min(maxcols, n_panels)
     nrow       = ceil(Int, n_panels / ncol)
     title_txt  = "Year $(year) • $(n_boot) pseudo-profiles • m = $(first(m_values_int)) … $(last(m_values_int))"
@@ -2029,7 +2086,7 @@ function plot_group_demographics_heatmap(
     # ── panels ─────────────────────────────────────────────────────────
     hm_ref = nothing
     panel_idx = 0
-    for meas in measures, var in variants
+    for meas in measures, var in variant_syms
         panel_idx += 1
         r, c = fldmod1(panel_idx, ncol)
         #Old title: (meas) • $(var); too much clutter!

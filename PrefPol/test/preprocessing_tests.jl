@@ -155,6 +155,22 @@ end
     @test Set(keys(imps)) == Set((:zero, :random, :mice))
     @test all(nrow(imps.zero) == nrow(df) for _ in 1:1)
     @test all(nrow(imps.random) == nrow(df) for _ in 1:1)
+
+    subset = imputation_variants(df, CANDS, DEMOS;
+                                 most_known_candidates = String[],
+                                 variants = (:zero, :random))
+    @test keys(subset) == (:zero, :random)
+    @test nrow(subset.random) == nrow(df)
+
+    random_only = imputation_variants(df, CANDS, DEMOS;
+                                      most_known_candidates = String[],
+                                      variants = (:random,))
+    @test keys(random_only) == (:random,)
+    @test nrow(random_only.random) == nrow(df)
+
+    @test_throws ArgumentError imputation_variants(df, CANDS, DEMOS;
+                                                   most_known_candidates = String[],
+                                                   variants = (:bogus,))
     # zero variant should contain only Int/Union{Missing,Int} and zeros for special codes
     @test all(eltype(imps.zero[!, c]) <: Union{Missing,Int} for c in CANDS)
 end

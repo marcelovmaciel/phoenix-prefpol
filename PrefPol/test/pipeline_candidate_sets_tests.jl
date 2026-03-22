@@ -67,12 +67,26 @@ using OrderedCollections: OrderedDict
                 DataFrame(A = [10, 6], B = [7, 8], C = [9, 5], Age = [20, 30]),
                 DataFrame(A = [5, 8], B = [9, 4], C = [10, 7], Age = [25, 35]),
             ],
+            :random => [
+                DataFrame(A = [10, 6], B = [7, 8], C = [9, 5], Age = [20, 30]),
+                DataFrame(A = [5, 8], B = [9, 4], C = [10, 7], Age = [25, 35]),
+            ],
+            :mice => [
+                DataFrame(A = [10, 6], B = [7, 8], C = [9, 5], Age = [20, 30]),
+                DataFrame(A = [5, 8], B = [9, 4], C = [10, 7], Age = [25, 35]),
+            ],
         ),
     )
 
     profiles = PrefPol.generate_profiles_for_year(2022, f3_entry, imps_entry;
                                                   candidate_sets = candidate_sets)
+    @test Set(keys(profiles["front"][2])) == Set((:zero, :mice))
     profs = profiles["front"][2][:zero]
+
+    random_profiles = PrefPol.generate_profiles_for_year(2022, f3_entry, imps_entry;
+                                                         candidate_sets = candidate_sets,
+                                                         variants = (:random,))
+    @test Tuple(keys(random_profiles["front"][2])) == (:random,)
 
     @test length(profs) == 2
     for df in profs
@@ -111,8 +125,11 @@ end
             push!(imp_paths, path)
         end
 
-        iy = PrefPol.ImputedYear(2022, Dict(:zero => imp_paths))
+        iy = PrefPol.ImputedYear(2022, Dict(:zero => imp_paths,
+                                           :random => imp_paths,
+                                           :mice => imp_paths))
         weak_dir = joinpath(dir, "weak")
+        random_weak_dir = joinpath(dir, "weak_random")
         lin_dir = joinpath(dir, "linearized")
         meas_dir = joinpath(dir, "measures")
         group_dir = joinpath(dir, "group")
@@ -124,7 +141,18 @@ end
             overwrite = true,
         )
         weak_profiles = PrefPol.load_profiles_index(2022; dir = weak_dir)
+        @test Set(keys(weak_profiles["all"][3].paths)) == Set((:zero, :mice))
         weak_df = weak_profiles["all"][3][:zero, 1]
+
+        PrefPol.generate_profiles_for_year_streamed_from_index(
+            2022, f3_entry, iy;
+            candidate_sets = candidate_sets,
+            out_dir = random_weak_dir,
+            variants = (:random,),
+            overwrite = true,
+        )
+        random_weak_profiles = PrefPol.load_profiles_index(2022; dir = random_weak_dir)
+        @test Tuple(keys(random_weak_profiles["all"][3].paths)) == (:random,)
 
         @test length(unique(values(weak_df.profile[1]))) < 3
         @test_throws ArgumentError PrefPol.apply_measures_for_year(weak_profiles)

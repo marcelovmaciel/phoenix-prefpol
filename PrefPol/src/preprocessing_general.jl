@@ -384,36 +384,71 @@ end
 # === End of Slice Top ===
 # === Imputation ===
 
+const SUPPORTED_IMPUTATION_VARIANTS = (:zero, :random, :mice)
+const DEFAULT_PIPELINE_IMPUTATION_VARIANTS = (:zero, :mice)
+
+function normalize_imputation_variants(variants)
+    raw = if variants isa Symbol || variants isa AbstractString
+        (variants,)
+    else
+        Tuple(variants)
+    end
+    isempty(raw) && throw(ArgumentError("provide at least one imputation variant"))
+
+    variant_syms = Tuple(Symbol(var) for var in raw)
+    invalid = [var for var in variant_syms if var ∉ SUPPORTED_IMPUTATION_VARIANTS]
+    isempty(invalid) || throw(ArgumentError(
+        "Unsupported imputation variant(s): $(join(string.(invalid), ", ")). " *
+        "Supported variants: $(join(string.(SUPPORTED_IMPUTATION_VARIANTS), ", ")).",
+    ))
+    return variant_syms
+end
+
 
 """
-    imputation_variants(df, candidates, demographics; most_known_candidates=String[])
+    imputation_variants(df, candidates, demographics;
+                        most_known_candidates=String[],
+                        variants=SUPPORTED_IMPUTATION_VARIANTS)
 
-Return a named tuple of imputed score tables using several strategies:
-zero replacement, random sampling, and R's `mice` package.
+Return a named tuple of imputed score tables for the requested strategies.
 """
 function imputation_variants(df::DataFrame,
     candidates::Vector{String},
     demographics::Vector{String};
-    most_known_candidates::Vector{String}=String[])
+    most_known_candidates::Vector{String}=String[],
+    variants=SUPPORTED_IMPUTATION_VARIANTS)
 
 # 1 ─ Determine which score columns to use
 use_cols = isempty(most_known_candidates) ? candidates : most_known_candidates
+variant_syms = normalize_imputation_variants(variants)
 
 # 2 ─ Subset to relevant columns (if top-candidates requested)
 df_subset = isempty(most_known_candidates) ? df : get_df_just_top_candidates(df, use_cols; demographics = demographics)
 
-# 3 ─ Prepare imputation tables (same for both branches now)
-scores_int  = prepare_scores_for_imputation_int(df_subset, use_cols; extra_cols = demographics)
-scores_cat  = prepare_scores_for_imputation_categorical(df_subset, use_cols; extra_cols = demographics)
+# 3 ─ Prepare only the tables needed by the requested variants
+need_int = :zero in variant_syms
+need_cat = any(var in (:random, :mice) for var in variant_syms)
+
+scores_int = need_int ? prepare_scores_for_imputation_int(df_subset, use_cols; extra_cols = demographics) : nothing
+scores_cat = need_cat ? prepare_scores_for_imputation_categorical(df_subset, use_cols; extra_cols = demographics) : nothing
 
 # 4 ─ Apply imputation variants
-imputed0    = Impute.replace(scores_int, values = 0)
-imputedRnd  = Impute.impute(scores_cat, Impute.SRS(; rng = MersenneTwister()))
-imputedM    = GLOBAL_R_IMPUTATION(scores_cat)
+results = Pair{Symbol,DataFrame}[]
 
-return (zero = imputed0,
-random = imputedRnd,
-mice = imputedM)
+for var in variant_syms
+    df_imp = if var === :zero
+        Impute.replace(scores_int, values = 0)
+    elseif var === :random
+        Impute.impute(scores_cat, Impute.SRS(; rng = MersenneTwister()))
+    elseif var === :mice
+        GLOBAL_R_IMPUTATION(scores_cat)
+    else
+        error("Unhandled imputation variant $(var)")
+    end
+    push!(results, var => df_imp)
+end
+
+return (; results...)
 end
 
 # === End of Imputation ===

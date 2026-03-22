@@ -2,6 +2,8 @@ using Revise
 using PrefPol
 import PrefPol as pp
 
+default_variants = pp.DEFAULT_PIPELINE_IMPUTATION_VARIANTS
+
 # ------------------------------------------------------------------
 # Bootstraps: save (idempotent) and load
 # ------------------------------------------------------------------
@@ -16,7 +18,9 @@ bootstrap_index = pp.load_all_bootstraps()   # year ⇒ (data, cfg, path)
 # ------------------------------------------------------------------
 # Imputation indices (idempotent unless overwrite=true)
 # ------------------------------------------------------------------
-imputed_index_paths = pp.impute_from_f3(bootstrap_index; overwrite = false)
+imputed_index_paths = pp.impute_from_f3(bootstrap_index;
+                                        overwrite = false,
+                                        variants = default_variants)
 
 
 cfg_2006 = bootstrap_index[2006].cfg
@@ -40,17 +44,23 @@ imputed_year_2022 = pp.load_imputed_year(2022)
 # Generate streamed weak profiles per year
 # ------------------------------------------------------------------
 weak_profiles_2006 = pp.generate_profiles_for_year_streamed_from_index(
-                    2006, bootstrap_index[2006], imputed_year_2006; overwrite = false)
+                    2006, bootstrap_index[2006], imputed_year_2006;
+                    overwrite = false,
+                    variants = default_variants)
 
 weak_profiles_2018 = pp.generate_profiles_for_year_streamed_from_index(
-                    2018, bootstrap_index[2018], imputed_year_2018; overwrite = false)
+                    2018, bootstrap_index[2018], imputed_year_2018;
+                    overwrite = false,
+                    variants = default_variants)
 
 
 
 
 
 weak_profiles_2022 = pp.generate_profiles_for_year_streamed_from_index(
-                    2022, bootstrap_index[2022], imputed_year_2022; overwrite = false)
+                    2022, bootstrap_index[2022], imputed_year_2022;
+                    overwrite = false,
+                    variants = default_variants)
 
 # ------------------------------------------------------------------
 # Linearize saved profiles and reload the linearized index
@@ -103,19 +113,11 @@ group_metrics_2022 = pp.save_or_load_group_metrics_for_year(
 plot_measures_2006 = Dict(2006 => measures_2006)
 
 fig_2006_mice   = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006; variant = "mice", connect_lines = true)
-
-fig_2006_random = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006; variant = "random", connect_lines = true)
-
-
 fig_2006_zero   = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006; variant = "zero", connect_lines = true)
 
 
 fig_2006_mice_dot = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006;
     variant="mice", plot_kind=:dotwhisker, connect_lines = true)
-
-fig_2006_random_dot = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006; variant = "random",  plot_kind=:dotwhisker, connect_lines = true)
-
-
 fig_2006_zero_dot   = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006; variant = "zero",  plot_kind=:dotwhisker, connect_lines = true)
 
 
@@ -123,12 +125,10 @@ fig_2006_zero_dot   = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_inde
 
 
 pp.save_plot(fig_2006_mice,   2006, "lula_alckmin", cfg_2006; variant = "mice")
-pp.save_plot(fig_2006_random, 2006, "lula_alckmin", cfg_2006; variant = "random")
 pp.save_plot(fig_2006_zero,   2006, "lula_alckmin", cfg_2006; variant = "zero")
 
 
 pp.save_plot(fig_2006_mice_dot,   2006, "lula_alckmin_dot", cfg_2006; variant = "mice")
-pp.save_plot(fig_2006_random_dot, 2006, "lula_alckmin_dot", cfg_2006; variant = "random")
 pp.save_plot(fig_2006_zero_dot,   2006, "lula_alckmin_dot", cfg_2006; variant = "zero")
 
 # ------------------------------------------------------------------
@@ -164,10 +164,6 @@ pp.save_plot(fig_2018_lula_bolsonaro_dot, 2018, "lula_bolsonaro_dot", cfg_2018; 
 plot_measures_2022 = Dict(2022 => measures_2022)
 
 fig_2022_mice   = pp.plot_scenario_year(2022, "lula_bolsonaro", bootstrap_index, plot_measures_2022; variant = "mice", connect_lines = true)
-
-
-fig_2022_random = pp.plot_scenario_year(2022, "lula_bolsonaro", bootstrap_index, plot_measures_2022; variant = "random", connect_lines = true)
-
 fig_2022_zero   = pp.plot_scenario_year(2022, "lula_bolsonaro", bootstrap_index, plot_measures_2022; variant = "zero", connect_lines = true)
 
 
@@ -175,14 +171,6 @@ fig_2022_mice_dot   = pp.plot_scenario_year(2022, "lula_bolsonaro",
                                             bootstrap_index,
                                             plot_measures_2022;
                                             variant = "mice",
-                                            plot_kind=:dotwhisker,
-                                            connect_lines = true)
-
-
-fig_2022_random_dot = pp.plot_scenario_year(2022, "lula_bolsonaro",
-                                            bootstrap_index,
-                                            plot_measures_2022;
-                                            variant = "random",
                                             plot_kind=:dotwhisker,
                                             connect_lines = true)
 
@@ -196,11 +184,9 @@ fig_2022_zero_dot   = pp.plot_scenario_year(2022, "lula_bolsonaro",
 
 
 pp.save_plot(fig_2022_mice,   2022, "lula_bolsonaro", cfg_2022; variant = "mice")
-pp.save_plot(fig_2022_random, 2022, "lula_bolsonaro", cfg_2022; variant = "random")
 pp.save_plot(fig_2022_zero,   2022, "lula_bolsonaro", cfg_2022; variant = "zero")
 
 pp.save_plot(fig_2022_mice_dot,   2022, "lula_bolsonaro_dot", cfg_2022; variant = "mice")
-pp.save_plot(fig_2022_random_dot, 2022, "lula_bolsonaro_dot", cfg_2022; variant = "random")
 pp.save_plot(fig_2022_zero_dot,   2022, "lula_bolsonaro_dot", cfg_2022; variant = "zero")
 
 

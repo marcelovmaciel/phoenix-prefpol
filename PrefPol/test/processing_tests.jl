@@ -156,6 +156,11 @@ using RCall
 
     @testset "imputation_variants" begin
         df = DataFrame(A=[1,96], B=[2,97], Age=[30,40])
+        subset = imputation_variants(df, ["A","B"], ["Age"]; variants = (:zero, :random))
+        @test keys(subset) == (:zero, :random)
+        @test nrow(subset.random) == nrow(df)
+        @test_throws ArgumentError imputation_variants(df, ["A","B"], ["Age"]; variants = (:bogus,))
+
         have_pkg = try
             rcopy(Bool, RCall.reval("requireNamespace('mice', quietly=TRUE)"))
         catch
