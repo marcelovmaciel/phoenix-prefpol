@@ -50,6 +50,7 @@ end
 
 include("preprocessing_general.jl")
 include("preprocessing_specific.jl")
+include("profile_adapters.jl")
 include("polarization_measures.jl")
 include("mallows_play.jl")
 include("pipeline.jl")

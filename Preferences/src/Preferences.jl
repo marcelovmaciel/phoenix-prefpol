@@ -20,8 +20,10 @@ include("PreferenceBallot.jl")
 include("PreferenceDynamics.jl")
 include("PreferenceTraits.jl")
 include("PreferenceProfile.jl")
+include("PreferenceLinearization.jl")
 include("PreferenceTabularProfiles.jl")
 include("PreferenceAggregationProcedures.jl")
+include("PreferenceMeasures.jl")
 include("PreferenceDisplay.jl")
 include("Compat.jl")
 
@@ -38,6 +40,7 @@ export rank, prefers, indifferent, asdict
 export perm, ranks
 export to_perm, to_weakorder, ordered_candidates, weakorder_symbol_groups
 export to_strict, make_rank_bucket_linearizer
+export linearize
 
 # Policies and pairwise (dense wrapper)
 export ExtensionPolicy, BottomPolicyMissing, NonePolicyMissing, compare_maybe
@@ -72,6 +75,11 @@ export pretty_print_ranksize_summary, pretty_print_ranking_type_proportions
 # Aggregation procedures
 export PairwiseMajority, pairwise_majority
 export pairwise_majority_counts, pairwise_majority_margins, pairwise_majority_wins
+
+# Strict-profile measures
+export ranking_signature, ranking_proportions, reversal_pairs
+export kendall_tau_distance, average_normalized_distance
+export can_polarization, total_reversal_component, reversal_hhi, reversal_geometric
 
 # Dynamics / mutable strict
 export StrictRankMutable, swap_positions!, swap_ids!, swap_and_update_pairwise!

@@ -1,27 +1,28 @@
-
 function ranking_to_perm(ranking)
-    # Sort keys by their rank value, return ordered tuple of keys
-    sorted = sort(collect(ranking); by = x -> x[2])
-    return Tuple(x[1] for x in sorted)
+    strict = strict_profile([ranking])
+    return Preferences.ranking_signature(strict.ballots[1], strict.pool)
 end
-
 
 function perms_out_of_rankings(profile)
-    return map(ranking_to_perm, profile)
+    strict = strict_profile(profile)
+    return [Preferences.ranking_signature(ballot, strict.pool) for ballot in strict.ballots]
 end
 
+function profile_to_permallows_matrix(profile::Preferences.Profile{<:Preferences.StrictRank})
+    n = Preferences.nballots(profile)
+    m = length(profile.pool)
+    out = Matrix{Int}(undef, n, m)
 
-# TODO: check this a millionth times 
+    @inbounds for (i, ballot) in enumerate(profile.ballots)
+        out[i, :] = Preferences.to_perm(ballot)
+    end
 
-function get_consensus_ranking(profile)
-    candidates = collect(keys(profile[1]))
-    m = length(candidates)
-    # 2. Assign each candidate an integer label
-    candidate_to_label = Dict(c => i for (i, c) in enumerate(candidates))
-    label_to_candidate = Dict(v => k for (k,v) in candidate_to_label)
-    myperms = perms_out_of_rankings(profile)
-    relabeled_perm= map(ranking->map(x-> candidate_to_label[x], ranking), myperms)
-    input_for_permallows = reduce(vcat,(map(r->Vector(collect(r))', relabeled_perm)))
+    return out
+end
+
+function get_consensus_ranking(profile::Preferences.Profile{<:Preferences.StrictRank})
+    input_for_permallows = profile_to_permallows_matrix(profile)
+    label_to_candidate = Dict(i => profile.pool[i] for i in 1:length(profile.pool))
 
     @rput input_for_permallows
     R"""
@@ -32,12 +33,11 @@ function get_consensus_ranking(profile)
     """
     @rget mode theta
 
-    consensus_back_from_permallows = [label_to_candidate[i] for i in mode ]
-    consensus_dict = Dict(c => r for (r,c) in enumerate(consensus_back_from_permallows))
+    consensus_back_from_permallows = [label_to_candidate[i] for i in mode]
+    consensus_dict = Dict(c => r for (r, c) in enumerate(consensus_back_from_permallows))
     return consensus_back_from_permallows, consensus_dict
-end 
+end
 
-
-
-
-
+function get_consensus_ranking(profile::AbstractVector{<:AbstractDict})
+    return get_consensus_ranking(strict_profile(profile))
+end

@@ -89,10 +89,10 @@ using OrderedCollections: OrderedDict
     @test Tuple(keys(random_profiles["front"][2])) == (:random,)
 
     @test length(profs) == 2
-    for df in profs
-        @test DataFrames.metadata(df, "candidates") == [:C, :B]
-        PrefPol.decode_profile_column!(df)
-        @test all(Set(keys(p)) == Set([:C, :B]) for p in df.profile)
+    for bundle in profs
+        @test collect(PrefPol.Preferences.candidates(bundle.profile.pool)) == [:C, :B]
+        ranking_dicts = PrefPol.profile_to_ranking_dicts(bundle.profile)
+        @test all(Set(keys(p)) == Set([:C, :B]) for p in ranking_dicts)
     end
 end
 
@@ -142,7 +142,7 @@ end
         )
         weak_profiles = PrefPol.load_profiles_index(2022; dir = weak_dir)
         @test Set(keys(weak_profiles["all"][3].paths)) == Set((:zero, :mice))
-        weak_df = weak_profiles["all"][3][:zero, 1]
+        weak_bundle = weak_profiles["all"][3][:zero, 1]
 
         PrefPol.generate_profiles_for_year_streamed_from_index(
             2022, f3_entry, iy;
@@ -154,7 +154,8 @@ end
         random_weak_profiles = PrefPol.load_profiles_index(2022; dir = random_weak_dir)
         @test Tuple(keys(random_weak_profiles["all"][3].paths)) == (:random,)
 
-        @test length(unique(values(weak_df.profile[1]))) < 3
+        weak_rankings = PrefPol.profile_to_ranking_dicts(weak_bundle.profile)
+        @test length(unique(values(weak_rankings[1]))) < 3
         @test_throws ArgumentError PrefPol.apply_measures_for_year(weak_profiles)
 
         PrefPol.linearize_profiles_for_year_streamed_from_index(
@@ -163,10 +164,12 @@ end
             overwrite = true,
         )
         linearized_profiles = PrefPol.load_linearized_profiles_index(2022; dir = lin_dir)
-        linearized_df = linearized_profiles["all"][3][:zero, 1]
+        linearized_bundle = linearized_profiles["all"][3][:zero, 1]
+        linearized_rankings = PrefPol.profile_to_ranking_dicts(linearized_bundle.profile)
 
-        @test sort(collect(values(linearized_df.profile[1]))) == [1, 2, 3]
-        @test all(length(unique(values(p))) == 3 for p in linearized_df.profile)
+        @test PrefPol.Preferences.is_strict(linearized_bundle.profile)
+        @test sort(collect(values(linearized_rankings[1]))) == [1, 2, 3]
+        @test all(length(unique(values(p))) == 3 for p in linearized_rankings)
 
         measures = PrefPol.save_or_load_measures_for_year(
             2022, linearized_profiles;

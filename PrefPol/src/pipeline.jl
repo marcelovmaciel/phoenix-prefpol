@@ -782,7 +782,7 @@ For each `Scenario` and each `m ∈ cfg.m_values_range`, build a weak-profile
 - build `profile_dataframe(...; kind = :weak)` and attach candidate metadata.
 
 Returns a nested `OrderedDict`:
-`scenario ⇒ m ⇒ (variant ⇒ Vector{DataFrame})`.
+`scenario ⇒ m ⇒ (variant ⇒ Vector{AnnotatedProfile})`.
 """
 function generate_profiles_for_year(year::Int,
                                     f3_entry::NamedTuple,
@@ -797,20 +797,20 @@ function generate_profiles_for_year(year::Int,
     m_values       = cfg.m_values_range
     year_csets     = _resolve_year_candidate_sets(cfg; candidate_sets = candidate_sets)
 
-    result = OrderedDict{String,OrderedDict{Int,OrderedDict{Symbol,Vector{DataFrame}}}}()
+    result = OrderedDict{String,OrderedDict{Int,OrderedDict{Symbol,Vector{AnnotatedProfile}}}}()
 
     for scen in cfg.scenarios
         full_list = _full_candidate_list(year_csets, scen)
 
-        m_map = OrderedDict{Int,OrderedDict{Symbol,Vector{DataFrame}}}()
+        m_map = OrderedDict{Int,OrderedDict{Symbol,Vector{AnnotatedProfile}}}()
 
         for m in m_values
             trimmed  = _trim_candidate_list(full_list, m; year = year, scenario = scen.name)
-            var_map  = OrderedDict{Symbol,Vector{DataFrame}}()
+            var_map  = OrderedDict{Symbol,Vector{AnnotatedProfile}}()
 
             for variant in variant_syms
                 reps_imp = variants_dict[variant]
-                profiles = Vector{DataFrame}(undef, length(reps_imp))
+                profiles = Vector{AnnotatedProfile}(undef, length(reps_imp))
 
                 for (i, df_imp) in enumerate(reps_imp)
                     df = profile_dataframe(
@@ -821,7 +821,7 @@ function generate_profiles_for_year(year::Int,
                     metadata!(df, "candidates", Symbol.(trimmed))
                     metadata!(df, "profile_kind", "weak")
 
-                    profiles[i] = df
+                    profiles[i] = dataframe_to_annotated_profile(df; ballot_kind = :weak)
                 end
                 var_map[variant] = profiles
             end
@@ -875,26 +875,39 @@ struct LinearizedProfilesSlice
     paths::Dict{Symbol,Vector{String}}
 end
 
-function _load_profile_dataframe(path::AbstractString)
-    df = nothing
-    JLD2.@load path df
-    return df
+function _load_profile_artifact(path::AbstractString)
+    payload = JLD2.load(path)
+
+    if payload isa AbstractDict
+        for key in ("bundle", "df", "artifact")
+            haskey(payload, key) && return payload[key]
+        end
+        length(payload) == 1 && return first(values(payload))
+    end
+
+    return payload
 end
 
-function Base.getindex(ps::ProfilesSlice, var::Symbol, i::Int)
-    df = _load_profile_dataframe(ps.paths[var][i])
-    metadata!(df, "candidates", copy(ps.cand_list))
-    metadata!(df, "profile_kind", "weak")
-    return df
+function _coerce_loaded_profile_artifact(artifact, kind::Symbol)
+    if artifact isa AnnotatedProfile
+        return artifact
+    elseif artifact isa DataFrame
+        if kind === :strict && !(eltype(artifact.profile) <: AbstractDict)
+            decode_profile_column!(artifact)
+        end
+        return dataframe_to_annotated_profile(artifact; ballot_kind = kind)
+    end
+
+    throw(ArgumentError(
+        "Unsupported cached profile artifact type $(typeof(artifact)); expected AnnotatedProfile or DataFrame.",
+    ))
 end
 
-Base.getindex(ps::LinearizedProfilesSlice, var::Symbol, i::Int) = begin
-    df = _load_profile_dataframe(ps.paths[var][i])
-    decode_profile_column!(df)
-    metadata!(df, "candidates", copy(ps.cand_list))
-    metadata!(df, "profile_kind", "linearized")
-    return df
-end
+Base.getindex(ps::ProfilesSlice, var::Symbol, i::Int) =
+    _coerce_loaded_profile_artifact(_load_profile_artifact(ps.paths[var][i]), :weak)
+
+Base.getindex(ps::LinearizedProfilesSlice, var::Symbol, i::Int) =
+    _coerce_loaded_profile_artifact(_load_profile_artifact(ps.paths[var][i]), :strict)
 
 function load_profiles_index(year::Int;
                              dir::AbstractString = PROFILES_DATA_DIR)
@@ -975,12 +988,13 @@ function generate_profiles_for_year_streamed_from_index(
                             kind       = :weak)
                     metadata!(df, "candidates", cand_syms)
                     metadata!(df, "profile_kind", "weak")
+                    bundle = dataframe_to_annotated_profile(df; ballot_kind = :weak)
 
-                    JLD2.@save fprof df
+                    JLD2.@save fprof bundle
                     @info "writing $(basename(fprof))"
                     paths_prof[var][i] = fprof
 
-                    df = df_imp = nothing
+                    df = bundle = df_imp = nothing
                     rep_counter += 1
                     rep_counter % 10 == 0 && GC.gc()
                 end
@@ -1008,7 +1022,7 @@ end
                                                     overwrite=false)
 
 Read weak profile files from `profiles_year`, linearize them in a dedicated
-pass, write the linearized profile DataFrames to disk, and return a parallel
+pass, write the linearized profile bundles to disk, and return a parallel
 index:
 `scenario ⇒ m ⇒ LinearizedProfilesSlice`.
 """
@@ -1050,17 +1064,14 @@ function linearize_profiles_for_year_streamed_from_index(
                         continue
                     end
 
-                    df = slice[var, i]
-                    linearize_profile_column!(df; rng = rng)
-                    compress_rank_column!(df, slice.cand_list; col = :profile)
-                    metadata!(df, "candidates", slice.cand_list)
-                    metadata!(df, "profile_kind", "linearized")
+                    bundle = slice[var, i]
+                    strict_bundle = linearize_annotated_profile(bundle; rng = rng)
 
-                    JLD2.@save flin df
+                    JLD2.@save flin strict_bundle
                     @info "writing $(basename(flin))"
                     paths_prof[var][i] = flin
 
-                    df = nothing
+                    bundle = strict_bundle = nothing
                     rep_counter += 1
                     rep_counter % 10 == 0 && GC.gc()
                 end
@@ -1199,12 +1210,12 @@ function apply_measures_for_year(
             #####  remaining replicates  #####
             rep_counter = 1
             for i in 2:n_rep_max
-                var_map = Dict{Symbol,Vector{DataFrame}}()
+                var_map = Dict{Symbol,Vector{AnnotatedProfile}}()
 
                 for var in variants
                     length(slice.paths[var]) < i && continue
-                    df = slice[var, i]
-                    var_map[var] = [df]
+                    bundle = slice[var, i]
+                    var_map[var] = [bundle]
                 end
                 isempty(var_map) && continue
 
@@ -1316,11 +1327,11 @@ function apply_group_metrics_for_year_streaming(
                 prog  = pm.Progress(n_rep_max; desc="[$scen|m=$m|$dem_sym]", barlen=28)
 
                 for i in 1:n_rep_max
-                    var_map = Dict{Symbol,Vector{DataFrame}}()
+                    var_map = Dict{Symbol,Vector{AnnotatedProfile}}()
                     for var in variants
                         length(slice.paths[var]) < i && continue
-                        df = slice[var, i]
-                        var_map[var] = [df]
+                        bundle = slice[var, i]
+                        var_map[var] = [bundle]
                     end
                     isempty(var_map) && (pm.next!(prog); continue)
 
@@ -1408,11 +1419,11 @@ function compute_and_cache_group_metrics_per_df!(
                         pm.next!(pbar); continue
                     end
 
-                    var_map = Dict{Symbol,Vector{DataFrame}}()
+                    var_map = Dict{Symbol,Vector{AnnotatedProfile}}()
                     for var in variants
                         length(slice.paths[var]) < rep && continue
-                        df = slice[var, rep]                 # load
-                        var_map[var] = [df]
+                        bundle = slice[var, rep]                 # load
+                        var_map[var] = [bundle]
                     end
                     isempty(var_map) && (pm.next!(pbar); continue)
 
@@ -1468,11 +1479,11 @@ function accumulate_cached_group_metrics_for_year!(
                     end
 
                     if res === nothing
-                        var_map = Dict{Symbol,Vector{DataFrame}}()
+                        var_map = Dict{Symbol,Vector{AnnotatedProfile}}()
                         for var in variants
                             length(slice.paths[var]) < rep && continue
-                            df = slice[var, rep]
-                            var_map[var] = [df]
+                            bundle = slice[var, rep]
+                            var_map[var] = [bundle]
                         end
                         isempty(var_map) && error("Missing data for $cache_path")
 

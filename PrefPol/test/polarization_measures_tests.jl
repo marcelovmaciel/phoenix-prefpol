@@ -163,7 +163,7 @@ end
     subdf = DataFrame(profile = prof)
     out = PrefPol.consensus_for_group(subdf)
 
-    @test out == prof[1]
+    @test out.consensus_ranking == prof[1]
 
     # Kendall tau
     r1 = ranking_dict([:a,:b,:c])
@@ -209,7 +209,7 @@ end
     # Wrapper that uses DataFrames
     whole_df = vcat(DataFrame(group=:A, profile=profA),
                     DataFrame(group=:B, profile=profB))
-    grouped_consensus = DataFrame(group=[:A,:B], x1=[consA, consB])
+    grouped_consensus = DataFrame(group=[:A,:B], consensus_ranking=Any[consA, consB])
     @test PrefPol.overall_divergences(grouped_consensus, whole_df, :group) == 1.0
 end
 

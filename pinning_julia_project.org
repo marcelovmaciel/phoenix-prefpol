@@ -26,3 +26,8 @@ I confirmed directly that julia +1.11 is the right channel and starts instantly.
   - Prefer wrapping Julia execution in emacs -Q --batch --eval ... so output is captured reliably.
   - If normal startup/precompilation hangs, retry with --compiled-modules=no and a timeout.
   - For this project, 1.12.x produced startup hangs/crashes that were not caused by repo code.
+
+
+
+
+  codex resume 019d1afa-c08d-7391-b32c-18b007983326

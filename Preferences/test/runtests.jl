@@ -260,3 +260,42 @@ end
     @test tbl_w.total_amount ≈ [6.0, 6.0]
     @test tbl_w.missing_proportion ≈ [4 / 6, 1 / 6]
 end
+
+@testset "Profile linearization and strict measures" begin
+    pool = pp.CandidatePool([:A, :B, :C])
+    weak_ballots = [
+        pp.WeakRank(pool, Dict(:A => 1, :B => 1, :C => 2)),
+        pp.WeakRank(pool, Dict(:A => 2, :B => 1, :C => 1)),
+    ]
+    weak_profile = pp.Profile(pool, weak_ballots)
+
+    strict_profile = pp.linearize(
+        weak_profile;
+        tie_break = :by_name,
+        rng = Random.MersenneTwister(1),
+    )
+    @test pp.is_strict(strict_profile)
+    @test pp.ranking_signature(strict_profile.ballots[1], pool) == (:A, :B, :C)
+    @test pp.ranking_signature(strict_profile.ballots[2], pool) == (:B, :C, :A)
+
+    abc = pp.StrictRank(pool, [:A, :B, :C])
+    cba = pp.StrictRank(pool, [:C, :B, :A])
+    @test pp.kendall_tau_distance(abc, abc) == 0
+    @test pp.kendall_tau_distance(abc, cba) == 3
+
+    unanim = pp.Profile(pool, [abc, abc, abc])
+    @test pp.can_polarization(unanim) == 0.0
+    @test pp.total_reversal_component(unanim) == 0.0
+    @test pp.reversal_hhi(unanim) == 0.0
+    @test pp.reversal_geometric(unanim) == 0.0
+
+    eq = pp.Profile(pool, [
+        pp.StrictRank(pool, [:A, :B, :C]),
+        pp.StrictRank(pool, [:A, :C, :B]),
+        pp.StrictRank(pool, [:B, :A, :C]),
+        pp.StrictRank(pool, [:B, :C, :A]),
+        pp.StrictRank(pool, [:C, :A, :B]),
+        pp.StrictRank(pool, [:C, :B, :A]),
+    ])
+    @test pp.can_polarization(eq) == 1.0
+end
