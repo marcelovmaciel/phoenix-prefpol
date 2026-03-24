@@ -7,11 +7,10 @@
 Read an SPSS `.sav` file using R's `haven` package and return a `DataFrame`.
 """
 function load_spss_file(path::String)
-    RCall.reval("library(haven)")
-    RCall.reval("library(mice)")
-
-    @rput path  # this macro works fine for variables
-    return rcopy(R"read_sav(path)")
+    rcall = _require_rcall!()
+    _rcall_eval(rcall, "library(haven)")
+    _rcall_setglobal!(rcall, :path, path)
+    return _rcall_copy(rcall, DataFrame, _rcall_eval(rcall, "haven::read_sav(path)"))
 end
 
 
@@ -297,13 +296,16 @@ for reproducibility across bootstraps. The `m` keyword is accepted for
 backward compatibility but any value different from `1` is ignored.
 """
 function r_impute_mice_report(df::DataFrame)
+    rcall = _require_rcall!()
+
     # random seed to keep bootstrap independence
     seed = rand(1:10^6)
-    RCall.reval("set.seed($seed)")
+    _rcall_setglobal!(rcall, :df, df)
+    _rcall_eval(rcall, "set.seed($seed)")
 
-    R"""
+    _rcall_eval(rcall, raw"""
     res <- local({
-      df_local <- as.data.frame($df)
+      df_local <- as.data.frame(df)
 
       # ---------- boilerplate ----------
       init <- mice::mice(df_local, maxit = 0, print = FALSE)
@@ -346,21 +348,25 @@ function r_impute_mice_report(df::DataFrame)
       )
     })
     res
-    """
+    """)
 
-    completed = rcopy(DataFrame, R"res$completed")
+    completed = _rcall_copy(rcall, DataFrame, _rcall_eval(rcall, "res\$completed"))
 
-    meth_names = rcopy(Vector{String}, R"names(res$meth)")
-    meth_values = rcopy(Vector{String}, R"as.character(res$meth)")
+    meth_names = _rcall_copy(rcall, Vector{String}, _rcall_eval(rcall, "names(res\$meth)"))
+    meth_values = _rcall_copy(rcall, Vector{String}, _rcall_eval(rcall, "as.character(res\$meth)"))
     meth = Dict{String, String}(name => value for (name, value) in zip(meth_names, meth_values))
 
-    loggedEvents = if rcopy(Bool, R"is.null(res$loggedEvents)")
+    loggedEvents = if _rcall_copy(rcall, Bool, _rcall_eval(rcall, "is.null(res\$loggedEvents)"))
         nothing
     else
-        rcopy(DataFrame, R"as.data.frame(res$loggedEvents)")
+        _rcall_copy(rcall, DataFrame, _rcall_eval(rcall, "as.data.frame(res\$loggedEvents)"))
     end
 
-    dropped_predictors = rcopy(Vector{String}, R"as.character(res$dropped_predictors)")
+    dropped_predictors = _rcall_copy(
+        rcall,
+        Vector{String},
+        _rcall_eval(rcall, "as.character(res\$dropped_predictors)"),
+    )
 
     return (
         completed = completed,

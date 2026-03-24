@@ -24,14 +24,15 @@ function get_consensus_ranking(profile::Preferences.Profile{<:Preferences.Strict
     input_for_permallows = profile_to_permallows_matrix(profile)
     label_to_candidate = Dict(i => profile.pool[i] for i in 1:length(profile.pool))
 
-    @rput input_for_permallows
-    R"""
+    rcall = _require_rcall!()
+    _rcall_setglobal!(rcall, :input_for_permallows, input_for_permallows)
+    _rcall_eval(rcall, raw"""
     library(PerMallows)
     result <- lmm(input_for_permallows, dist.name = "cayley", estimation = "exact")
-    theta <- result$theta
     mode <- result$mode
-    """
-    @rget mode theta
+    """)
+
+    mode = _rcall_copy(rcall, Vector{Int}, _rcall_eval(rcall, "mode"))
 
     consensus_back_from_permallows = [label_to_candidate[i] for i in mode]
     consensus_dict = Dict(c => r for (r, c) in enumerate(consensus_back_from_permallows))

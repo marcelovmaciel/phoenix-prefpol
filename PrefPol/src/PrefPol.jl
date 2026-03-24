@@ -2,32 +2,25 @@ module PrefPol
 
 using Pkg
 
-using CairoMakie
 using CategoricalArrays
 using Combinatorics
 using DataFrames
-using DataVoyager
 using Dates 
 import Impute 
-using LaTeXStrings
 using Pkg
 using Random
-using RCall
 using Statistics
 using StatsBase
 using CategoricalArrays
-using PrettyTables
 import  ProgressMeter as pm 
 using Printf
-using KernelDensity
-import Colors
 using TextWrap
 import OrderedCollections
 using OrderedCollections: OrderedDict
 using Logging
 using PooledArrays, StaticArrays 
 
-using JLD2, Arrow, TOML
+using JLD2, TOML
 
 
 
@@ -47,6 +40,53 @@ if !isdefined(@__MODULE__, :Preferences)
               "Raw profile helpers will error until it is available."
     end
 end
+
+function _load_optional_dependency!(sym::Symbol;
+                                    feature::AbstractString,
+                                    using_names::Bool = false)
+    isdefined(@__MODULE__, sym) && return getfield(@__MODULE__, sym)
+
+    stmt = using_names ? "using $(sym)" : "import $(sym)"
+    expr = Meta.parse(stmt)
+    try
+        Base.eval(@__MODULE__, expr)
+    catch err
+        throw(ArgumentError(
+            "$feature requires optional dependency `$sym`, but it could not be loaded: " *
+            sprint(showerror, err),
+        ))
+    end
+
+    return getfield(@__MODULE__, sym)
+end
+
+@inline _require_rcall!() = _load_optional_dependency!(
+    :RCall;
+    feature = "SPSS loading and R/mice imputation",
+    using_names = false,
+)
+
+@inline _rcall_eval(rcall, expr) =
+    Base.invokelatest(getproperty(rcall, :reval), expr)
+
+@inline _rcall_copy(rcall, T, value) =
+    Base.invokelatest(getproperty(rcall, :rcopy), T, value)
+
+@inline _rcall_setglobal!(rcall, name::Symbol, value) =
+    Base.invokelatest(setindex!, getproperty(rcall, :globalEnv), value, name)
+
+function _plotting_extension_module()
+    ext = Base.get_extension(@__MODULE__, :PrefPolPlottingExt)
+    ext === nothing || return ext
+
+    throw(ArgumentError(
+        "Plotting requires the CairoMakie extension. Add CairoMakie to the active environment " *
+        "and load it with `using CairoMakie` before calling PrefPol plotting helpers.",
+    ))
+end
+
+@inline _call_plotting_extension(name::Symbol, args...; kwargs...) =
+    getfield(_plotting_extension_module(), name)(args...; kwargs...)
 
 include("preprocessing_general.jl")
 include("preprocessing_specific.jl")

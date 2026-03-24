@@ -260,12 +260,21 @@ weakorder_symbol_groups(levels::Vector{Vector{Int}}, pool::CandidatePool) =
 ##################################
 
 """
-to_strict(x::WeakRank; tie_break=:error | :random | f, rng=Random.GLOBAL_RNG)
-- :error  => throw if ties/missing
-- :random => break ties within each bucket randomly (uses rng); missing also linearized at the end
+to_strict(x::WeakRank; tie_break=:error | :random | f, rng=Random.GLOBAL_RNG,
+          pool=nothing, incomplete_policy=:error)
+- :error  => throw if ties are present
+- :random => break ties within each bucket randomly (uses rng)
 - f::Function => custom bucket linearizer: f(bucket_ids::Vector{Int}, pool, ranks)::Vector{Int}
+
+`incomplete_policy` controls how unranked alternatives are handled:
+- :error    => throw
+- :complete => append the unranked alternatives using the chosen bucket policy
 """
-function to_strict(x::WeakRank; tie_break=:error, rng::AbstractRNG=Random.GLOBAL_RNG, pool::Union{Nothing,CandidatePool}=nothing)
+function to_strict(x::WeakRank;
+                   tie_break = :error,
+                   rng::AbstractRNG = Random.GLOBAL_RNG,
+                   pool::Union{Nothing,CandidatePool} = nothing,
+                   incomplete_policy::Symbol = :error)
     rx = ranks(x)
     N = length(rx)
     # collect buckets by rank
@@ -280,7 +289,17 @@ function to_strict(x::WeakRank; tie_break=:error, rng::AbstractRNG=Random.GLOBAL
             push!(v, id)
         end
     end
-    isempty(unranked) || (tie_break == :error && throw(ArgumentError("to_strict: unranked present; choose tie_break != :error")))
+    if !isempty(unranked)
+        if incomplete_policy === :error
+            throw(ArgumentError(
+                "to_strict: unranked present; pass incomplete_policy = :complete or use linearize(...; incomplete_policy = :preserve).",
+            ))
+        elseif incomplete_policy !== :complete
+            throw(ArgumentError(
+                "Unsupported incomplete_policy `$incomplete_policy`. Use :error or :complete with to_strict.",
+            ))
+        end
+    end
     # sort ranks
     keys_sorted = sort!(collect(keys(buckets)))
     # bucket linearizer

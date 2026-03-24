@@ -198,7 +198,7 @@ function overall_divergences(grouped_consensus::DataFrame, whole_bundle::Annotat
 
     grouped_indices = _group_row_indices(whole_bundle, key)
     group_profiles = Dict(
-        row[key] => subset_annotated_profile(whole_bundle, grouped_indices[row[key]]).profile
+        row[key] => _subset_profile(whole_bundle.profile, grouped_indices[row[key]])
         for row in eachrow(grouped_consensus)
     )
     consensus_map = Dict(row[key] => row[consensus_col] for row in eachrow(grouped_consensus))
@@ -251,11 +251,11 @@ function compute_group_metrics(bundle::AnnotatedProfile, demo)
     consensus_rankings = Any[]
 
     for group in group_vals
-        subbundle = subset_annotated_profile(bundle, grouped_indices[group])
-        distance_row = group_avg_distance(subbundle)
+        subprofile = _subset_profile(bundle.profile, grouped_indices[group])
+        distance_row = group_avg_distance(subprofile)
         push!(avg_distance, distance_row.avg_distance)
         push!(group_coherence, distance_row.group_coherence)
-        push!(consensus_rankings, consensus_for_group(subbundle).consensus_ranking)
+        push!(consensus_rankings, consensus_for_group(subprofile).consensus_ranking)
     end
 
     results_distance = DataFrame(

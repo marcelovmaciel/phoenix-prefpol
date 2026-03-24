@@ -299,3 +299,44 @@ end
     ])
     @test pp.can_polarization(eq) == 1.0
 end
+
+@testset "Incomplete-ballot linearization policy" begin
+    pool = pp.CandidatePool([:A, :B, :C])
+    incomplete = pp.WeakRank(pool, Dict(:A => 1, :B => 1))
+
+    @test_throws ArgumentError pp.linearize(
+        incomplete;
+        tie_break = :by_name,
+        rng = Random.MersenneTwister(1),
+        pool = pool,
+    )
+
+    preserved = pp.linearize(
+        incomplete;
+        tie_break = :by_name,
+        rng = Random.MersenneTwister(1),
+        pool = pool,
+        incomplete_policy = :preserve,
+    )
+    @test preserved isa pp.WeakRank
+    @test isequal(collect(pp.ranks(preserved)), Union{Missing,Int}[1, 2, missing])
+
+    completed = pp.linearize(
+        incomplete;
+        tie_break = :by_name,
+        rng = Random.MersenneTwister(1),
+        pool = pool,
+        incomplete_policy = :complete,
+    )
+    @test completed isa pp.StrictRank
+    @test pp.ranking_signature(completed, pool) == (:A, :B, :C)
+
+    preserved_profile = pp.linearize(
+        pp.Profile(pool, [incomplete]);
+        tie_break = :by_name,
+        rng = Random.MersenneTwister(1),
+        incomplete_policy = :preserve,
+    )
+    @test preserved_profile isa pp.Profile{<:pp.WeakRank}
+    @test isequal(collect(pp.ranks(preserved_profile.ballots[1])), Union{Missing,Int}[1, 2, missing])
+end

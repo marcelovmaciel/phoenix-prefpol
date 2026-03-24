@@ -129,11 +129,17 @@ linearized_slice = linearized_profiles_year[scenario][chosen_m]
 haskey(weak_slice.paths, variant) || error("Unknown variant `$variant`. Available: $(collect(keys(weak_slice.paths)))")
 length(weak_slice.paths[variant]) >= rep || error("rep=$rep exceeds available replicates for `$variant`.")
 
-weak_df = weak_slice[variant, rep]
-linearized_df = linearized_slice[variant, rep]
+weak_bundle = weak_slice[variant, rep]
+linearized_bundle = linearized_slice[variant, rep]
 
-has_tie(profile) = length(unique(values(profile))) < length(profile)
-row_to_show = something(findfirst(has_tie, weak_df.profile), 1)
+weak_artifact = pp._load_profile_artifact(weak_slice.paths[variant][rep])
+linearized_artifact = pp._load_profile_artifact(linearized_slice.paths[variant][rep])
+
+weak_rankings = pp.profile_to_ranking_dicts(weak_bundle.profile)
+linearized_rankings = pp.profile_to_ranking_dicts(linearized_bundle.profile)
+
+has_tie(ranking) = length(unique(values(ranking))) < length(ranking)
+row_to_show = something(findfirst(has_tie, weak_rankings), 1)
 
 println("year = $year")
 println("scenario = $scenario")
@@ -144,21 +150,21 @@ println()
 println("weak profile file:       ", weak_slice.paths[variant][rep])
 println("linearized profile file: ", linearized_slice.paths[variant][rep])
 println()
-println("weak profile kind:       ", metadata(weak_df, "profile_kind"))
-println("linearized profile kind: ", metadata(linearized_df, "profile_kind"))
-println("candidates:              ", metadata(linearized_df, "candidates"))
+println("weak profile kind:       ", metadata(weak_artifact, "profile_kind"))
+println("linearized profile kind: ", metadata(linearized_artifact, "profile_kind"))
+println("candidates:              ", collect(pp.Preferences.candidates(linearized_bundle.profile.pool)))
 println()
 println("inspecting row $row_to_show (first tied row if available)")
 println("weak profile row:")
-println(weak_df.profile[row_to_show])
+println(weak_rankings[row_to_show])
 println()
 println("linearized profile row:")
-println(linearized_df.profile[row_to_show])
+println(linearized_rankings[row_to_show])
 
 # ------------------------------------------------------------------
 # Optional next step: measures are applied only after loading the
 # linearized artifact, not during linearization itself.
 # ------------------------------------------------------------------
-# one_rep_measures = pp.apply_all_measures_to_bts(Dict(variant => [linearized_df]))
+# one_rep_measures = pp.apply_all_measures_to_bts(Dict(variant => [linearized_bundle]))
 # measures_year = pp.save_or_load_measures_for_year(year, linearized_profiles_year;
 #     overwrite = false, verbose = true)

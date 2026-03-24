@@ -892,7 +892,9 @@ function _coerce_loaded_profile_artifact(artifact, kind::Symbol)
     if artifact isa AnnotatedProfile
         return artifact
     elseif artifact isa DataFrame
-        if kind === :strict && !(eltype(artifact.profile) <: AbstractDict)
+        if kind === :strict &&
+           _metadata_profile_encoding(artifact) != _PROFILE_ENCODING_RANK_VECTOR_V1 &&
+           !(eltype(artifact.profile) <: AbstractDict)
             decode_profile_column!(artifact)
         end
         return dataframe_to_annotated_profile(artifact; ballot_kind = kind)
@@ -989,12 +991,13 @@ function generate_profiles_for_year_streamed_from_index(
                     metadata!(df, "candidates", cand_syms)
                     metadata!(df, "profile_kind", "weak")
                     bundle = dataframe_to_annotated_profile(df; ballot_kind = :weak)
+                    artifact = compact_profile_artifact_dataframe(bundle)
 
-                    JLD2.@save fprof bundle
+                    JLD2.@save fprof artifact
                     @info "writing $(basename(fprof))"
                     paths_prof[var][i] = fprof
 
-                    df = bundle = df_imp = nothing
+                    df = bundle = artifact = df_imp = nothing
                     rep_counter += 1
                     rep_counter % 10 == 0 && GC.gc()
                 end
@@ -1016,6 +1019,20 @@ function _next_linearization_rng!(seed_stream::AbstractRNG)
     return MersenneTwister(rand(seed_stream, UInt32))
 end
 
+function _assert_complete_weak_orders(bundle::AnnotatedProfile;
+                                      context::AbstractString)
+    profile = bundle.profile
+
+    if !Preferences.is_weak_order(profile) || !Preferences.is_complete(profile)
+        throw(ArgumentError(
+            "$context expected complete weak orders before linearization. " *
+            "This pipeline stage does not define incomplete-ballot completion semantics.",
+        ))
+    end
+
+    return bundle
+end
+
 """
     linearize_profiles_for_year_streamed_from_index(year, f3_entry, profiles_year;
                                                     out_dir=LINEARIZED_PROFILES_DATA_DIR,
@@ -1025,6 +1042,11 @@ Read weak profile files from `profiles_year`, linearize them in a dedicated
 pass, write the linearized profile bundles to disk, and return a parallel
 index:
 `scenario ⇒ m ⇒ LinearizedProfilesSlice`.
+
+RNG note: this stage seeds a deterministic `seed_stream = MersenneTwister(cfg.rng_seed)`
+once per year, then draws one child `UInt32` seed per `(scenario, m, variant, replicate)`
+in traversal order. Re-running this stage with the same cached weak profiles, config,
+and `cfg.rng_seed` reproduces the same tie-breaking sequence.
 """
 function linearize_profiles_for_year_streamed_from_index(
             year::Int,
@@ -1065,13 +1087,18 @@ function linearize_profiles_for_year_streamed_from_index(
                     end
 
                     bundle = slice[var, i]
+                    _assert_complete_weak_orders(
+                        bundle;
+                        context = "year=$year scenario=$scen m=$m variant=$(String(var)) replicate=$i",
+                    )
                     strict_bundle = linearize_annotated_profile(bundle; rng = rng)
+                    artifact = compact_profile_artifact_dataframe(strict_bundle)
 
-                    JLD2.@save flin strict_bundle
+                    JLD2.@save flin artifact
                     @info "writing $(basename(flin))"
                     paths_prof[var][i] = flin
 
-                    bundle = strict_bundle = nothing
+                    bundle = strict_bundle = artifact = nothing
                     rep_counter += 1
                     rep_counter % 10 == 0 && GC.gc()
                 end
@@ -1563,102 +1590,23 @@ end
 
 function lines_alt_by_variant(measures_over_m::AbstractDict;
                               variants   = DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
-                              palette    = Makie.wong_colors(),
+                              palette    = nothing,
                               figsize    = (1000, 900),
                               candidate_label::String = "", year)
-
-    ms        = sort(collect(keys(measures_over_m)))                # alt counts
-    measures  = sort(collect(keys(first(values(measures_over_m))))) # :C, :D, …
-    sample_variant_map = first(values(first(values(measures_over_m))))
-    variant_syms = collect(_select_available_imputation_variants(keys(sample_variant_map), variants;
-                                                                 context = "scenario measures"))
-    nv        = length(variant_syms)
-
-    # legend labels
-    mlabels = Dict(
-        :calc_reversal_HHI             => "HHI",
-        :calc_total_reversal_component => "R",
-        :fast_reversal_geometric       => "RHHI",
+    return _call_plotting_extension(
+        :lines_alt_by_variant,
+        measures_over_m;
+        variants = variants,
+        palette = palette,
+        figsize = figsize,
+        candidate_label = candidate_label,
+        year = year,
     )
-
-    fig = Figure(resolution = figsize)
-    rowgap!(fig.layout, 18)
-    colgap!(fig.layout, 4)
-    fig[1, 2] = GridLayout()                 # legend column
-    colsize!(fig.layout, 2, 100)
-
-    # header
-    first_m, last_m = first(ms), last(ms)
-    first_var = first(variant_syms)
-    n_bootstrap = length(sample_variant_map[first_var])
-
-    titlegrid = GridLayout(tellwidth = true)
-    fig[0, 1] = titlegrid
-    Label(titlegrid[1, 1];
-          text = "Year = $(year)   •   Number of alternatives = $first_m … $last_m   •   $n_bootstrap pseudo-profiles",
-          fontsize = 18, halign = :left)
-    Label(titlegrid[2, 1];
-          text = candidate_label,
-          fontsize = 14, halign = :left)
-
-    # axes
-    axes = [Axis(fig[i, 1];
-                 title   = string(variant_syms[i]),
-                 xlabel  = "number of alternatives",
-                 ylabel  = "value",
-                 yticks  = (0:0.1:1, string.(0:0.1:1)),
-                 xticks  = (ms, string.(ms)))
-            for i in 1:nv]
-
-    legend_handles = Lines[]
-    legend_labels  = AbstractString[]
-
-    # plot
-    for (row, var) in enumerate(variant_syms)
-        ax = axes[row]
-
-        for (j, meas) in enumerate(measures)
-            col = palette[(j-1) % length(palette) + 1]
-
-            meds = Float64[]          # medians per m
-            q25s = Float64[]; q75s = Float64[]          # 25–75%
-            p05s = Float64[]; p95s = Float64[]          # 5–95%
-
-            for m in ms
-                vals = measures_over_m[m][meas][var]
-                push!(meds, median(vals))
-                push!(q25s, quantile(vals, 0.25))
-                push!(q75s, quantile(vals, 0.75))
-                push!(p05s, quantile(vals, 0.05))
-                push!(p95s, quantile(vals, 0.95))
-            end
-
-            # 90 % band (5–95)
-            band!(ax, ms, p05s, p95s; color = (col, 0.12))
-
-            # inter-quartile band (25–75)
-            band!(ax, ms, q25s, q75s; color = (col, 0.25))
-
-            # median line
-            ln = lines!(ax, ms, meds;
-                        color = col,
-                        label = get(mlabels, meas, string(meas)))
-
-            if row == 1
-                push!(legend_handles, ln)
-                push!(legend_labels, get(mlabels, meas, string(meas)))
-            end
-        end
-    end
-
-    Legend(fig[1:nv, 2], legend_handles, legend_labels)
-    resize_to_layout!(fig)
-    return fig
 end
 
 function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
                                    variants   = DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
-                                   palette    = Makie.wong_colors(),
+                                   palette    = nothing,
                                    figsize    = (1000, 900),
                                    candidate_label::String = "", year,
                                    whiskerwidth_outer = 10,
@@ -1669,110 +1617,23 @@ function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
                                    dodge = 0.18,
                                    connect_lines::Bool = false,
                                    connect_linewidth = 1.5)
-
-    ms        = sort(collect(keys(measures_over_m)))                # alt counts
-    measures  = sort(collect(keys(first(values(measures_over_m))))) # :C, :D, …
-    sample_variant_map = first(values(first(values(measures_over_m))))
-    variant_syms = collect(_select_available_imputation_variants(keys(sample_variant_map), variants;
-                                                                 context = "scenario measures"))
-    nv        = length(variant_syms)
-
-    # legend labels
-    mlabels = Dict(
-        :calc_reversal_HHI             => "HHI",
-        :calc_total_reversal_component => "R",
-        :fast_reversal_geometric       => "RHHI",
+    return _call_plotting_extension(
+        :dotwhisker_alt_by_variant,
+        measures_over_m;
+        variants = variants,
+        palette = palette,
+        figsize = figsize,
+        candidate_label = candidate_label,
+        year = year,
+        whiskerwidth_outer = whiskerwidth_outer,
+        whiskerwidth_inner = whiskerwidth_inner,
+        linewidth_outer = linewidth_outer,
+        linewidth_inner = linewidth_inner,
+        dot_size = dot_size,
+        dodge = dodge,
+        connect_lines = connect_lines,
+        connect_linewidth = connect_linewidth,
     )
-
-    fig = Figure(resolution = figsize)
-    rowgap!(fig.layout, 18)
-    colgap!(fig.layout, 4)
-    fig[1, 2] = GridLayout()                 # legend column
-    colsize!(fig.layout, 2, 100)
-
-    # header
-    first_m, last_m = first(ms), last(ms)
-    first_var = first(variant_syms)
-    n_bootstrap = length(sample_variant_map[first_var])
-
-    titlegrid = GridLayout(tellwidth = true)
-    fig[0, 1] = titlegrid
-    Label(titlegrid[1, 1];
-          text = "Year = $(year)   •   Number of alternatives = $first_m … $last_m   •   $n_bootstrap pseudo-profiles",
-          fontsize = 18, halign = :left)
-    Label(titlegrid[2, 1];
-          text = candidate_label,
-          fontsize = 14, halign = :left)
-
-    # axes
-    axes = [Axis(fig[i, 1];
-                 title   = string(variant_syms[i]),
-                 xlabel  = "number of alternatives",
-                 ylabel  = "value",
-                 yticks  = (0:0.1:1, string.(0:0.1:1)),
-                 xticks  = (ms, string.(ms)))
-            for i in 1:nv]
-
-    legend_handles = Any[]
-    legend_labels  = AbstractString[]
-
-    # plot
-    spacing = length(ms) > 1 ? float(minimum(diff(ms))) : 1.0
-    offsets = length(measures) > 1 ? collect(range(-dodge, dodge; length = length(measures))) : [0.0]
-
-    for (row, var) in enumerate(variant_syms)
-        ax = axes[row]
-
-        for (j, meas) in enumerate(measures)
-            col = palette[(j-1) % length(palette) + 1]
-            xpos = ms .+ offsets[j] * spacing
-
-            meds = Float64[]          # medians per m
-            q25s = Float64[]; q75s = Float64[]          # 25–75%
-            p05s = Float64[]; p95s = Float64[]          # 5–95%
-
-            for m in ms
-                vals = measures_over_m[m][meas][var]
-                push!(meds, median(vals))
-                push!(q25s, quantile(vals, 0.25))
-                push!(q75s, quantile(vals, 0.75))
-                push!(p05s, quantile(vals, 0.05))
-                push!(p95s, quantile(vals, 0.95))
-            end
-
-            # outer whiskers (5–95)
-            rangebars!(ax, xpos, p05s, p95s;
-                       direction = :y,
-                       color = (col, 0.6),
-                       linewidth = linewidth_outer,
-                       whiskerwidth = whiskerwidth_outer)
-
-            # inner whiskers (25–75)
-            rangebars!(ax, xpos, q25s, q75s;
-                       direction = :y,
-                       color = (col, 0.9),
-                       linewidth = linewidth_inner,
-                       whiskerwidth = whiskerwidth_inner)
-
-            sc = scatter!(ax, xpos, meds;
-                          color = col,
-                          markersize = dot_size,
-                          label = get(mlabels, meas, string(meas)))
-
-            if connect_lines
-                lines!(ax, xpos, meds; color = col, linewidth = connect_linewidth)
-            end
-
-            if row == 1
-                push!(legend_handles, sc)
-                push!(legend_labels, get(mlabels, meas, string(meas)))
-            end
-        end
-    end
-
-    Legend(fig[1:nv, 2], legend_handles, legend_labels)
-    resize_to_layout!(fig)
-    return fig
 end
 
 
@@ -1794,46 +1655,23 @@ function plot_scenario_year(
     f3,
     all_meas;
     variant = "mice",
-    palette = Makie.wong_colors(),
+    palette = nothing,
     figsize = (500,400),
     plot_kind::Symbol = :lines,
     connect_lines::Bool = false,
 )
-    # lookups
-    f3_entry   = f3[year]
-    cfg        = f3_entry.cfg
-
-    year_meas  = all_meas[year]
-    meas_map   = year_meas[scenario]
-    scen_obj   = _lookup_scenario(cfg, scenario)
-
-    full_list = _full_candidate_list(cfg, scen_obj)
-    candidate_label = describe_candidate_set(full_list)
-
-    # delegate to your Makie helper
-    fig = if plot_kind == :lines
-        lines_alt_by_variant(
-            meas_map;
-            variants        = [variant],
-            palette         = palette,
-            figsize         = figsize,
-            year            = year,
-            candidate_label = candidate_label,
-        )
-    elseif plot_kind == :dotwhisker
-        dotwhisker_alt_by_variant(
-            meas_map;
-            variants        = [variant],
-            palette         = palette,
-            figsize         = figsize,
-            year            = year,
-            candidate_label = candidate_label,
-            connect_lines   = connect_lines,
-        )
-    else
-        error("Unknown plot_kind=$(plot_kind). Use :lines or :dotwhisker.")
-    end
-    return fig
+    return _call_plotting_extension(
+        :plot_scenario_year,
+        year,
+        scenario,
+        f3,
+        all_meas;
+        variant = variant,
+        palette = palette,
+        figsize = figsize,
+        plot_kind = plot_kind,
+        connect_lines = connect_lines,
+    )
 end
 
 # ──────────────────────────────────────────────────────────────────
@@ -1878,106 +1716,24 @@ function plot_group_demographics_lines(
         maxcols::Int  = 3,
         n_yticks::Int = 5,
         ytick_step    = nothing,
-        palette       = Makie.wong_colors(), clist_size = 60,
+        palette       = nothing, clist_size = 60,
         demographics = f3[year].cfg.demographics
 )
-
-    # ── data slice & metadata ──────────────────────────────────────────
-    gm            = all_gm[year][scenario]                  # m ⇒ (dem ⇒ …)
-    m_values_int  = sort(collect(keys(gm)))                 # Vector{Int}
-    xs_m          = Float32.(m_values_int)                  # Makie prefers Float32
-    n_demo        = length(demographics)
-
-    scenobj = _lookup_scenario(f3[year].cfg, scenario)
-    cand_lbl = describe_candidate_set(
-                 _full_candidate_list(f3[year].cfg, scenobj))
-
-    # any slice gives the bootstrap length
-    sample_slice = gm[first(m_values_int)][Symbol(first(demographics))]
-    variant_syms = collect(_select_available_imputation_variants(keys(sample_slice), variants;
-                                                                 context = "group metrics for year $year"))
-    n_boot       = length(sample_slice[variant_syms[1]][:C])
-
-    # ── colour / style dictionaries ────────────────────────────────────
-    measure_cols   = Dict(measures[i] => palette[i] for i in eachindex(measures))
-    variant_styles = Dict(:zero => :solid, :random => :dash, :mice => :dot)
-
-    # ── figure geometry ────────────────────────────────────────────────
-    ncol       = min(maxcols, n_demo)
-    nrow       = ceil(Int, n_demo / ncol)
-    title_txt  = "Year $(year) • $(n_boot) pseudo-profiles • m = $(first(m_values_int)) … $(last(m_values_int))"
-    fig_width  = max(300*ncol, 10*length(title_txt) + 60)   # widen if title is long
-    fig_height = 300*nrow
-
-    fig = Figure(resolution = (fig_width, fig_height))
-    rowgap!(fig.layout, 24);  colgap!(fig.layout, 24)
-
-    # headers
-    fig[1, 1:ncol] = Label(fig, title_txt;  fontsize = 20, halign = :left)
-    fig[2, 1:ncol] = Label(fig,  join(TextWrap.wrap("$cand_lbl"; width=clist_size)); fontsize = 14, halign = :left)
-    header_rows = 2
-
-    # legend collectors
-    legend_handles = Any[]; legend_labels = String[]
-
-    # ── main panels ────────────────────────────────────────────────────
-    for (idx, demo) in enumerate(demographics)
-        r, c = fldmod1(idx, ncol)
-        ax = Axis(fig[r + header_rows, c];
-                  title  = demo,
-                  xlabel = "number of alternatives",
-                  ylabel = "value",
-                  xticks = (xs_m, string.(m_values_int)))            # avoid stretch
-
-        allvals = Float32[]                        # for nice y-ticks
-
-        for meas in measures, var in variant_syms
-            vals_per_m = map(m_values_int) do m
-                v = gm[m][Symbol(demo)][var]
-                arr = meas === :G ? sqrt.(v[:C] .* v[:D]) : v[meas]
-                Float32.(arr)
-            end
-
-            append!(allvals, vcat(vals_per_m...))
-
-            # meds32 = Float32.(mean.(vals_per_m))
-            meds32 = Float32.(median.(vals_per_m))
-            q25s32 = Float32.(map(x -> quantile(x, 0.25f0), vals_per_m))
-            q75s32 = Float32.(map(x -> quantile(x, 0.75f0), vals_per_m))
-
-            col = measure_cols[meas]
-            sty = variant_styles[var]
-
-            band!(ax, xs_m, q25s32, q75s32; color = (col, 0.20))
-            ln = lines!(ax, xs_m, meds32;        color = col, linestyle = sty)
-
-            if idx == 1
-                push!(legend_handles, ln)
-                push!(legend_labels, "$(meas) • $(var)")
-            end
-        end
-
-        # tidy y-ticks (optionally finer-grained via ytick_step)
-        y_min, y_max = extrema(allvals)
-        if ytick_step === nothing
-            ticks = collect(range(y_min, y_max; length = n_yticks))
-        else
-            ytick_step <= 0 && error("ytick_step must be > 0")
-            ticks = collect(y_min:ytick_step:y_max)
-            length(ticks) < 2 && (ticks = collect(range(y_min, y_max; length = 2)))
-        end
-        ax.yticks[] = (ticks, string.(round.(ticks; digits = 3)))
-    end
-
-    # ── legend column ──────────────────────────────────────────────────
-    Legend(fig[header_rows+1 : header_rows+nrow, ncol+1],
-           legend_handles, legend_labels; tellheight = false)
-
-    # now that the legend is placed, column ncol+1 exists → shrink it
-    colsize!(fig.layout, ncol + 1, Relative(0.25))
-
-    resize_to_layout!(fig)
-    return fig
+    return _call_plotting_extension(
+        :plot_group_demographics_lines,
+        all_gm,
+        f3,
+        year,
+        scenario;
+        variants = variants,
+        measures = measures,
+        maxcols = maxcols,
+        n_yticks = n_yticks,
+        ytick_step = ytick_step,
+        palette = palette,
+        clist_size = clist_size,
+        demographics = demographics,
+    )
 end
 
 """
@@ -2022,134 +1778,25 @@ function plot_group_demographics_heatmap(
         simplified_labels::Bool = false,
         clist_size    = 60
 )
-    colormaps !== nothing && (colormap = colormaps)
-
-    # ── data slice & metadata ──────────────────────────────────────────
-    gm            = all_gm[year][scenario]                  # m ⇒ (dem ⇒ …)
-    m_values_int  = sort(collect(keys(gm)))                 # Vector{Int}
-    xs_m          = Float32.(m_values_int)
-
-    groupings_vec = collect(groupings)
-    group_syms    = Symbol.(groupings_vec)
-    group_labels  = string.(groupings_vec)
-    n_groups      = length(groupings_vec)
-
-    scenobj = _lookup_scenario(f3[year].cfg, scenario)
-    cand_lbl = describe_candidate_set(
-                 _full_candidate_list(f3[year].cfg, scenobj))
-
-    # any slice gives the bootstrap length
-    sample_slice = gm[first(m_values_int)][group_syms[1]]
-    variant_syms = collect(_select_available_imputation_variants(keys(sample_slice), variants;
-                                                                 context = "group metrics for year $year"))
-    n_boot       = length(sample_slice[variant_syms[1]][:C])
-
-    # ── precompute matrices & shared colorrange ────────────────────────
-    panel_vals = Dict{Tuple{Symbol,Symbol}, Matrix{Float32}}()
-    allvals = Float32[]
-
-    for meas in measures, var in variant_syms
-        z = Matrix{Float32}(undef, length(m_values_int), n_groups)
-        for (mi, m) in enumerate(m_values_int)
-            for (gi, demo_sym) in enumerate(group_syms)
-                v = gm[m][demo_sym][var]
-                c_raw = v[:C]
-                c_vals = modified_C ? (2 .* c_raw .- 1) : c_raw
-                
-                c_for_g = modified_G ? (2 .* c_raw .- 1) : c_vals
-                
-                arr = if meas === :G
-                    sqrt.(max.(c_for_g,0.0) .* v[:D])
-                elseif meas === :C
-                    c_vals
-                else
-                    v[meas]
-                end
-                z[mi, gi] = Float32(median(arr))
-            end
-        end
-        panel_vals[(meas, var)] = z
-        append!(allvals, vec(z))
-    end
-
-    data_min, data_max = extrema(allvals)
-    data_labels = string.(round.([data_min, data_max]; digits = 3))
-    min_label = "min found = $(data_labels[1])"
-    max_label = "max found = $(data_labels[2])"
-    colorrange = fixed_colorrange ? (0.0f0, 1.0f0) : (data_min, data_max)
-
-    # ── figure geometry ────────────────────────────────────────────────
-    n_panels   = length(measures) * length(variant_syms)
-    ncol       = min(maxcols, n_panels)
-    nrow       = ceil(Int, n_panels / ncol)
-    title_txt  = "Year $(year) • $(n_boot) pseudo-profiles • m = $(first(m_values_int)) … $(last(m_values_int))"
-    fig_width  = max(320*ncol, 10*length(title_txt) + 60)
-    fig_height = 320*nrow
-
-    fig = Figure(resolution = (fig_width, fig_height))
-    rowgap!(fig.layout, 24);  colgap!(fig.layout, 24)
-
-    # headers
-    fig[1, 1:ncol] = Label(fig, title_txt;  fontsize = 20, halign = :left)
-    fig[2, 1:ncol] = Label(fig,  join(TextWrap.wrap("$cand_lbl"; width=clist_size)); fontsize = 14, halign = :left)
-    header_rows = 2
-
-    # ── panels ─────────────────────────────────────────────────────────
-    hm_ref = nothing
-    panel_idx = 0
-    for meas in measures, var in variant_syms
-        panel_idx += 1
-        r, c = fldmod1(panel_idx, ncol)
-        #Old title: (meas) • $(var); too much clutter!
-        default_xlabel = "number of alternatives"
-        default_ylabel = "grouping"
-        if simplified_labels && length(measures) > 1
-            mid_idx = ceil(Int, length(measures) / 2)
-            xlabel_txt = meas == measures[mid_idx] ? default_xlabel : ""
-            ylabel_txt = meas == first(measures) ? default_ylabel : ""
-        else
-            xlabel_txt = default_xlabel
-            ylabel_txt = default_ylabel
-        end
-        ax = Axis(fig[r + header_rows, c];
-                  title  = "$(meas)",
-                  xlabel = xlabel_txt,
-                  ylabel = ylabel_txt,
-                  xticks = (xs_m, string.(m_values_int)),
-                  yticks = (1:n_groups, group_labels))
-
-        z = panel_vals[(meas, var)]
-        hm = heatmap!(ax, xs_m, 1:n_groups, z;
-                      colormap = colormap,
-                      colorrange = colorrange)
-
-        if show_values
-            n_m = length(xs_m)
-            xs = repeat(xs_m, inner = n_groups)
-            ys = repeat(collect(1:n_groups), outer = n_m)
-            labels = [@sprintf("%.3f", z[i, j]) for i in 1:n_m for j in 1:n_groups]
-            text!(ax, xs, ys; text = labels, align = (:center, :center), color = :black, fontsize = 8)
-        end
-
-        hm_ref === nothing && (hm_ref = hm)
-    end
-
-    # ── colorbar column ────────────────────────────────────────────────
-    if hm_ref !== nothing
-        cbgrid = GridLayout()
-        fig[header_rows+1 : header_rows+nrow, ncol+1] = cbgrid
-
-        Label(cbgrid[1, 1]; text = max_label, halign = :center)
-        Colorbar(cbgrid[2, 1], hm_ref; label = "median")
-        Label(cbgrid[3, 1]; text = min_label, halign = :center)
-
-        rowsize!(cbgrid, 1, Auto(0.15))
-        rowsize!(cbgrid, 3, Auto(0.15))
-        colsize!(fig.layout, ncol + 1, Relative(0.25))
-    end
-
-    resize_to_layout!(fig)
-    return fig
+    return _call_plotting_extension(
+        :plot_group_demographics_heatmap,
+        all_gm,
+        f3,
+        year,
+        scenario;
+        variants = variants,
+        measures = measures,
+        modified_C = modified_C,
+        modified_G = modified_G,
+        groupings = groupings,
+        maxcols = maxcols,
+        colormap = colormap,
+        colormaps = colormaps,
+        fixed_colorrange = fixed_colorrange,
+        show_values = show_values,
+        simplified_labels = simplified_labels,
+        clist_size = clist_size,
+    )
 end
 
 """
@@ -2164,21 +1811,14 @@ function save_plot(fig, year::Int, scenario::AbstractString, cfg;
                    variant::AbstractString,
                    dir::AbstractString = "imgs",
                    ext::AbstractString = ".png")
-
-    # 1. make sure the directory exists
-    mkpath(dir)
-
-    # 2. assemble a human-readable, reproducible file name
-    time_stamp = Dates.format(now(), "yyyymmdd-HHMMSS")
-    max_m      = maximum(cfg.m_values_range)
-    fname      = joinpath(dir,
-        string(year, '_', scenario, '_', variant,
-               "_B", cfg.n_bootstrap,
-               "_M", max_m,
-               '_', time_stamp, ext))
-
-    # 3. save
-    save(fname, fig; px_per_unit = 4)
-    @info "saved plot → $fname"
-    return fname
+    return _call_plotting_extension(
+        :save_plot,
+        fig,
+        year,
+        scenario,
+        cfg;
+        variant = variant,
+        dir = dir,
+        ext = ext,
+    )
 end

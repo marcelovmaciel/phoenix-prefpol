@@ -4,6 +4,15 @@ using DataFrames
 using JLD2
 using OrderedCollections: OrderedDict
 
+function _have_permallows()
+    try
+        rcall = PrefPol._require_rcall!()
+        return rcall.rcopy(Bool, rcall.reval("requireNamespace('PerMallows', quietly=TRUE)"))
+    catch
+        return false
+    end
+end
+
 @testset "pipeline candidate-set cache" begin
     cfg = PrefPol.ElectionConfig(
         2022,
@@ -143,6 +152,10 @@ end
         weak_profiles = PrefPol.load_profiles_index(2022; dir = weak_dir)
         @test Set(keys(weak_profiles["all"][3].paths)) == Set((:zero, :mice))
         weak_bundle = weak_profiles["all"][3][:zero, 1]
+        stored_weak = first(values(JLD2.load(weak_profiles["all"][3].paths[:zero][1])))
+        @test stored_weak isa DataFrame
+        @test metadata(stored_weak, "profile_encoding") == "rank_vector_v1"
+        @test !(eltype(stored_weak.profile) <: AbstractDict)
 
         PrefPol.generate_profiles_for_year_streamed_from_index(
             2022, f3_entry, iy;
@@ -166,6 +179,10 @@ end
         linearized_profiles = PrefPol.load_linearized_profiles_index(2022; dir = lin_dir)
         linearized_bundle = linearized_profiles["all"][3][:zero, 1]
         linearized_rankings = PrefPol.profile_to_ranking_dicts(linearized_bundle.profile)
+        stored_linearized = first(values(JLD2.load(linearized_profiles["all"][3].paths[:zero][1])))
+        @test stored_linearized isa DataFrame
+        @test metadata(stored_linearized, "profile_encoding") == "rank_vector_v1"
+        @test !(eltype(stored_linearized.profile) <: AbstractDict)
 
         @test PrefPol.Preferences.is_strict(linearized_bundle.profile)
         @test sort(collect(values(linearized_rankings[1]))) == [1, 2, 3]
@@ -180,16 +197,156 @@ end
         @test haskey(measures["all"][3], Symbol("Ψ"))
         @test haskey(measures["all"][3], :calc_total_reversal_component)
 
-        group_metrics = PrefPol.save_or_load_group_metrics_for_year(
-            2022, linearized_profiles, f3_entry;
-            dir = group_dir,
-            overwrite = true,
-            verbose = false,
-            two_pass = true,
+        if _have_permallows()
+            group_metrics = PrefPol.save_or_load_group_metrics_for_year(
+                2022, linearized_profiles, f3_entry;
+                dir = group_dir,
+                overwrite = true,
+                verbose = false,
+                two_pass = true,
+            )
+            @test haskey(group_metrics["all"][3], :Age)
+            @test haskey(group_metrics["all"][3][:Age], :zero)
+            @test haskey(group_metrics["all"][3][:Age][:zero], :C)
+            @test haskey(group_metrics["all"][3][:Age][:zero], :D)
+        else
+            @info "Skipping group-metrics smoke: R package `PerMallows` is unavailable."
+        end
+    end
+end
+
+@testset "compact artifact codec is materially smaller than serialized bundles" begin
+    n = 250
+    df = DataFrame(
+        A = fill(10, n),
+        B = fill(8, n),
+        C = fill(6, n),
+        Age = fill("x", n),
+    )
+
+    pdf = PrefPol.profile_dataframe(df; score_cols = [:A, :B, :C], demo_cols = [:Age], kind = :weak)
+    metadata!(pdf, "candidates", [:A, :B, :C])
+    metadata!(pdf, "profile_kind", "weak")
+    bundle = PrefPol.dataframe_to_annotated_profile(pdf; ballot_kind = :weak)
+    artifact = PrefPol.compact_profile_artifact_dataframe(bundle)
+
+    mktempdir() do dir
+        compact_path = joinpath(dir, "compact.jld2")
+        bundle_path = joinpath(dir, "bundle.jld2")
+        JLD2.@save compact_path artifact
+        JLD2.@save bundle_path bundle
+        @test stat(compact_path).size < stat(bundle_path).size
+    end
+end
+
+@testset "linearization guard rejects incomplete weak orders" begin
+    cfg = PrefPol.ElectionConfig(
+        2022,
+        "unused_loader",
+        "/tmp/unused",
+        3,
+        [3],
+        1,
+        3,
+        123,
+        ["A", "B", "C"],
+        ["Age"],
+        [PrefPol.Scenario("all", String[])],
+    )
+
+    bad_df = DataFrame(
+        profile = [Dict(:A => 1, :B => 1), Dict(:A => 1, :C => 1)],
+        Age = [20, 30],
+    )
+    metadata!(bad_df, "candidates", [:A, :B, :C])
+    metadata!(bad_df, "profile_kind", "weak")
+    bad_bundle = PrefPol.dataframe_to_annotated_profile(bad_df)
+    bad_artifact = PrefPol.compact_profile_artifact_dataframe(bad_bundle)
+
+    mktempdir() do dir
+        weak_path = joinpath(dir, "weak_bad.jld2")
+        JLD2.@save weak_path artifact = bad_artifact
+
+        profiles_year = OrderedDict(
+            "all" => OrderedDict(
+                3 => PrefPol.ProfilesSlice(2022, "all", 3, [:A, :B, :C], Dict(:zero => [weak_path])),
+            ),
         )
-        @test haskey(group_metrics["all"][3], :Age)
-        @test haskey(group_metrics["all"][3][:Age], :zero)
-        @test haskey(group_metrics["all"][3][:Age][:zero], :C)
-        @test haskey(group_metrics["all"][3][:Age][:zero], :D)
+
+        @test_throws ArgumentError PrefPol.linearize_profiles_for_year_streamed_from_index(
+            2022,
+            (cfg = cfg,),
+            profiles_year;
+            out_dir = joinpath(dir, "lin"),
+            overwrite = true,
+        )
+    end
+end
+
+@testset "streamed linearization is reproducible under cfg.rng_seed" begin
+    cfg = PrefPol.ElectionConfig(
+        2022,
+        "unused_loader",
+        "/tmp/unused",
+        3,
+        [3],
+        2,
+        3,
+        777,
+        ["A", "B", "C"],
+        ["Age"],
+        [PrefPol.Scenario("all", String[])],
+    )
+
+    candidate_sets = OrderedDict("all" => ["A", "B", "C"])
+
+    mktempdir() do dir
+        imp = DataFrame(
+            A = [10, 8, 5],
+            B = [10, 7, 5],
+            C = [6, 9, 1],
+            Age = [20, 30, 40],
+        )
+
+        imp_paths = String[]
+        for i in 1:2
+            path = joinpath(dir, "imp_$(i).jld2")
+            JLD2.@save path df = imp
+            push!(imp_paths, path)
+        end
+
+        iy = PrefPol.ImputedYear(2022, Dict(:zero => imp_paths, :mice => imp_paths))
+        weak_dir = joinpath(dir, "weak")
+        lin_dir_1 = joinpath(dir, "lin1")
+        lin_dir_2 = joinpath(dir, "lin2")
+
+        PrefPol.generate_profiles_for_year_streamed_from_index(
+            2022,
+            (cfg = cfg, data = DataFrame[]),
+            iy;
+            candidate_sets = candidate_sets,
+            out_dir = weak_dir,
+            overwrite = true,
+        )
+        weak_profiles = PrefPol.load_profiles_index(2022; dir = weak_dir)
+
+        lin1 = PrefPol.linearize_profiles_for_year_streamed_from_index(
+            2022,
+            (cfg = cfg,),
+            weak_profiles;
+            out_dir = lin_dir_1,
+            overwrite = true,
+        )
+        lin2 = PrefPol.linearize_profiles_for_year_streamed_from_index(
+            2022,
+            (cfg = cfg,),
+            weak_profiles;
+            out_dir = lin_dir_2,
+            overwrite = true,
+        )
+
+        ranks1 = PrefPol.profile_to_ranking_dicts(lin1["all"][3][:zero, 1].profile)
+        ranks2 = PrefPol.profile_to_ranking_dicts(lin2["all"][3][:zero, 1].profile)
+        @test ranks1 == ranks2
     end
 end
