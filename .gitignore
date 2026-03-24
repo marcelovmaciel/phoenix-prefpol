@@ -38,3 +38,10 @@ PrefPol/old_+group/
 *.toc
 PrefPol/design_notes/preprocessing_with_figures.pdf
 PrefPol/design_notes/preprocessing_with_figures.tex
+
+# Local notes and audit docs
+codex_instructions.org
+marginalia.org
+pinning_julia_project.org
+raw_profiles_refactor_audit.md
+raw_profiles_refactor_summary.md
