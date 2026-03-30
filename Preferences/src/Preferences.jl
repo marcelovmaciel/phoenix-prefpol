@@ -4,13 +4,17 @@
 
 module Preferences
 
+using Combinatorics
 using StaticArrays
 using Random
+using SHA
 using PrettyTables
 using Crayons
 using DataFrames
 using OrderedCollections: OrderedDict
+using PooledArrays: PooledArray
 using Printf
+using StatsBase: proportionmap
 
 # Include core components (keep your load order)
 include("PreferenceCore.jl")
@@ -24,6 +28,8 @@ include("PreferenceLinearization.jl")
 include("PreferenceTabularProfiles.jl")
 include("PreferenceAggregationProcedures.jl")
 include("PreferenceMeasures.jl")
+include("PreferenceConsensus.jl")
+include("PreferenceAnnotatedProfiles.jl")
 include("PreferenceDisplay.jl")
 include("Compat.jl")
 
@@ -59,6 +65,11 @@ export resample_indices, bootstrap, bootstrap_counts
 export restrict
 export profile_build_meta
 
+# Annotated profiles and tabular adapters
+export AnnotatedProfile
+export annotated_profile, dataframe_to_annotated_profile, annotated_profile_to_dataframe
+export linearize_annotated_profile, subset_annotated_profile, profile_to_ranking_dicts
+
 # Tabular-score profile construction and pattern summaries
 export humanize_candidate_name, canonical_candidate_key
 export candidate_display_symbols, guess_weight_col, resolve_candidate_cols_from_set
@@ -80,6 +91,11 @@ export pairwise_majority_counts, pairwise_majority_margins, pairwise_majority_wi
 export ranking_signature, ranking_proportions, reversal_pairs
 export kendall_tau_distance, average_normalized_distance
 export can_polarization, total_reversal_component, reversal_hhi, reversal_geometric
+export strict_profile, ConsensusResult
+export consensus_kendall, get_consensus_ranking, kendall_tau_dict
+export consensus_for_group, group_avg_distance, weighted_coherence
+export pairwise_group_divergence, overall_divergence, overall_divergences
+export compute_group_metrics, bootstrap_group_metrics
 
 # Dynamics / mutable strict
 export StrictRankMutable, swap_positions!, swap_ids!, swap_and_update_pairwise!

@@ -340,3 +340,6 @@ end
     @test preserved_profile isa pp.Profile{<:pp.WeakRank}
     @test isequal(collect(pp.ranks(preserved_profile.ballots[1])), Union{Missing,Int}[1, 2, missing])
 end
+
+include("annotated_profiles_tests.jl")
+include("consensus_group_analysis_tests.jl")

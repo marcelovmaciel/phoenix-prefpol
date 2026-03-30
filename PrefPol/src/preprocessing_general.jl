@@ -207,8 +207,7 @@ Return the names of the `how_many` candidates with the lowest "don't know"
 percentages from a precomputed list.
 """
 function get_most_known_candidates(dont_know_her::Vector{Tuple{String, Float64}}, how_many)
-    most_known_candidates = [x[1] for x in dont_know_her[1:how_many]]    
-    return most_known_candidates
+    return first.(Iterators.take(dont_know_her, how_many))
 end
 
 
@@ -584,10 +583,14 @@ function build_profile(df::DataFrame;
                        rng  = Random.GLOBAL_RNG,
                        kind::Symbol = :linear)   # :linear or :weak
     f = kind === :linear ? force_scores_become_linear_rankings : get_order_dict
-    score_dicts = map(row -> get_row_candidate_score_pairs(row, score_cols),
-                      eachrow(df))
-    
-    return map(sd -> f(sd), score_dicts)
+    profiles = Vector{Dict{Symbol,Int}}(undef, nrow(df))
+
+    for (idx, row) in enumerate(eachrow(df))
+        score_dict = get_row_candidate_score_pairs(row, score_cols)
+        profiles[idx] = kind === :linear ? f(score_dict; rng = rng) : f(score_dict)
+    end
+
+    return profiles
 end
 
 
@@ -603,7 +606,8 @@ function profile_dataframe(df::DataFrame;
                            rng  = Random.GLOBAL_RNG,
                            kind::Symbol = :linear)
     prof = build_profile(df; score_cols = score_cols, rng = rng, kind = kind)
-    return DataFrame(profile = prof) |> (d -> hcat(d, df[:, demo_cols]))
+    demos = df[:, demo_cols]
+    return hcat(DataFrame(profile = prof), demos)
 end
 
 

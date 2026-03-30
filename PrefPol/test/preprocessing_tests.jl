@@ -12,6 +12,7 @@ using StatsBase
 using Impute
 using StaticArrays
 using PooledArrays
+import PrefPol
 import PrefPol: build_candidate_score_distributions, convert_keys_to_int,
     sanitize_countmaps, compute_dont_know_her,
     prepare_scores_for_imputation_int, prepare_scores_for_imputation_categorical,
@@ -126,7 +127,7 @@ end
 
 @testset "get_df_just_top_candidates (two methods)" begin
     df = toy_scores_df()
-    global dont_know_her = [("A", 0.0), ("B", 1.0), ("C", 2.0), ("D", 3.0)]
+    PrefPol.dont_know_her = [("A", 0.0), ("B", 1.0), ("C", 2.0), ("D", 3.0)]
     df1 = get_df_just_top_candidates(df, 2; demographics=DEMOS)
     @test Set(names(df1)) == Set(vcat(["A","B"], DEMOS))
     df2 = get_df_just_top_candidates(df, ["C","A"]; demographics=["Sex"])
