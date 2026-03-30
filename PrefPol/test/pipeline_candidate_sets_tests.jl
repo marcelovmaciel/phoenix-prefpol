@@ -4,15 +4,6 @@ using DataFrames
 using JLD2
 using OrderedCollections: OrderedDict
 
-function _have_permallows()
-    try
-        rcall = PrefPol._require_rcall!()
-        return rcall.rcopy(Bool, rcall.reval("requireNamespace('PerMallows', quietly=TRUE)"))
-    catch
-        return false
-    end
-end
-
 @testset "pipeline candidate-set cache" begin
     cfg = PrefPol.ElectionConfig(
         2022,
@@ -197,21 +188,17 @@ end
         @test haskey(measures["all"][3], Symbol("Ψ"))
         @test haskey(measures["all"][3], :calc_total_reversal_component)
 
-        if _have_permallows()
-            group_metrics = PrefPol.save_or_load_group_metrics_for_year(
-                2022, linearized_profiles, f3_entry;
-                dir = group_dir,
-                overwrite = true,
-                verbose = false,
-                two_pass = true,
-            )
-            @test haskey(group_metrics["all"][3], :Age)
-            @test haskey(group_metrics["all"][3][:Age], :zero)
-            @test haskey(group_metrics["all"][3][:Age][:zero], :C)
-            @test haskey(group_metrics["all"][3][:Age][:zero], :D)
-        else
-            @info "Skipping group-metrics smoke: R package `PerMallows` is unavailable."
-        end
+        group_metrics = PrefPol.save_or_load_group_metrics_for_year(
+            2022, linearized_profiles, f3_entry;
+            dir = group_dir,
+            overwrite = true,
+            verbose = false,
+            two_pass = true,
+        )
+        @test haskey(group_metrics["all"][3], :Age)
+        @test haskey(group_metrics["all"][3][:Age], :zero)
+        @test haskey(group_metrics["all"][3][:Age][:zero], :C)
+        @test haskey(group_metrics["all"][3][:Age][:zero], :D)
     end
 end
 

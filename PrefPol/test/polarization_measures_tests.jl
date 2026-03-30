@@ -3,6 +3,8 @@ using Test
 using DataFrames
 using StatsBase: proportionmap
 using Combinatorics: combinations
+using Random: MersenneTwister
+using StaticArrays: SA
 
 # Load from the package. If your module name differs, change "PrefPol".
 import PrefPol
@@ -43,6 +45,30 @@ example_counts = [
 const EX_R = 22/29
 const EX_HHI = 59/121
 const EX_RHHI = sqrt(EX_R * EX_HHI)
+
+# ---------------------------------------------------------------------------
+# Tests for: exact-tuple permutation catalogs
+# ---------------------------------------------------------------------------
+
+@testset "linear order catalog cache uses exact candidate tuples" begin
+    cache = Dict{Tuple{Vararg{Symbol}},Any}()
+
+    cat_abc = PrefPol.get_linear_order_catalog((:a, :b, :c); cache = cache)
+    cat_abd = PrefPol.get_linear_order_catalog((:a, :b, :d); cache = cache)
+    cat_abc_again = PrefPol.get_linear_order_catalog((:a, :b, :c); cache = cache)
+
+    @test length(cat_abc.orders) == factorial(3)
+    @test length(cat_abd.orders) == factorial(3)
+    @test cat_abc === cat_abc_again
+    @test cat_abc !== cat_abd
+
+    for k in 2:7
+        tup = Tuple(Symbol("c$i") for i in 1:k)
+        cat = PrefPol.get_linear_order_catalog(tup; cache = cache)
+        @test length(cat.orders) == factorial(k)
+        @test cat.max_kendall == binomial(k, 2)
+    end
+end
 
 # ---------------------------------------------------------------------------
 # Tests for: find_reversal_pairs
@@ -185,6 +211,74 @@ end
     results_distance = DataFrame(group = ["G1","G2"], group_coherence = [1.0, 0.5])
     propmap = Dict("G1"=>0.5, "G2"=>0.5)
     @test PrefPol.weighted_coherence(results_distance, propmap, :group) == 0.75
+end
+
+@testset "brute-force consensus metadata and tie handling" begin
+    # Unique 3-candidate minimizer
+    prof_unique = profile_from_counts([
+        ([:a, :b, :c], 2),
+        ([:a, :c, :b], 1),
+        ([:b, :a, :c], 1),
+    ])
+    strict_unique = PrefPol.strict_profile(prof_unique)
+    res_unique = PrefPol.consensus_kendall(strict_unique, (:a, :b, :c))
+
+    @test res_unique.consensus_ranking == ranking_dict([:a, :b, :c])
+    @test res_unique.consensus_perm == SA[0x01, 0x02, 0x03]
+    @test res_unique.min_total_distance == 2.0
+    @test res_unique.avg_normalized_distance == 2 / (4 * 3)
+    @test !res_unique.is_tied_minimizer
+    @test res_unique.n_minimizers == 1
+    @test res_unique.tie_rule == :unique
+    @test res_unique.all_minimizers == [SA[0x01, 0x02, 0x03]]
+
+    gad_unique = PrefPol.group_avg_distance(DataFrame(profile = prof_unique))
+    @test gad_unique.avg_distance == res_unique.avg_normalized_distance
+    @test gad_unique.group_coherence == 1.0 - res_unique.avg_normalized_distance
+    @test gad_unique.min_total_distance == res_unique.min_total_distance
+
+    # Tied minimizers for two opposite 2-candidate ballots
+    prof_tie = [ranking_dict([:a, :b]), ranking_dict([:b, :a])]
+    strict_tie = PrefPol.strict_profile(prof_tie)
+    res_tie = PrefPol.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(1))
+    res_tie_alt = PrefPol.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(2))
+
+    @test res_tie.consensus_ranking == ranking_dict([:b, :a])
+    @test res_tie.consensus_perm == SA[0x02, 0x01]
+    @test res_tie.min_total_distance == 1.0
+    @test res_tie.avg_normalized_distance == 0.5
+    @test res_tie.is_tied_minimizer
+    @test res_tie.n_minimizers == 2
+    @test res_tie.tie_rule == :random_minimizer
+    @test res_tie.all_minimizers == [SA[0x01, 0x02], SA[0x02, 0x01]]
+    @test res_tie_alt.consensus_ranking == ranking_dict([:a, :b])
+    @test res_tie_alt.consensus_perm == SA[0x01, 0x02]
+    @test res_tie_alt.all_minimizers == res_tie.all_minimizers
+
+    out_tie = PrefPol.consensus_for_group(DataFrame(profile = prof_tie); rng = MersenneTwister(1))
+    @test out_tie.consensus_ranking == ranking_dict([:b, :a])
+    @test out_tie.consensus_set == [SA[0x01, 0x02], SA[0x02, 0x01]]
+    @test out_tie.is_tied_minimizer
+    @test out_tie.n_minimizers == 2
+end
+
+@testset "weighted brute-force consensus matches expanded profile" begin
+    pool = PrefPol.Preferences.CandidatePool([:a, :b, :c])
+    abc = PrefPol.Preferences.StrictRank(pool, [:a, :b, :c])
+    cba = PrefPol.Preferences.StrictRank(pool, [:c, :b, :a])
+
+    weighted = PrefPol.Preferences.WeightedProfile(
+        PrefPol.Preferences.Profile(pool, [abc, cba]),
+        [2.0, 1.0],
+    )
+    expanded = PrefPol.Preferences.Profile(pool, [abc, abc, cba])
+
+    res_weighted = PrefPol.consensus_kendall(weighted, (:a, :b, :c))
+    res_expanded = PrefPol.consensus_kendall(expanded, (:a, :b, :c))
+
+    @test res_weighted.consensus_perm == res_expanded.consensus_perm
+    @test res_weighted.min_total_distance == res_expanded.min_total_distance
+    @test res_weighted.avg_normalized_distance == res_expanded.avg_normalized_distance
 end
 
 # ---------------------------------------------------------------------------

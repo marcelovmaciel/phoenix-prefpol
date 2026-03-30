@@ -539,7 +539,8 @@ function impute_bootstrap_to_files(path_boot::String;
         end
 
         # ---------- free memory for this replicate ----------
-        imp = reps[i] = df_raw = nothing
+        imp = nothing
+        df_raw = nothing
         GC.gc()
     end
 
@@ -1341,6 +1342,7 @@ function apply_group_metrics_for_year_streaming(
 
         for (m, slice) in m_map
             _require_linearized_slice(slice, scen, m)
+            get_linear_order_catalog(Tuple(slice.cand_list))
             variants   = collect(keys(slice.paths))
             n_rep_max  = maximum(length(slice.paths[v]) for v in variants)
 
@@ -1431,6 +1433,7 @@ function compute_and_cache_group_metrics_per_df!(
     for (scen, m_map) in profiles_year
         for (m, slice) in m_map
             _require_linearized_slice(slice, scen, m)
+            get_linear_order_catalog(Tuple(slice.cand_list))
             variants   = collect(keys(slice.paths))
             n_rep_max  = maximum(length(slice.paths[v]) for v in variants)
 
@@ -1486,6 +1489,7 @@ function accumulate_cached_group_metrics_for_year!(
         scen_out = OrderedDict()
         for (m, slice) in m_map
             _require_linearized_slice(slice, scen, m)
+            get_linear_order_catalog(Tuple(slice.cand_list))
             variants   = collect(keys(slice.paths))
             n_rep_max  = maximum(length(slice.paths[v]) for v in variants)
 

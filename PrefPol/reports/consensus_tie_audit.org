@@ -1,0 +1,143 @@
+#+title: Consensus Tie Audit
+#+date: 2026-03-30 13:14:57
+
+* Scope
+- Julia version used: =1.11.9=
+- Years analyzed: =2006, 2018, 2022=
+- Bootstraps per year: =3=
+- Imputation variants: =zero= and =mice=
+- Pipeline path: exact cached path with candidate-set cache, disk bootstrap, disk imputation, streamed weak profiles, and streamed linearization.
+- This report supersedes the earlier quick 2022 exploratory scan. The counts below come from the exact cached pipeline path.
+
+* Main Findings
+- Ties are real in all three years: 772 tied group consensuses out of 9076 total evaluations (8.51% overall).
+- Highest annual tie rate: 2022 with 275 / 2112 tied (13.02%).
+- Lowest annual tie rate: 2006 with 114 / 1780 tied (6.40%).
+- Tie rates rise with candidate-set size. The highest observed m-level is m=7 at 21.31%; the lowest is m=2 at 0.56%.
+- The most tie-prone year-scenario slice is 2022 / lula_bolsonaro at 13.02%.
+- The most tie-prone year-demographic slice is 2022 / Religion at 24.77%, with max minimizer multiplicity 504.
+- Ties are not only a tiny-group artifact. Some of the largest tied groups have masses in the hundreds, although the most extreme minimizer multiplicities occur in very small groups.
+- Substantive implication: =C= is unchanged by tie choice because it depends only on the minimized objective, but =D= is tie-rule dependent. All numbers here use the production rule =lexicographic_first= under the exact active ordered candidate tuple.
+
+* Summary By Year
+| year | tied_consensuses | total_consensuses | tie_rate_pct | max_n_minimizers |
+|------+------------------+-------------------+--------------+------------------|
+| 2006 | 114              | 1780              | 6.40%        | 12               |
+| 2018 | 383              | 5184              | 7.39%        | 72               |
+| 2022 | 275              | 2112              | 13.02%       | 504              |
+
+* Summary By Year And Variant
+| year | variant | tied_consensuses | total_consensuses | tie_rate_pct | max_n_minimizers |
+|------+---------+------------------+-------------------+--------------+------------------|
+| 2006 | mice    | 62               | 890               | 6.97%        | 12               |
+| 2006 | zero    | 52               | 890               | 5.84%        | 6                |
+| 2018 | mice    | 191              | 2592              | 7.37%        | 72               |
+| 2018 | zero    | 192              | 2592              | 7.41%        | 48               |
+| 2022 | mice    | 128              | 1056              | 12.12%       | 92               |
+| 2022 | zero    | 147              | 1056              | 13.92%       | 504              |
+
+* Summary By Year And m
+| year | m | tied_consensuses | total_consensuses | tie_rate_pct | max_n_minimizers |
+|------+---+------------------+-------------------+--------------+------------------|
+| 2006 | 2 | 2                | 356               | 0.56%        | 2                |
+| 2006 | 3 | 7                | 356               | 1.97%        | 2                |
+| 2006 | 4 | 30               | 356               | 8.43%        | 6                |
+| 2006 | 5 | 29               | 356               | 8.15%        | 5                |
+| 2006 | 6 | 46               | 356               | 12.92%       | 12               |
+| 2018 | 2 | 5                | 864               | 0.58%        | 2                |
+| 2018 | 3 | 42               | 864               | 4.86%        | 3                |
+| 2018 | 4 | 56               | 864               | 6.48%        | 5                |
+| 2018 | 5 | 78               | 864               | 9.03%        | 8                |
+| 2018 | 6 | 94               | 864               | 10.88%       | 24               |
+| 2018 | 7 | 108              | 864               | 12.50%       | 72               |
+| 2022 | 2 | 17               | 352               | 4.83%        | 2                |
+| 2022 | 3 | 25               | 352               | 7.10%        | 6                |
+| 2022 | 4 | 37               | 352               | 10.51%       | 8                |
+| 2022 | 5 | 60               | 352               | 17.05%       | 15               |
+| 2022 | 6 | 61               | 352               | 17.33%       | 24               |
+| 2022 | 7 | 75               | 352               | 21.31%       | 504              |
+
+* Summary By Year And Scenario
+| year | scenario       | tied_consensuses | total_consensuses | tie_rate_pct | max_n_minimizers |
+|------+----------------+------------------+-------------------+--------------+------------------|
+| 2006 | lula_alckmin   | 56               | 890               | 6.29%        | 6                |
+| 2006 | no_forcing     | 58               | 890               | 6.52%        | 12               |
+| 2018 | lula_bolsonaro | 130              | 1728              | 7.52%        | 72               |
+| 2018 | main_four      | 143              | 1728              | 8.28%        | 48               |
+| 2018 | no_forcing     | 110              | 1728              | 6.37%        | 20               |
+| 2022 | lula_bolsonaro | 275              | 2112              | 13.02%       | 504              |
+
+* Summary By Year And Demographic
+| year | demographic | tied_consensuses | total_consensuses | tie_rate_pct | max_n_minimizers |
+|------+-------------+------------------+-------------------+--------------+------------------|
+| 2006 | Age         | 5                | 300               | 1.67%        | 2                |
+| 2006 | Education   | 42               | 480               | 8.75%        | 3                |
+| 2006 | Ideology    | 5                | 240               | 2.08%        | 2                |
+| 2006 | Income      | 56               | 460               | 12.17%       | 12               |
+| 2006 | PT          | 6                | 180               | 3.33%        | 3                |
+| 2006 | Sex         | 0                | 120               | 0.00%        | 1                |
+| 2018 | Age         | 50               | 756               | 6.61%        | 10               |
+| 2018 | Education   | 26               | 1080              | 2.41%        | 5                |
+| 2018 | Ideology    | 2                | 432               | 0.46%        | 2                |
+| 2018 | Income      | 98               | 972               | 10.08%       | 14               |
+| 2018 | Race        | 18               | 648               | 2.78%        | 2                |
+| 2018 | Religion    | 189              | 1080              | 17.50%       | 72               |
+| 2018 | Sex         | 0                | 216               | 0.00%        | 1                |
+| 2022 | Abortion    | 3                | 144               | 2.08%        | 4                |
+| 2022 | Age         | 26               | 252               | 10.32%       | 8                |
+| 2022 | Education   | 33               | 384               | 8.59%        | 3                |
+| 2022 | Ideology    | 3                | 144               | 2.08%        | 3                |
+| 2022 | Income      | 49               | 360               | 13.61%       | 10               |
+| 2022 | PT          | 3                | 108               | 2.78%        | 2                |
+| 2022 | Race        | 50               | 216               | 23.15%       | 12               |
+| 2022 | Religion    | 107              | 432               | 24.77%       | 504              |
+| 2022 | Sex         | 1                | 72                | 1.39%        | 2                |
+
+* Top Tied Cases By Number Of Minimizers
+| year | scenario       | m | variant | replicate | demographic | group | group_mass | n_minimizers | candidate_tuple                                                                                        | chosen_order                                                                                           |
+|------+----------------+---+---------+-----------+-------------+-------+------------+--------------+--------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------|
+| 2022 | lula_bolsonaro | 7 | zero    | 2         | Religion    | 99.0  | 2.0        | 504          | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET > TARCISIO_DE_FREITAS    | BOLSONARO > LULA > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET > CIRO_GOMES > TARCISIO_DE_FREITAS    |
+| 2022 | lula_bolsonaro | 7 | mice    | 2         | Religion    | 99.0  | 2.0        | 92           | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET > TARCISIO_DE_FREITAS    | LULA > SIMONE_TEBET > CIRO_GOMES > MARINA_SILVA > TARCISIO_DE_FREITAS > BOLSONARO > GERALDO_ALCKMIN    |
+| 2018 | lula_bolsonaro | 7 | mice    | 1         | Religion    | 8.0   | 2.0        | 72           | Lula > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Dilma_Rousseff > Michel_Temer > Fernando_Haddad | Lula > Ciro_Gomes > Dilma_Rousseff > Fernando_Haddad > Jair_Bolsonaro > Geraldo_Alckmin > Michel_Temer |
+| 2018 | main_four      | 7 | zero    | 1         | Religion    | 8.0   | 2.0        | 48           | Fernando_Haddad > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Lula > Dilma_Rousseff > Michel_Temer | Ciro_Gomes > Lula > Fernando_Haddad > Dilma_Rousseff > Jair_Bolsonaro > Geraldo_Alckmin > Michel_Temer |
+| 2022 | lula_bolsonaro | 7 | mice    | 2         | Religion    | 9.0   | 4.0        | 27           | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET > TARCISIO_DE_FREITAS    | GERALDO_ALCKMIN > LULA > SIMONE_TEBET > BOLSONARO > MARINA_SILVA > CIRO_GOMES > TARCISIO_DE_FREITAS    |
+| 2018 | main_four      | 6 | mice    | 1         | Religion    | 8.0   | 2.0        | 24           | Fernando_Haddad > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Lula > Dilma_Rousseff                | Fernando_Haddad > Ciro_Gomes > Lula > Dilma_Rousseff > Jair_Bolsonaro > Geraldo_Alckmin                |
+| 2018 | lula_bolsonaro | 7 | zero    | 1         | Religion    | 8.0   | 2.0        | 24           | Lula > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Dilma_Rousseff > Michel_Temer > Fernando_Haddad | Lula > Ciro_Gomes > Dilma_Rousseff > Fernando_Haddad > Michel_Temer > Jair_Bolsonaro > Geraldo_Alckmin |
+| 2018 | main_four      | 7 | mice    | 1         | Religion    | 8.0   | 2.0        | 24           | Fernando_Haddad > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Lula > Dilma_Rousseff > Michel_Temer | Fernando_Haddad > Ciro_Gomes > Lula > Dilma_Rousseff > Jair_Bolsonaro > Geraldo_Alckmin > Michel_Temer |
+| 2022 | lula_bolsonaro | 6 | mice    | 2         | Religion    | 99.0  | 2.0        | 24           | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET                          | MARINA_SILVA > SIMONE_TEBET > BOLSONARO > LULA > CIRO_GOMES > GERALDO_ALCKMIN                          |
+| 2018 | no_forcing     | 7 | mice    | 1         | Religion    | 1.0   | 8.0        | 20           | Lula > Dilma_Rousseff > Michel_Temer > Jair_Bolsonaro > Fernando_Haddad > Marina_Silva > Aécio_Neves   | Jair_Bolsonaro > Marina_Silva > Lula > Dilma_Rousseff > Michel_Temer > Fernando_Haddad > Aécio_Neves   |
+| 2022 | lula_bolsonaro | 7 | zero    | 2         | Religion    | 9.0   | 4.0        | 20           | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET > TARCISIO_DE_FREITAS    | GERALDO_ALCKMIN > LULA > MARINA_SILVA > CIRO_GOMES > SIMONE_TEBET > TARCISIO_DE_FREITAS > BOLSONARO    |
+| 2018 | lula_bolsonaro | 6 | mice    | 1         | Religion    | 8.0   | 2.0        | 18           | Lula > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Dilma_Rousseff > Michel_Temer                   | Lula > Ciro_Gomes > Dilma_Rousseff > Jair_Bolsonaro > Geraldo_Alckmin > Michel_Temer                   |
+
+* Largest-Mass Tied Cases
+| year | scenario       | m | variant | replicate | demographic | group | group_mass | n_minimizers | candidate_tuple                                                                                        | chosen_order                                                                                           |
+|------+----------------+---+---------+-----------+-------------+-------+------------+--------------+--------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------|
+| 2018 | lula_bolsonaro | 3 | mice    | 2         | Race        | 2.0   | 1156.0     | 2            | Lula > Jair_Bolsonaro > Ciro_Gomes                                                                     | Jair_Bolsonaro > Lula > Ciro_Gomes                                                                     |
+| 2022 | lula_bolsonaro | 5 | zero    | 1         | Sex         | 2.0   | 1050.0     | 2            | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN                                         | LULA > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > BOLSONARO                                         |
+| 2022 | lula_bolsonaro | 7 | mice    | 1         | Race        | 2.0   | 920.0      | 2            | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET > TARCISIO_DE_FREITAS    | LULA > SIMONE_TEBET > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > TARCISIO_DE_FREITAS    |
+| 2022 | lula_bolsonaro | 7 | mice    | 3         | Race        | 3.0   | 873.0      | 2            | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET > TARCISIO_DE_FREITAS    | BOLSONARO > LULA > CIRO_GOMES > SIMONE_TEBET > TARCISIO_DE_FREITAS > GERALDO_ALCKMIN > MARINA_SILVA    |
+| 2018 | main_four      | 6 | mice    | 2         | Race        | 3.0   | 766.0      | 2            | Fernando_Haddad > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Lula > Dilma_Rousseff                | Jair_Bolsonaro > Ciro_Gomes > Lula > Fernando_Haddad > Geraldo_Alckmin > Dilma_Rousseff                |
+| 2018 | no_forcing     | 7 | zero    | 2         | Race        | 3.0   | 766.0      | 2            | Lula > Dilma_Rousseff > Michel_Temer > Jair_Bolsonaro > Fernando_Haddad > Marina_Silva > Aécio_Neves   | Jair_Bolsonaro > Lula > Fernando_Haddad > Marina_Silva > Dilma_Rousseff > Aécio_Neves > Michel_Temer   |
+| 2018 | main_four      | 5 | zero    | 1         | Income      | 2.0   | 694.0      | 2            | Fernando_Haddad > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Lula                                 | Jair_Bolsonaro > Lula > Fernando_Haddad > Ciro_Gomes > Geraldo_Alckmin                                 |
+| 2022 | lula_bolsonaro | 6 | mice    | 1         | Religion    | 5.0   | 614.0      | 2            | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > SIMONE_TEBET                          | BOLSONARO > CIRO_GOMES > SIMONE_TEBET > LULA > MARINA_SILVA > GERALDO_ALCKMIN                          |
+| 2006 | lula_alckmin   | 4 | zero    | 1         | PT          | 1.0   | 554.0      | 2            | Lula > Geraldo_Alckmin > Heloísa_Helena > José_Serra                                                   | Lula > Geraldo_Alckmin > José_Serra > Heloísa_Helena                                                   |
+| 2018 | main_four      | 4 | zero    | 1         | Ideology    | 99    | 542.0      | 2            | Fernando_Haddad > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin                                        | Jair_Bolsonaro > Fernando_Haddad > Ciro_Gomes > Geraldo_Alckmin                                        |
+| 2018 | lula_bolsonaro | 7 | zero    | 2         | Ideology    | 0     | 476.0      | 2            | Lula > Jair_Bolsonaro > Ciro_Gomes > Geraldo_Alckmin > Dilma_Rousseff > Michel_Temer > Fernando_Haddad | Jair_Bolsonaro > Ciro_Gomes > Lula > Geraldo_Alckmin > Fernando_Haddad > Dilma_Rousseff > Michel_Temer |
+| 2022 | lula_bolsonaro | 5 | mice    | 3         | Age         | 3     | 440.0      | 2            | LULA > BOLSONARO > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN                                         | LULA > CIRO_GOMES > MARINA_SILVA > GERALDO_ALCKMIN > BOLSONARO                                         |
+
+* Notes
+- The slow stage in the all-years run was still R/=mice= imputation, not the brute-force Kendall consensus search.
+- The most extreme tie count in this run is 504 minimizers for a 2022 religion group with group mass 2 in the =zero= variant at m=7.
+- 2022 shows the strongest tie pressure overall, especially in Religion and Race, and at larger m values.
+- 2018 also has substantial tie incidence, especially Religion at 17.50%.
+- 2006 has the lowest overall tie rate, but ties are still present and become nontrivial by m=6.
+
+* Artifacts
+- [[file:consensus_tie_audit/all_cases_all_years.csv][all_cases_all_years.csv]]
+- [[file:consensus_tie_audit/tied_cases_all_years.csv][tied_cases_all_years.csv]]
+- [[file:consensus_tie_audit/summary_by_year.csv][summary_by_year.csv]]
+- [[file:consensus_tie_audit/summary_by_year_variant.csv][summary_by_year_variant.csv]]
+- [[file:consensus_tie_audit/summary_by_year_m.csv][summary_by_year_m.csv]]
+- [[file:consensus_tie_audit/summary_by_year_scenario.csv][summary_by_year_scenario.csv]]
+- [[file:consensus_tie_audit/summary_by_year_demographic.csv][summary_by_year_demographic.csv]]
+- Cache root used by the exact-path run: [[file:consensus_tie_audit/_cache/][consensus_tie_audit/_cache/]]
