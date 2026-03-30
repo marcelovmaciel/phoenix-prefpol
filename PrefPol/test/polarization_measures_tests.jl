@@ -240,26 +240,38 @@ end
     # Tied minimizers for two opposite 2-candidate ballots
     prof_tie = [ranking_dict([:a, :b]), ranking_dict([:b, :a])]
     strict_tie = PrefPol.strict_profile(prof_tie)
-    res_tie = PrefPol.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(1))
-    res_tie_alt = PrefPol.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(2))
+    res_tie = PrefPol.consensus_kendall(strict_tie, (:a, :b))
+    res_tie_repeat = PrefPol.consensus_kendall(strict_tie, (:a, :b))
+    res_tie_key_alt = PrefPol.consensus_kendall(
+        strict_tie,
+        (:a, :b);
+        tie_break_key = (case = :alt, replicate = 2),
+    )
+    res_tie_rng_1 = PrefPol.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(1))
+    res_tie_rng_2 = PrefPol.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(2))
 
-    @test res_tie.consensus_ranking == ranking_dict([:b, :a])
-    @test res_tie.consensus_perm == SA[0x02, 0x01]
+    @test res_tie.consensus_perm in (SA[0x01, 0x02], SA[0x02, 0x01])
     @test res_tie.min_total_distance == 1.0
     @test res_tie.avg_normalized_distance == 0.5
     @test res_tie.is_tied_minimizer
     @test res_tie.n_minimizers == 2
-    @test res_tie.tie_rule == :random_minimizer
+    @test res_tie.tie_rule == :deterministic_pseudorandom_minimizer
     @test res_tie.all_minimizers == [SA[0x01, 0x02], SA[0x02, 0x01]]
-    @test res_tie_alt.consensus_ranking == ranking_dict([:a, :b])
-    @test res_tie_alt.consensus_perm == SA[0x01, 0x02]
-    @test res_tie_alt.all_minimizers == res_tie.all_minimizers
+    @test res_tie_repeat.consensus_perm == res_tie.consensus_perm
+    @test res_tie_repeat.tie_rule == :deterministic_pseudorandom_minimizer
+    @test res_tie_key_alt.consensus_perm in (SA[0x01, 0x02], SA[0x02, 0x01])
+    @test res_tie_key_alt.all_minimizers == res_tie.all_minimizers
+    @test res_tie_rng_1.tie_rule == :random_minimizer
+    @test res_tie_rng_2.tie_rule == :random_minimizer
+    @test res_tie_rng_1.all_minimizers == res_tie.all_minimizers
+    @test res_tie_rng_2.all_minimizers == res_tie.all_minimizers
 
-    out_tie = PrefPol.consensus_for_group(DataFrame(profile = prof_tie); rng = MersenneTwister(1))
-    @test out_tie.consensus_ranking == ranking_dict([:b, :a])
+    out_tie = PrefPol.consensus_for_group(DataFrame(profile = prof_tie))
+    @test out_tie.consensus_perm == res_tie.consensus_perm
     @test out_tie.consensus_set == [SA[0x01, 0x02], SA[0x02, 0x01]]
     @test out_tie.is_tied_minimizer
     @test out_tie.n_minimizers == 2
+    @test out_tie.consensus_result.tie_rule == :deterministic_pseudorandom_minimizer
 end
 
 @testset "weighted brute-force consensus matches expanded profile" begin

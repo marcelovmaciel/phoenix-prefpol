@@ -1,0 +1,105 @@
+#+title: Consensus Tie Sensitivity Audit
+#+date: 2026-03-30 14:49:29
+
+* Scope
+- Julia version: =1.11.9=
+- Source cache: =PrefPol/reports/consensus_tie_audit/_cache/=
+- Method: one-group-at-a-time sensitivity. For each tied group in a slice, hold every other group consensus fixed at the first minimizer in the stored consensus set, then recompute overall =D= across that group's minimizing set.
+- This is not the full joint range over all tied groups in a slice. It isolates which tied groups matter individually.
+- Production tie-breaking now uses =deterministic_pseudorandom_minimizer=. Production runs choose a stable representative from each minimizing set, so tie-breaking no longer creates run-to-run drift by itself.
+
+* Main Findings
+- Tied groups scanned: =772=
+- Groups with =delta_D >= 1e-3=: =606=
+- Groups with =delta_D >= 1e-2=: =62=
+- Largest single-group sensitivity: year=2006, scenario=lula_alckmin, m=3, variant=zero, replicate=1, demographic=Income, group=6.0, mass=16.000000, delta_D=0.047889, n_minimizers=2.
+- Largest slice-level maximum sensitivity: year=2006, scenario=lula_alckmin, m=3, variant=zero, replicate=1, demographic=Income, max_group_delta_D=0.047889.
+
+* Sensitivity By Year
+| year | count | max_value | mean_value | median_value |
+|------+-------+-----------+------------+--------------|
+| 2006 | 114   | 0.047889  | 0.006690   | 0.003286     |
+| 2018 | 383   | 0.037865  | 0.004214   | 0.002747     |
+| 2022 | 275   | 0.014693  | 0.002632   | 0.001527     |
+
+* Sensitivity By Year And m
+| year | m | count | max_value | mean_value | median_value |
+|------+---+-------+-----------+------------+--------------|
+| 2006 | 2 | 2     | 0.047714  | 0.046143   | 0.044571     |
+| 2006 | 3 | 7     | 0.047889  | 0.024615   | 0.015905     |
+| 2006 | 4 | 30    | 0.028667  | 0.007394   | 0.006190     |
+| 2006 | 5 | 29    | 0.020500  | 0.005235   | 0.004000     |
+| 2006 | 6 | 46    | 0.009444  | 0.002705   | 0.001600     |
+| 2018 | 2 | 5     | 0.037865  | 0.023960   | 0.026869     |
+| 2018 | 3 | 42    | 0.024807  | 0.008472   | 0.007744     |
+| 2018 | 4 | 56    | 0.016050  | 0.005253   | 0.004212     |
+| 2018 | 5 | 78    | 0.017944  | 0.003507   | 0.002424     |
+| 2018 | 6 | 94    | 0.018640  | 0.003023   | 0.002330     |
+| 2018 | 7 | 108   | 0.012902  | 0.002652   | 0.001748     |
+| 2022 | 2 | 17    | 0.014693  | 0.008173   | 0.007678     |
+| 2022 | 3 | 25    | 0.010616  | 0.004804   | 0.005194     |
+| 2022 | 4 | 37    | 0.010545  | 0.002747   | 0.001832     |
+| 2022 | 5 | 60    | 0.012364  | 0.002567   | 0.001466     |
+| 2022 | 6 | 61    | 0.009422  | 0.001828   | 0.001219     |
+| 2022 | 7 | 75    | 0.012193  | 0.001300   | 0.000869     |
+
+* Sensitivity By Year And Demographic
+| year | demographic | count | max_value | mean_value | median_value |
+|------+-------------+-------+-----------+------------+--------------|
+| 2006 | Age         | 5     | 0.004833  | 0.002123   | 0.001500     |
+| 2006 | Education   | 42    | 0.047714  | 0.007212   | 0.002971     |
+| 2006 | Ideology    | 5     | 0.004356  | 0.002596   | 0.002933     |
+| 2006 | Income      | 56    | 0.047889  | 0.006467   | 0.004000     |
+| 2006 | PT          | 6     | 0.028667  | 0.012339   | 0.007733     |
+| 2018 | Age         | 50    | 0.018640  | 0.005688   | 0.004212     |
+| 2018 | Education   | 26    | 0.007227  | 0.002043   | 0.001605     |
+| 2018 | Ideology    | 2     | 0.003325  | 0.001992   | 0.000659     |
+| 2018 | Income      | 98    | 0.024807  | 0.003759   | 0.002428     |
+| 2018 | Race        | 18    | 0.013621  | 0.002714   | 0.001692     |
+| 2018 | Religion    | 189   | 0.037865  | 0.004524   | 0.003033     |
+| 2022 | Abortion    | 3     | 0.003254  | 0.002125   | 0.001932     |
+| 2022 | Age         | 26    | 0.009523  | 0.002966   | 0.001807     |
+| 2022 | Education   | 33    | 0.005714  | 0.001136   | 0.000836     |
+| 2022 | Ideology    | 3     | 0.001793  | 0.000890   | 0.000643     |
+| 2022 | Income      | 49    | 0.004675  | 0.001426   | 0.001192     |
+| 2022 | PT          | 3     | 0.005847  | 0.003543   | 0.003915     |
+| 2022 | Race        | 50    | 0.014693  | 0.004631   | 0.003578     |
+| 2022 | Religion    | 107   | 0.012193  | 0.002681   | 0.001648     |
+| 2022 | Sex         | 1     | 0.001149  | 0.001149   | 0.001149     |
+
+* Most Consequential Tied Groups
+| year | scenario     | m | variant | replicate | demographic | group | group_mass | n_minimizers | baseline_D | min_D    | max_D    | delta_D  |
+|------+--------------+---+---------+-----------+-------------+-------+------------+--------------+------------+----------+----------+----------|
+| 2006 | lula_alckmin | 3 | zero    | 1         | Income      | 6.0   | 16.000000  | 2            | 0.322667   | 0.322667 | 0.370556 | 0.047889 |
+| 2006 | no_forcing   | 2 | mice    | 2         | Education   | 7     | 54.000000  | 2            | 0.382286   | 0.382286 | 0.430000 | 0.047714 |
+| 2006 | no_forcing   | 3 | mice    | 1         | Income      | 6.0   | 16.000000  | 2            | 0.328778   | 0.328778 | 0.375111 | 0.046333 |
+| 2006 | lula_alckmin | 2 | mice    | 2         | Education   | 7     | 54.000000  | 2            | 0.389857   | 0.389857 | 0.434429 | 0.044571 |
+| 2018 | no_forcing   | 2 | zero    | 1         | Religion    | 8.0   | 2.000000   | 2            | 0.367518   | 0.367518 | 0.405383 | 0.037865 |
+| 2006 | lula_alckmin | 4 | zero    | 3         | PT          | 99.0  | 68.000000  | 3            | 0.392667   | 0.392667 | 0.421333 | 0.028667 |
+| 2018 | main_four    | 2 | zero    | 2         | Religion    | 4.0   | 114.000000 | 2            | 0.487009   | 0.460140 | 0.487009 | 0.026869 |
+| 2018 | main_four    | 2 | zero    | 2         | Religion    | 1.0   | 14.000000  | 2            | 0.487009   | 0.460140 | 0.487009 | 0.026869 |
+| 2006 | lula_alckmin | 3 | zero    | 3         | Education   | 8     | 50.000000  | 2            | 0.324429   | 0.324429 | 0.350714 | 0.026286 |
+| 2018 | no_forcing   | 3 | mice    | 2         | Income      | 6.0   | 10.000000  | 3            | 0.371010   | 0.371010 | 0.395817 | 0.024807 |
+| 2018 | main_four    | 3 | zero    | 2         | Income      | 6.0   | 10.000000  | 3            | 0.409933   | 0.409933 | 0.431282 | 0.021349 |
+| 2006 | lula_alckmin | 5 | zero    | 2         | PT          | 0.0   | 416.000000 | 2            | 0.373700   | 0.373700 | 0.394200 | 0.020500 |
+
+* Most Consequential Slices
+| year | scenario       | m | variant | replicate | demographic | n_tied_groups | baseline_D | max_group_delta_D | sum_group_delta_D | worst_group | worst_group_mass |
+|------+----------------+---+---------+-----------+-------------+---------------+------------+-------------------+-------------------+-------------+------------------|
+| 2006 | lula_alckmin   | 3 | zero    | 1         | Income      | 1             | 0.322667   | 0.047889          | 0.047889          | 6.0         | 16.000000        |
+| 2006 | no_forcing     | 2 | mice    | 2         | Education   | 1             | 0.382286   | 0.047714          | 0.047714          | 7           | 54.000000        |
+| 2006 | no_forcing     | 3 | mice    | 1         | Income      | 1             | 0.328778   | 0.046333          | 0.046333          | 6.0         | 16.000000        |
+| 2006 | lula_alckmin   | 2 | mice    | 2         | Education   | 1             | 0.389857   | 0.044571          | 0.044571          | 7           | 54.000000        |
+| 2018 | no_forcing     | 2 | zero    | 1         | Religion    | 1             | 0.367518   | 0.037865          | 0.037865          | 8.0         | 2.000000         |
+| 2006 | lula_alckmin   | 4 | zero    | 3         | PT          | 1             | 0.392667   | 0.028667          | 0.028667          | 99.0        | 68.000000        |
+| 2018 | main_four      | 2 | zero    | 2         | Religion    | 2             | 0.487009   | 0.026869          | 0.053738          | 4.0         | 114.000000       |
+| 2006 | lula_alckmin   | 3 | zero    | 3         | Education   | 2             | 0.324429   | 0.026286          | 0.037429          | 8           | 50.000000        |
+| 2018 | no_forcing     | 3 | mice    | 2         | Income      | 2             | 0.371010   | 0.024807          | 0.033287          | 6.0         | 10.000000        |
+| 2018 | main_four      | 3 | zero    | 2         | Income      | 2             | 0.409933   | 0.021349          | 0.024209          | 6.0         | 10.000000        |
+| 2006 | lula_alckmin   | 5 | zero    | 2         | PT          | 1             | 0.373700   | 0.020500          | 0.020500          | 0.0         | 416.000000       |
+| 2018 | lula_bolsonaro | 6 | zero    | 2         | Age         | 1             | 0.369952   | 0.018640          | 0.018640          | 1           | 12.000000        |
+
+* Artifacts
+- =PrefPol/reports/consensus_tie_sensitivity/group_sensitivity_all_years.csv=
+- =PrefPol/reports/consensus_tie_sensitivity/slice_sensitivity_summary.csv=
+- =PrefPol/reports/consensus_tie_sensitivity.org=

@@ -1364,7 +1364,15 @@ function apply_group_metrics_for_year_streaming(
                     end
                     isempty(var_map) && (pm.next!(prog); continue)
 
-                    res = bootstrap_group_metrics(var_map, dem_sym)
+                    res = bootstrap_group_metrics(
+                        var_map,
+                        dem_sym;
+                        tie_break_context = (
+                            year = year,
+                            scenario = String(scen),
+                            m = Int(m),
+                        ),
+                    )
                     update_accum!(accum, res, variants)
                     pm.next!(prog)
                 end
@@ -1457,7 +1465,15 @@ function compute_and_cache_group_metrics_per_df!(
                     end
                     isempty(var_map) && (pm.next!(pbar); continue)
 
-                    res = bootstrap_group_metrics(var_map, dem_sym)
+                    res = bootstrap_group_metrics(
+                        var_map,
+                        dem_sym;
+                        tie_break_context = (
+                            year = year,
+                            scenario = String(scen),
+                            m = Int(m),
+                        ),
+                    )
 
                     _atomic_save(cache_path, res)
                     pm.next!(pbar)
@@ -1518,7 +1534,15 @@ function accumulate_cached_group_metrics_for_year!(
                         end
                         isempty(var_map) && error("Missing data for $cache_path")
 
-                        res = bootstrap_group_metrics(var_map, dem_sym)
+                        res = bootstrap_group_metrics(
+                            var_map,
+                            dem_sym;
+                            tie_break_context = (
+                                year = year,
+                                scenario = String(scen),
+                                m = Int(m),
+                            ),
+                        )
                         _atomic_save(cache_path, res)
                     end
 

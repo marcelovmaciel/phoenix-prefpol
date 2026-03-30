@@ -6,6 +6,8 @@ struct LinearOrderCatalog{K}
     max_kendall::Int
 end
 
+# `all_minimizers` stores the full consensus set. `tie_rule` records how the
+# representative ranking was chosen from that set.
 struct ConsensusResult{K,B<:Preferences.StrictRank}
     candidates::NTuple{K,Symbol}
     consensus_perm::SVector{K,UInt8}
@@ -107,6 +109,91 @@ function _compressed_strict_ballots(profile::Preferences.WeightedProfile{<:Prefe
     return perms, weights, Float64(Preferences.total_weight(profile))
 end
 
+@inline _stable_number_string(x::Integer) = string(x)
+@inline _stable_number_string(x::AbstractFloat) = @sprintf("%.17g", Float64(x))
+
+function _escape_stable_string(s::AbstractString)
+    escaped = replace(String(s), "\\" => "\\\\")
+    escaped = replace(escaped, "(" => "\\(")
+    escaped = replace(escaped, ")" => "\\)")
+    escaped = replace(escaped, "," => "\\,")
+    escaped = replace(escaped, "=" => "\\=")
+    return escaped
+end
+
+_stable_serialize(x::Nothing) = "nothing"
+_stable_serialize(x::Bool) = x ? "true" : "false"
+_stable_serialize(x::Symbol) = "sym(" * _escape_stable_string(String(x)) * ")"
+_stable_serialize(x::AbstractString) = "str(" * _escape_stable_string(x) * ")"
+_stable_serialize(x::Integer) = "int(" * _stable_number_string(x) * ")"
+_stable_serialize(x::AbstractFloat) = "float(" * _stable_number_string(x) * ")"
+
+function _stable_serialize(xs::Tuple)
+    return "tuple(" * join((_stable_serialize(x) for x in xs), ",") * ")"
+end
+
+function _stable_serialize(xs::NamedTuple)
+    parts = String[]
+    for name in propertynames(xs)
+        push!(parts, String(name) * "=" * _stable_serialize(getfield(xs, name)))
+    end
+    return "named(" * join(parts, ",") * ")"
+end
+
+function _stable_serialize(xs::AbstractVector)
+    return "vec(" * join((_stable_serialize(x) for x in xs), ",") * ")"
+end
+
+_stable_serialize(x) = "repr(" * repr(x) * ")"
+
+function _default_tie_break_key(active_candidates::NTuple{K,Symbol},
+                                ballot_perms::Vector{SVector{K,UInt8}},
+                                ballot_weights::Vector{Float64}) where {K}
+    zipped = collect(zip(ballot_perms, ballot_weights))
+    sort!(zipped; by = pair -> Tuple(pair[1]))
+
+    profile_sig = String[]
+    for (perm, weight) in zipped
+        push!(
+            profile_sig,
+            join((string(Int(idx)) for idx in perm), "-") * "@" * _stable_number_string(weight),
+        )
+    end
+
+    return (
+        candidates = active_candidates,
+        compressed_profile = Tuple(profile_sig),
+    )
+end
+
+function _digest_index(bytes::AbstractVector{UInt8}, n::Int)
+    n >= 1 || throw(ArgumentError("cannot choose from an empty minimizer set"))
+    idx = 0
+    for byte in bytes
+        idx = mod(idx * 256 + Int(byte), n)
+    end
+    return idx + 1
+end
+
+# Production tie-breaking is deterministic pseudorandom. We avoid `Base.hash`
+# here because it is salted per Julia session and would make tie resolution
+# drift across reruns even when the data are unchanged.
+function _select_minimizer(minimizers::Vector{SVector{K,UInt8}},
+                           tie_break_key;
+                           rng = nothing) where {K}
+    ordered = sort(copy(minimizers); by = Tuple)
+    length(ordered) == 1 && return ordered[1], :unique
+
+    if rng !== nothing
+        return rand(rng, ordered), :random_minimizer
+    end
+
+    encoded_key = _stable_serialize(tie_break_key)
+    digest = SHA.sha256(codeunits(encoded_key))
+    selected_idx = _digest_index(digest, length(ordered))
+    return ordered[selected_idx], :deterministic_pseudorandom_minimizer
+end
+
 @inline function _fill_positions!(pos::Vector{UInt8}, perm::SVector{K,UInt8}) where {K}
     @inbounds for rank in 1:K
         pos[Int(perm[rank])] = UInt8(rank)
@@ -152,7 +239,8 @@ end
 
 function _find_consensus_impl(profile, active_candidates::NTuple{K,Symbol};
                               cache = GLOBAL_LINEAR_ORDER_CACHE,
-                              rng = Random.default_rng(),
+                              rng = nothing,
+                              tie_break_key = nothing,
                               debug_all_minimizers::Bool = false) where {K}
     strict_profile(profile)
     profile_candidates = _profile_candidate_tuple(profile)
@@ -188,8 +276,10 @@ function _find_consensus_impl(profile, active_candidates::NTuple{K,Symbol};
 
     isempty(minimizers) && throw(ArgumentError("Failed to find a consensus ranking."))
 
-    best_perm = rand(rng, minimizers)
-    tie_rule = length(minimizers) == 1 ? :unique : :random_minimizer
+    chosen_key = tie_break_key === nothing ?
+        _default_tie_break_key(active_candidates, ballot_perms, ballot_weights) :
+        tie_break_key
+    best_perm, tie_rule = _select_minimizer(minimizers, chosen_key; rng = rng)
 
     pool = profile.pool
     consensus_ballot = _ballot_from_perm(pool, best_perm)
@@ -214,47 +304,58 @@ end
 function consensus_kendall(profile::Preferences.Profile{<:Preferences.StrictRank},
                            active_candidates;
                            cache = GLOBAL_LINEAR_ORDER_CACHE,
-                           rng = Random.default_rng(),
+                           rng = nothing,
+                           tie_break_key = nothing,
                            debug_all_minimizers::Bool = false)
     return _find_consensus_impl(profile, _candidate_tuple(active_candidates);
                                 cache = cache,
                                 rng = rng,
+                                tie_break_key = tie_break_key,
                                 debug_all_minimizers = debug_all_minimizers)
 end
 
 function consensus_kendall(profile::Preferences.WeightedProfile{<:Preferences.StrictRank},
                            active_candidates;
                            cache = GLOBAL_LINEAR_ORDER_CACHE,
-                           rng = Random.default_rng(),
+                           rng = nothing,
+                           tie_break_key = nothing,
                            debug_all_minimizers::Bool = false)
     return _find_consensus_impl(profile, _candidate_tuple(active_candidates);
                                 cache = cache,
                                 rng = rng,
+                                tie_break_key = tie_break_key,
                                 debug_all_minimizers = debug_all_minimizers)
 end
 
 function consensus_kendall(profile::Union{Preferences.Profile{<:Preferences.StrictRank},
                                           Preferences.WeightedProfile{<:Preferences.StrictRank}};
                            cache = GLOBAL_LINEAR_ORDER_CACHE,
-                           rng = Random.default_rng(),
+                           rng = nothing,
+                           tie_break_key = nothing,
                            debug_all_minimizers::Bool = false)
     return consensus_kendall(profile, _profile_candidate_tuple(profile);
                              cache = cache,
                              rng = rng,
+                             tie_break_key = tie_break_key,
                              debug_all_minimizers = debug_all_minimizers)
 end
 
 function get_consensus_ranking(profile::Union{Preferences.Profile{<:Preferences.StrictRank},
                                               Preferences.WeightedProfile{<:Preferences.StrictRank}};
                                cache = GLOBAL_LINEAR_ORDER_CACHE,
-                               rng = Random.default_rng())
-    result = consensus_kendall(profile; cache = cache, rng = rng)
+                               rng = nothing,
+                               tie_break_key = nothing)
+    result = consensus_kendall(profile; cache = cache, rng = rng, tie_break_key = tie_break_key)
     ordered = [result.candidates[Int(id)] for id in result.consensus_perm]
     return ordered, result.consensus_ranking
 end
 
 function get_consensus_ranking(profile::AbstractVector{<:AbstractDict};
                                cache = GLOBAL_LINEAR_ORDER_CACHE,
-                               rng = Random.default_rng())
-    return get_consensus_ranking(strict_profile(profile); cache = cache, rng = rng)
+                               rng = nothing,
+                               tie_break_key = nothing)
+    return get_consensus_ranking(strict_profile(profile);
+                                 cache = cache,
+                                 rng = rng,
+                                 tie_break_key = tie_break_key)
 end

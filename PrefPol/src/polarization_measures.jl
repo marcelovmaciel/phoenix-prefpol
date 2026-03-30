@@ -87,24 +87,38 @@ function fast_reversal_geometric(profile)
     return Preferences.reversal_geometric(strict_profile(profile))
 end
 
+function _merge_tie_break_key(base_key, extension::NamedTuple)
+    if base_key === nothing
+        return extension
+    elseif base_key isa NamedTuple
+        return merge(base_key, extension)
+    end
+
+    return (; context = base_key, extension...)
+end
+
 function _group_consensus_result(subdf;
                                  cache = GLOBAL_LINEAR_ORDER_CACHE,
-                                 rng = Random.default_rng(),
+                                 rng = nothing,
+                                 tie_break_key = nothing,
                                  debug_all_minimizers::Bool = false)
     strict = strict_profile(subdf)
     return consensus_kendall(strict;
                              cache = cache,
                              rng = rng,
+                             tie_break_key = tie_break_key,
                              debug_all_minimizers = debug_all_minimizers)
 end
 
 function consensus_for_group(subdf;
                              cache = GLOBAL_LINEAR_ORDER_CACHE,
-                             rng = Random.default_rng(),
+                             rng = nothing,
+                             tie_break_key = nothing,
                              debug_all_minimizers::Bool = false)
     result = _group_consensus_result(subdf;
                                      cache = cache,
                                      rng = rng,
+                                     tie_break_key = tie_break_key,
                                      debug_all_minimizers = debug_all_minimizers)
     return (
         consensus_ranking = result.consensus_ranking,
@@ -130,11 +144,13 @@ end
 
 function group_avg_distance(subdf;
                             cache = GLOBAL_LINEAR_ORDER_CACHE,
-                            rng = Random.default_rng(),
+                            rng = nothing,
+                            tie_break_key = nothing,
                             debug_all_minimizers::Bool = false)
     result = _group_consensus_result(subdf;
                                      cache = cache,
                                      rng = rng,
+                                     tie_break_key = tie_break_key,
                                      debug_all_minimizers = debug_all_minimizers)
     return (
         avg_distance = result.avg_normalized_distance,
@@ -313,7 +329,8 @@ end
 
 function compute_group_metrics(df::DataFrame, demo;
                                cache = GLOBAL_LINEAR_ORDER_CACHE,
-                               rng = Random.default_rng())
+                               rng = nothing,
+                               tie_break_context = nothing)
     g = groupby(df, demo)
     group_vals = Any[]
     avg_distance = Float64[]
@@ -322,8 +339,13 @@ function compute_group_metrics(df::DataFrame, demo;
     consensus_rankings = Any[]
 
     for subdf in g
-        result = _group_consensus_result(subdf; cache = cache, rng = rng)
-        push!(group_vals, subdf[1, demo])
+        group_val = subdf[1, demo]
+        tie_key = _merge_tie_break_key(
+            tie_break_context,
+            (demographic = String(demo), group = string(group_val)),
+        )
+        result = _group_consensus_result(subdf; cache = cache, rng = rng, tie_break_key = tie_key)
+        push!(group_vals, group_val)
         push!(avg_distance, result.avg_normalized_distance)
         push!(group_coherence, 1.0 - result.avg_normalized_distance)
         push!(consensus_results, result)
@@ -366,7 +388,8 @@ end
 
 function compute_group_metrics(bundle::AnnotatedProfile, demo;
                                cache = GLOBAL_LINEAR_ORDER_CACHE,
-                               rng = Random.default_rng())
+                               rng = nothing,
+                               tie_break_context = nothing)
     grouped_indices = _group_row_indices(bundle, demo)
     group_vals = collect(keys(grouped_indices))
 
@@ -377,7 +400,11 @@ function compute_group_metrics(bundle::AnnotatedProfile, demo;
 
     for group in group_vals
         subprofile = _subset_profile(bundle.profile, grouped_indices[group])
-        result = _group_consensus_result(subprofile; cache = cache, rng = rng)
+        tie_key = _merge_tie_break_key(
+            tie_break_context,
+            (demographic = String(demo), group = string(group)),
+        )
+        result = _group_consensus_result(subprofile; cache = cache, rng = rng, tie_break_key = tie_key)
         push!(avg_distance, result.avg_normalized_distance)
         push!(group_coherence, 1.0 - result.avg_normalized_distance)
         push!(consensus_results, result)
@@ -401,15 +428,21 @@ function compute_group_metrics(bundle::AnnotatedProfile, demo;
     return C, D
 end
 
-function bootstrap_group_metrics(bt_profiles, demo; rng = Random.default_rng())
+function bootstrap_group_metrics(bt_profiles, demo;
+                                 rng = nothing,
+                                 tie_break_context = nothing)
     result = Dict{Symbol, Dict{Symbol, Vector{Float64}}}()
 
     for (variant, reps) in bt_profiles
         Cvals = Float64[]
         Dvals = Float64[]
 
-        for df in reps
-            C, D = compute_group_metrics(df, demo; rng = rng)
+        for (rep_idx, df) in enumerate(reps)
+            rep_tie_key = _merge_tie_break_key(
+                tie_break_context,
+                (variant = String(variant), replicate = rep_idx),
+            )
+            C, D = compute_group_metrics(df, demo; rng = rng, tie_break_context = rep_tie_key)
             push!(Cvals, C)
             push!(Dvals, D)
         end

@@ -9,6 +9,7 @@ using Dates
 import Impute 
 using Pkg
 using Random
+using SHA
 using Statistics
 using StatsBase
 using CategoricalArrays

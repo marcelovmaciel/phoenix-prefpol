@@ -276,6 +276,8 @@ function build_report(all_cases::Vector)
     println(io, "- Overall tie rate: =",
             isempty(all_cases) ? "0.0" : @sprintf("%.6f", length(tied_only) / length(all_cases)),
             "=")
+    println(io, "- Production tie-breaking: =deterministic_pseudorandom_minimizer=. The representative consensus is selected deterministically from the full minimizing set using stable tie-break metadata when supplied, or otherwise the exact active ordered candidate tuple plus the compressed ballot multiset.")
+    println(io, "- Diagnostic storage: the full minimizing set remains available on =ConsensusResult.all_minimizers=. =C= is unaffected by tie choice; =D= remains tie-dependent in principle, but no longer drifts across reruns from tie-breaking alone.")
 
     return String(take!(io))
 end
