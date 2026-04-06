@@ -23,10 +23,7 @@ using PooledArrays, StaticArrays
 
 using JLD2, TOML
 
-
-
-
-project_root = dirname(Pkg.project().path)
+const project_root = normpath(joinpath(@__DIR__, ".."))
 const _LOCAL_PREFERENCES_SRC = normpath(
     joinpath(project_root, "..", "Preferences", "src", "Preferences.jl"),
 )
@@ -96,6 +93,7 @@ include("mallows_play.jl")
 include("polarization_measures.jl")
 include("pipeline.jl")
 include("raw_profiles.jl")
+include("nested_pipeline.jl")
 
 #include("newplotting.jl")
 
@@ -112,6 +110,45 @@ export load_raw_pref_data,
        profile_ranking_type_proportions,
        pretty_print_ranksize_summary,
        pretty_print_ranking_type_proportions
+
+export SurveyWaveConfig,
+       load_survey_wave_config,
+       build_source_registry,
+       resolve_active_candidate_set,
+       PipelineSpec,
+       build_pipeline_spec,
+       NestedStochasticPipeline,
+       ObservedData,
+       Resample,
+       ImputedData,
+       LinearizedProfile,
+       MeasureResult,
+       VarianceComponentSummary,
+       VarianceDecomposition,
+       PipelineResult,
+       StudyBatchItem,
+       StudyBatchSpec,
+       BatchRunner,
+       BatchRunResult,
+       load_observed_data,
+       compute_group_measure_details,
+       pipeline_spec_hash,
+       pipeline_measure_table,
+       pipeline_summary_table,
+       pipeline_panel_table,
+       select_pipeline_panel_rows,
+       pipeline_candidate_label,
+       pipeline_scenario_plot_data,
+       pipeline_group_plot_data,
+       pipeline_group_heatmap_values,
+       decomposition_table,
+       run_pipeline,
+       load_pipeline_result,
+       run_batch,
+       plot_pipeline_scenario,
+       plot_pipeline_group_lines,
+       plot_pipeline_group_heatmap,
+       save_pipeline_plot
 
 
 

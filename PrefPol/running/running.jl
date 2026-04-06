@@ -1,291 +1,186 @@
 using Revise
+using CairoMakie
 using PrefPol
 import PrefPol as pp
 
-default_variants = pp.DEFAULT_PIPELINE_IMPUTATION_VARIANTS
-
-# ------------------------------------------------------------------
-# Bootstraps: save (idempotent) and load
-# ------------------------------------------------------------------
-
-
-# saved_bootstrap_paths = pp.save_all_bootstraps()
-
-#  saved_bootstrap_paths = nothing
-
-bootstrap_index = pp.load_all_bootstraps()   # year ⇒ (data, cfg, path)
-
-# ------------------------------------------------------------------
-# Imputation indices (idempotent unless overwrite=true)
-# ------------------------------------------------------------------
-imputed_index_paths = pp.impute_from_f3(bootstrap_index;
-                                        overwrite = false,
-                                        variants = default_variants)
-
-
-cfg_2006 = bootstrap_index[2006].cfg
-cfg_2022 = bootstrap_index[2022].cfg
-cfg_2018 = bootstrap_index[2018].cfg
-
-imputed_index_paths = nothing
-
-# ------------------------------------------------------------------
-# Load per‑year imputation indices
-# ------------------------------------------------------------------
-
-imputed_year_2006 = pp.load_imputed_year(2006)
-
-
-imputed_year_2018 = pp.load_imputed_year(2018)
-
-imputed_year_2022 = pp.load_imputed_year(2022)
-
-# ------------------------------------------------------------------
-# Generate streamed weak profiles per year
-# ------------------------------------------------------------------
-weak_profiles_2006 = pp.generate_profiles_for_year_streamed_from_index(
-                    2006, bootstrap_index[2006], imputed_year_2006;
-                    overwrite = false,
-                    variants = default_variants)
-
-weak_profiles_2018 = pp.generate_profiles_for_year_streamed_from_index(
-                    2018, bootstrap_index[2018], imputed_year_2018;
-                    overwrite = false,
-                    variants = default_variants)
-
-
-
-
-
-weak_profiles_2022 = pp.generate_profiles_for_year_streamed_from_index(
-                    2022, bootstrap_index[2022], imputed_year_2022;
-                    overwrite = false,
-                    variants = default_variants)
-
-# ------------------------------------------------------------------
-# Linearize saved profiles and reload the linearized index
-# ------------------------------------------------------------------
-pp.linearize_profiles_for_year_streamed_from_index(
-    2006, bootstrap_index[2006], weak_profiles_2006; overwrite = false)
-pp.linearize_profiles_for_year_streamed_from_index(
-    2018, bootstrap_index[2018], weak_profiles_2018; overwrite = false)
-pp.linearize_profiles_for_year_streamed_from_index(
-    2022, bootstrap_index[2022], weak_profiles_2022; overwrite = false)
-
-linearized_profiles_2006 = pp.load_linearized_profiles_index(2006)
-linearized_profiles_2018 = pp.load_linearized_profiles_index(2018)
-linearized_profiles_2022 = pp.load_linearized_profiles_index(2022)
-
-# ------------------------------------------------------------------
-# Global measures (per year, from loaded linearized profiles)
-# ------------------------------------------------------------------
-measures_2006 = pp.save_or_load_measures_for_year(2006, linearized_profiles_2006;
-                    overwrite = false,   # set true to rebuild
-                    verbose   = true)    # progress / info logs
-
-measures_2018 = pp.save_or_load_measures_for_year(2018, linearized_profiles_2018;
-                    overwrite = false,   # set true to rebuild
-                    verbose   = true)    # progress / info logs
-
-measures_2022 = pp.save_or_load_measures_for_year(2022, linearized_profiles_2022;
-                    overwrite = false,   # set true to rebuild
-                    verbose   = true)    # progress / info logs
-
-# ------------------------------------------------------------------
-# Group metrics (per year)
-# ------------------------------------------------------------------
-group_metrics_2006 = pp.save_or_load_group_metrics_for_year(
-                        2006, linearized_profiles_2006, bootstrap_index[2006];
-                        overwrite = false, verbose = true, two_pass = true)
-
-group_metrics_2018 = pp.save_or_load_group_metrics_for_year(
-                        2018, linearized_profiles_2018, bootstrap_index[2018];
-                        overwrite = false, verbose = true, two_pass = true)
-
-group_metrics_2022 = pp.save_or_load_group_metrics_for_year(
-                        2022, linearized_profiles_2022, bootstrap_index[2022];
-                        overwrite = false, verbose = true, two_pass = true)
-
-
-# ------------------------------------------------------------------
-# Scenario plots — 2006 (Lula vs Alckmin)
-# ------------------------------------------------------------------
-plot_measures_2006 = Dict(2006 => measures_2006)
-
-fig_2006_mice   = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006; variant = "mice", connect_lines = true)
-fig_2006_zero   = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006; variant = "zero", connect_lines = true)
-
-
-fig_2006_mice_dot = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006;
-    variant="mice", plot_kind=:dotwhisker, connect_lines = true)
-fig_2006_zero_dot   = pp.plot_scenario_year(2006, "lula_alckmin", bootstrap_index, plot_measures_2006; variant = "zero",  plot_kind=:dotwhisker, connect_lines = true)
-
-
-
-
-
-pp.save_plot(fig_2006_mice,   2006, "lula_alckmin", cfg_2006; variant = "mice")
-pp.save_plot(fig_2006_zero,   2006, "lula_alckmin", cfg_2006; variant = "zero")
-
-
-pp.save_plot(fig_2006_mice_dot,   2006, "lula_alckmin_dot", cfg_2006; variant = "mice")
-pp.save_plot(fig_2006_zero_dot,   2006, "lula_alckmin_dot", cfg_2006; variant = "zero")
-
-# ------------------------------------------------------------------
-# Scenario plots — 2018 (three scenarios)
-# ------------------------------------------------------------------
-plot_measures_2018 = Dict(2018 => measures_2018)
-
-fig_2018_main_four     = pp.plot_scenario_year(2018, "main_four",      bootstrap_index, plot_measures_2018; variant = "mice", connect_lines = true)
-fig_2018_no_forcing    = pp.plot_scenario_year(2018, "no_forcing",     bootstrap_index, plot_measures_2018; variant = "mice", connect_lines = true)
-fig_2018_lula_bolsonaro = pp.plot_scenario_year(2018, "lula_bolsonaro", bootstrap_index, plot_measures_2018; variant = "mice", connect_lines = true)
-
-
-fig_2018_main_four_dot     = pp.plot_scenario_year(2018, "main_four",      bootstrap_index, plot_measures_2018; variant = "mice", plot_kind=:dotwhisker, connect_lines = true)
-fig_2018_no_forcing_dot    = pp.plot_scenario_year(2018, "no_forcing",     bootstrap_index, plot_measures_2018; variant = "mice", plot_kind=:dotwhisker, connect_lines = true)
-fig_2018_lula_bolsonaro_dot = pp.plot_scenario_year(2018, "lula_bolsonaro", bootstrap_index, plot_measures_2018; variant = "mice", plot_kind=:dotwhisker, connect_lines = true)
-
-
-
-cfg_2018 = bootstrap_index[2018].cfg
-pp.save_plot(fig_2018_main_four,      2018, "main_four",     cfg_2018; variant = "mice")
-pp.save_plot(fig_2018_no_forcing,     2018, "no_forcing",    cfg_2018; variant = "mice")
-pp.save_plot(fig_2018_lula_bolsonaro, 2018, "lula_bolsonaro", cfg_2018; variant = "mice")
-
-
-pp.save_plot(fig_2018_main_four_dot,      2018, "main_four_dot",     cfg_2018; variant = "mice")
-pp.save_plot(fig_2018_no_forcing_dot,     2018, "no_forcing_dot",    cfg_2018; variant = "mice")
-pp.save_plot(fig_2018_lula_bolsonaro_dot, 2018, "lula_bolsonaro_dot", cfg_2018; variant = "mice")
-
-
-# ------------------------------------------------------------------
-# Scenario plots — 2022 (Lula vs Bolsonaro)
-# ------------------------------------------------------------------
-plot_measures_2022 = Dict(2022 => measures_2022)
-
-fig_2022_mice   = pp.plot_scenario_year(2022, "lula_bolsonaro", bootstrap_index, plot_measures_2022; variant = "mice", connect_lines = true)
-fig_2022_zero   = pp.plot_scenario_year(2022, "lula_bolsonaro", bootstrap_index, plot_measures_2022; variant = "zero", connect_lines = true)
-
-
-fig_2022_mice_dot   = pp.plot_scenario_year(2022, "lula_bolsonaro",
-                                            bootstrap_index,
-                                            plot_measures_2022;
-                                            variant = "mice",
-                                            plot_kind=:dotwhisker,
-                                            connect_lines = true)
-
-fig_2022_zero_dot   = pp.plot_scenario_year(2022, "lula_bolsonaro",
-                                            bootstrap_index,
-                                            plot_measures_2022;
-                                            variant = "zero",
-                                            plot_kind=:dotwhisker,
-                                            connect_lines = true)
-
-
-
-pp.save_plot(fig_2022_mice,   2022, "lula_bolsonaro", cfg_2022; variant = "mice")
-pp.save_plot(fig_2022_zero,   2022, "lula_bolsonaro", cfg_2022; variant = "zero")
-
-pp.save_plot(fig_2022_mice_dot,   2022, "lula_bolsonaro_dot", cfg_2022; variant = "mice")
-pp.save_plot(fig_2022_zero_dot,   2022, "lula_bolsonaro_dot", cfg_2022; variant = "zero")
-
-
-
-# ------------------------------------------------------------------
-# Group-demographics panels — 2018
-# ------------------------------------------------------------------
-
-
-
-fig_2018_main_four_dem_main = pp.plot_group_demographics_lines(
-    Dict(2018 => group_metrics_2018), bootstrap_index, 2018, "main_four";
-    variants = [:mice], maxcols = 2, clist_size = 60,
-    demographics = ["Income", "Ideology"], ytick_step = 0.05) 
-
-fig_2018_main_four_dem_other = pp.plot_group_demographics_lines(
-    Dict(2018 => group_metrics_2018), bootstrap_index, 2018, "main_four";
-    variants = [:mice], maxcols = 3, clist_size = 60,
-    demographics = setdiff(bootstrap_index[2018].cfg.demographics, ["Income", "Ideology"]))
-
-fig_2018_main_four_dem_hm = pp.plot_group_demographics_heatmap(
-    Dict(2018 => group_metrics_2018), bootstrap_index, 2018, "main_four";
-    variants = [:mice],
-    measures = [:C, :D, :G],
-    maxcols = 3,
-    clist_size = 60,
-    colormaps = :RdBu |> pp.Makie.Reverse,
-    fixed_colorrange = true, show_values = true,  simplified_labels = true)
-
-
-pp.save_plot(fig_2018_main_four_dem_main, 2018, "main_four_group_main", cfg_2018; variant = "mice")
-pp.save_plot(fig_2018_main_four_dem_other, 2018, "main_four_group_therest", cfg_2018; variant = "mice")
-pp.save_plot(fig_2018_main_four_dem_hm, 2018, "main_four_group_hm", cfg_2018; variant = "mice")
-
-
-# ------------------------------------------------------------------
-# Group-demographics panels — 2022 (split main vs others)
-# ------------------------------------------------------------------
-dems_main_2022 = ["Ideology", "PT", "Abortion", "Religion", "Sex", "Income"]
-
-fig_2022_lula_bolsonaro_dem_main = pp.plot_group_demographics_lines(
-    Dict(2022 => group_metrics_2022), bootstrap_index, 2022, "lula_bolsonaro";
-    variants = [:mice], maxcols = 3, clist_size = 60, demographics = dems_main_2022)
-
-pp.save_plot(fig_2022_lula_bolsonaro_dem_main, 2022, "lula_bolsonaro_main", bootstrap_index[2022].cfg; variant = "mice")
-
-
-fig_2022_lula_bolsonaro_dem_other = pp.plot_group_demographics_lines(
-    Dict(2022 => group_metrics_2022), bootstrap_index, 2022, "lula_bolsonaro";
-    variants = [:mice], maxcols = 3, clist_size = 60,
-    demographics = setdiff(bootstrap_index[2022].cfg.demographics, dems_main_2022))
-
-pp.save_plot(fig_2022_lula_bolsonaro_dem_other, 2022, "lula_bolsonaro_others", bootstrap_index[2022].cfg; variant = "mice")
-
-fig_2022_lula_bolsonaro_dem_hm = pp.plot_group_demographics_heatmap(
-    Dict(2022 => group_metrics_2022), bootstrap_index, 2022, "lula_bolsonaro";
-    variants = [:mice],
-    measures = [:C, :D, :G],
-    maxcols = 3,
-    clist_size = 60,
-    colormaps = :RdBu |> pp.Makie.Reverse,
-    fixed_colorrange = true, show_values =  true )
-
-pp.save_plot(fig_2022_lula_bolsonaro_dem_other_hm, 2022, "lula_bolsonaro_dem_hm", bootstrap_index[2022].cfg; variant = "mice")
-# ------------------------------------------------------------------
-# Group-demographics panels — 2006 (all demographics)
-# ------------------------------------------------------------------
-fig_2006_lula_alckmin_group = pp.plot_group_demographics_lines(
-    Dict(2006 => group_metrics_2006), bootstrap_index, 2006, "lula_alckmin";
-    variants = [:mice], maxcols = 3, clist_size = 60)
-
-pp.save_plot(fig_2006_lula_alckmin_group, 2006, "lula_alckmin_group", cfg_2006; variant = "mice")
-
-
-
-
-fig_2006_lula_alckmin_group_hm = pp.plot_group_demographics_heatmap(
-    Dict(2006 => group_metrics_2006), bootstrap_index, 2006, "lula_alckmin";
-    variants = [:mice],
-    measures = [:C, :D, :G],
-    maxcols = 3,
-    clist_size = 60,
-    colormaps = :RdBu |> pp.Makie.Reverse,
-    fixed_colorrange = true, show_values = true,  simplified_labels = true
-) 
-
-
-
-pp.save_plot(fig_2006_lula_alckmin_group_hm, 2006, "lula_alckmin_group_hm", cfg_2006; variant = "mice")
-
-
-
-fig_2006_lula_alckmin_group_hm = group_metrics_2006 = imputed_year_2006 = profiles_20006 = nothing
-
-
-#colormaps = pp.Makie.Reverse(:RdBu), fixed_colorrange = true)
-
-
-
-
-
-# Checking:
+const CONFIG_DIR = joinpath("PrefPol", "config")
+const CACHE_ROOT = joinpath(pp.project_root, "intermediate_data", "nested_pipeline", "operational")
+const IMG_DIR = joinpath(pp.project_root, "imgs", "nested_pipeline")
+const OPERATIONAL_R = parse(Int, get(ENV, "PREFPOL_NESTED_R", "2"))
+const OPERATIONAL_K = parse(Int, get(ENV, "PREFPOL_NESTED_K", "2"))
+const OPERATIONAL_FORCE = lowercase(get(ENV, "PREFPOL_NESTED_FORCE", "false")) in ("1", "true", "yes")
+const OPERATIONAL_TIE_POLICY = :average
+const FULL_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :G]
+
+const SCENARIO_PLOTS = [
+    (year = 2006, scenario_name = "lula_alckmin", backends = [:mice, :zero]),
+    (year = 2018, scenario_name = "main_four", backends = [:mice]),
+    (year = 2018, scenario_name = "no_forcing", backends = [:mice]),
+    (year = 2018, scenario_name = "lula_bolsonaro", backends = [:mice]),
+    (year = 2022, scenario_name = "lula_bolsonaro", backends = [:mice, :zero]),
+]
+
+const GROUP_LINE_PLOTS = [
+    (year = 2018, scenario_name = "main_four", imputer_backend = :mice,
+     groupings = ["Income", "Ideology"], stem = "2018_main_four_group_main"),
+    (year = 2018, scenario_name = "main_four", imputer_backend = :mice,
+     groupings = ["Sex", "Religion", "Race", "Age", "Education"], stem = "2018_main_four_group_other"),
+    (year = 2022, scenario_name = "lula_bolsonaro", imputer_backend = :mice,
+     groupings = ["Ideology", "PT", "Abortion", "Religion", "Sex", "Income"], stem = "2022_lula_bolsonaro_group_main"),
+    (year = 2022, scenario_name = "lula_bolsonaro", imputer_backend = :mice,
+     groupings = ["Race", "Age", "Education"], stem = "2022_lula_bolsonaro_group_other"),
+    (year = 2006, scenario_name = "lula_alckmin", imputer_backend = :mice,
+     groupings = nothing, stem = "2006_lula_alckmin_group_lines"),
+]
+
+const GROUP_HEATMAP_PLOTS = [
+    (year = 2018, scenario_name = "main_four", imputer_backend = :mice,
+     measures = [:C, :D, :G], groupings = nothing, stem = "2018_main_four_group_heatmap"),
+    (year = 2022, scenario_name = "lula_bolsonaro", imputer_backend = :mice,
+     measures = [:C, :D, :G], groupings = nothing, stem = "2022_lula_bolsonaro_group_heatmap"),
+    (year = 2006, scenario_name = "lula_alckmin", imputer_backend = :mice,
+     measures = [:C, :D, :G], groupings = nothing, stem = "2006_lula_alckmin_group_heatmap"),
+]
+
+function load_operational_configs(cfgdir::AbstractString = CONFIG_DIR)
+    cfgs = Dict{Int,pp.ElectionConfig}()
+    waves = pp.SurveyWaveConfig[]
+
+    for path in sort(filter(p -> endswith(p, ".toml"), readdir(cfgdir; join = true)))
+        cfg = pp.load_election_cfg(path)
+        cfgs[cfg.year] = cfg
+        push!(waves, pp.SurveyWaveConfig(cfg; wave_id = string(cfg.year)))
+    end
+
+    wave_by_year = Dict(wave.year => wave for wave in waves)
+    return cfgs, waves, wave_by_year
+end
+
+function operational_targets()
+    targets = Set{Tuple{Int,String,Symbol}}()
+
+    for entry in SCENARIO_PLOTS
+        for backend in entry.backends
+            push!(targets, (entry.year, entry.scenario_name, backend))
+        end
+    end
+
+    for entry in GROUP_LINE_PLOTS
+        push!(targets, (entry.year, entry.scenario_name, entry.imputer_backend))
+    end
+
+    for entry in GROUP_HEATMAP_PLOTS
+        push!(targets, (entry.year, entry.scenario_name, entry.imputer_backend))
+    end
+
+    return sort!(collect(targets); by = x -> (x[1], x[2], string(x[3])))
+end
+
+function build_operational_batch(cfgs, wave_by_year)
+    items = pp.StudyBatchItem[]
+
+    for (year, scenario_name, backend) in operational_targets()
+        cfg = cfgs[year]
+        wave = wave_by_year[year]
+
+        for m in cfg.m_values_range
+            spec = pp.build_pipeline_spec(
+                wave;
+                scenario_name = scenario_name,
+                m = m,
+                groupings = Symbol.(cfg.demographics),
+                measures = FULL_MEASURES,
+                B = cfg.n_bootstrap,
+                R = OPERATIONAL_R,
+                K = OPERATIONAL_K,
+                imputer_backend = backend,
+                consensus_tie_policy = OPERATIONAL_TIE_POLICY,
+            )
+            push!(items, pp.StudyBatchItem(
+                spec;
+                year = year,
+                scenario_name = scenario_name,
+                m = m,
+                candidate_label = pp.describe_candidate_set(spec.active_candidates),
+            ))
+        end
+    end
+
+    return pp.StudyBatchSpec(items)
+end
+
+function render_scenario_plots(results)
+    for entry in SCENARIO_PLOTS
+        for backend in entry.backends
+            stem = "$(entry.year)_$(entry.scenario_name)_$(backend)"
+            fig_lines = pp.plot_pipeline_scenario(
+                results;
+                year = entry.year,
+                scenario_name = entry.scenario_name,
+                imputer_backend = backend,
+                plot_kind = :lines,
+            )
+            pp.save_pipeline_plot(fig_lines, stem; dir = IMG_DIR)
+
+            fig_dot = pp.plot_pipeline_scenario(
+                results;
+                year = entry.year,
+                scenario_name = entry.scenario_name,
+                imputer_backend = backend,
+                plot_kind = :dotwhisker,
+                connect_lines = true,
+            )
+            pp.save_pipeline_plot(fig_dot, stem * "_dot"; dir = IMG_DIR)
+        end
+    end
+end
+
+function render_group_line_plots(results)
+    for entry in GROUP_LINE_PLOTS
+        fig = pp.plot_pipeline_group_lines(
+            results;
+            year = entry.year,
+            scenario_name = entry.scenario_name,
+            imputer_backend = entry.imputer_backend,
+            groupings = entry.groupings,
+            measures = [:C, :D, :G],
+            maxcols = 3,
+            clist_size = 60,
+        )
+        pp.save_pipeline_plot(fig, entry.stem; dir = IMG_DIR)
+    end
+end
+
+function render_group_heatmaps(results)
+    for entry in GROUP_HEATMAP_PLOTS
+        fig = pp.plot_pipeline_group_heatmap(
+            results;
+            year = entry.year,
+            scenario_name = entry.scenario_name,
+            imputer_backend = entry.imputer_backend,
+            measures = entry.measures,
+            groupings = entry.groupings,
+            statistic = :median,
+            maxcols = 3,
+            colormap = :RdBu,
+            fixed_colorrange = true,
+            show_values = true,
+            simplified_labels = true,
+            clist_size = 60,
+        )
+        pp.save_pipeline_plot(fig, entry.stem; dir = IMG_DIR)
+    end
+end
+
+cfgs, waves, wave_by_year = load_operational_configs()
+pipeline = pp.NestedStochasticPipeline(waves; cache_root = CACHE_ROOT)
+runner = pp.BatchRunner(pipeline)
+batch = build_operational_batch(cfgs, wave_by_year)
+results = pp.run_batch(runner, batch; force = OPERATIONAL_FORCE)
+
+panel_table = pp.pipeline_panel_table(results)
+summary_table = pp.pipeline_summary_table(results)
+
+render_scenario_plots(results)
+render_group_line_plots(results)
+render_group_heatmaps(results)

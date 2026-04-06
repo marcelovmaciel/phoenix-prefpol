@@ -73,9 +73,8 @@ profile generation.
 """
 function load_election_cfg(path::AbstractString)::ElectionConfig
     t = TOML.parsefile(path)
-    proj = dirname(Pkg.project().path)       # project root
     rawfile = isabspath(t["data_file"]) ? t["data_file"] :
-              joinpath(proj, t["data_file"])
+              joinpath(project_root, t["data_file"])
 
     scen_vec = [Scenario(s["name"], Vector{String}(s["candidates"]))
                 for s in t["forced_scenarios"]]
@@ -197,8 +196,33 @@ function weighted_bootstrap(ecfg::ElectionConfig)
     return bts
 end
 
-const INT_DIR = "../intermediate_data"
+const INT_DIR = normpath(joinpath(project_root, "intermediate_data"))
 mkpath(INT_DIR)
+
+const _LEGACY_PIPELINE_WARNED_APIS = Set{Symbol}()
+
+function _warn_legacy_pipeline_api(api::Symbol, replacement::AbstractString)
+    if !(api in _LEGACY_PIPELINE_WARNED_APIS)
+        push!(_LEGACY_PIPELINE_WARNED_APIS, api)
+        @warn string(
+            api,
+            " uses the legacy year-level pipeline and cache layout. Prefer ",
+            replacement,
+            " for fixed-spec nested runs.",
+        )
+    end
+
+    return nothing
+end
+
+function _error_legacy_pipeline_api(api::Symbol, replacement::AbstractString)
+    throw(ArgumentError(string(
+        api,
+        " belongs to the retired year-level pipeline and has been disabled. Use ",
+        replacement,
+        " instead.",
+    )))
+end
 
 const CANDIDATE_SET_DIR = joinpath(INT_DIR, "candidate_sets")
 mkpath(CANDIDATE_SET_DIR)
@@ -281,6 +305,11 @@ function save_or_load_candidate_sets_for_year(cfg::ElectionConfig;
                                               overwrite::Bool = false,
                                               verbose::Bool = true,
                                               data = nothing)
+    _error_legacy_pipeline_api(
+        :save_or_load_candidate_sets_for_year,
+        "`resolve_active_candidate_set`, `SurveyWaveConfig`, and `build_pipeline_spec`",
+    )
+
     path = joinpath(dir, "candidate_sets_$(cfg.year).jld2")
 
     if isfile(path) && !overwrite
@@ -345,6 +374,10 @@ function save_bootstrap(cfg::ElectionConfig;
                         dir::AbstractString = INT_DIR,
                         overwrite::Bool = false,
                         quiet::Bool = false)
+    _error_legacy_pipeline_api(
+        :save_bootstrap,
+        "`SurveyWaveConfig`, `NestedStochasticPipeline`, and `run_pipeline`",
+    )
 
     path = joinpath(dir, "boot_$(cfg.year).jld2")
 
@@ -378,6 +411,11 @@ Returns a dictionary `year ⇒ saved_filepath`.
 function save_all_bootstraps(; years = nothing,
                              cfgdir::AbstractString = "config",
                              overwrite::Bool = false)
+    _error_legacy_pipeline_api(
+        :save_all_bootstraps,
+        "`SurveyWaveConfig`, `StudyBatchSpec`, and `run_batch`",
+    )
+
     # discover configs on disk
     toml_files = filter(p -> endswith(p, ".toml"), readdir(cfgdir; join=true))
     isempty(toml_files) && error("No TOML files found in $(cfgdir)")
@@ -417,6 +455,10 @@ Each value is a `NamedTuple` with
 function load_all_bootstraps(; years   = nothing,
                              dir::AbstractString = INT_DIR,
                              quiet::Bool = false)
+    _error_legacy_pipeline_api(
+        :load_all_bootstraps,
+        "`SurveyWaveConfig`, `NestedStochasticPipeline`, and `load_pipeline_result`",
+    )
 
     paths = filter(p -> occursin(r"boot_\d+\.jld2$", p),
                    readdir(dir; join = true))
@@ -512,6 +554,10 @@ function impute_bootstrap_to_files(path_boot::String;
                                    overwrite::Bool         = false,
                                    most_known_candidates   = String[],
                                    variants                = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
+    _error_legacy_pipeline_api(
+        :impute_bootstrap_to_files,
+        "`run_pipeline` with explicit `R` and `imputer_backend` settings",
+    )
 
     reps = cfg = nothing
     @load path_boot reps cfg                 # same vars saved by save_bootstrap
@@ -568,6 +614,10 @@ function impute_all_bootstraps(; years = nothing,
                                overwrite = false,
                                most_known_candidates = String[],
                                variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
+    _error_legacy_pipeline_api(
+        :impute_all_bootstraps,
+        "`StudyBatchSpec` plus `run_batch` over explicit `PipelineSpec`s",
+    )
 
     rx = r"boot_(\d{4})\.jld2$"
     files = filter(p -> occursin(rx, basename(p)), readdir(base_dir; join=true))
@@ -615,6 +665,10 @@ function _impute_year_to_files(reps::Vector{DataFrame},
                                overwrite::Bool = false,
                                most_known_candidates = String[],
                                variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
+    _error_legacy_pipeline_api(
+        :_impute_year_to_files,
+        "`run_pipeline` with explicit `R` and `imputer_backend` settings",
+    )
 
     year      = cfg.year
     idxfile   = joinpath(imp_dir, "index_$(year).jld2")
@@ -705,6 +759,10 @@ function impute_from_f3(f3::OrderedDict;
                         overwrite::Bool = false,
                         most_known_candidates = String[],
                         variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
+    _error_legacy_pipeline_api(
+        :impute_from_f3,
+        "`StudyBatchSpec` plus `run_batch` over explicit `PipelineSpec`s",
+    )
 
     wanted = years === nothing        ? sort(collect(keys(f3))) :
              isa(years,Integer)       ? [years]                 :
@@ -748,6 +806,10 @@ Load `dir/boot_imp_YEAR.jld2` and return the stored NamedTuple
 function load_imputed_bootstrap(year::Integer;
                                 dir::AbstractString = IMP_DIR,
                                 quiet::Bool = false)
+    _error_legacy_pipeline_api(
+        :load_imputed_bootstrap,
+        "`NestedStochasticPipeline`, `run_pipeline`, and `load_pipeline_result`",
+    )
 
     path = joinpath(dir, "$(IMP_PREFIX)$(year).jld2")
     isfile(path) || error("File not found: $(path)")
@@ -766,6 +828,10 @@ object for convenient access to per‑variant replicate paths.
 """
 function load_imputed_year(year::Int;
                            dir::AbstractString = IMP_DATA_DIR)::ImputedYear
+    _error_legacy_pipeline_api(
+        :load_imputed_year,
+        "`NestedStochasticPipeline`, `run_pipeline`, and `load_pipeline_result`",
+    )
     idxfile = joinpath(dir, "index_$(year).jld2")
     isfile(idxfile) || error("index file not found: $(idxfile)")
     return JLD2.load(idxfile, "index")    # returns ImputedYear struct
@@ -790,6 +856,10 @@ function generate_profiles_for_year(year::Int,
                                     imps_entry::NamedTuple;
                                     candidate_sets = nothing,
                                     variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
+    _error_legacy_pipeline_api(
+        :generate_profiles_for_year,
+        "`run_pipeline` and `pipeline_panel_table` on `PipelineResult`s",
+    )
 
     cfg            = f3_entry.cfg
     variants_dict  = imps_entry.data
@@ -914,6 +984,10 @@ Base.getindex(ps::LinearizedProfilesSlice, var::Symbol, i::Int) =
 
 function load_profiles_index(year::Int;
                              dir::AbstractString = PROFILES_DATA_DIR)
+    _error_legacy_pipeline_api(
+        :load_profiles_index,
+        "`NestedStochasticPipeline`, `run_pipeline`, and `load_pipeline_result`",
+    )
     idxfile = joinpath(dir, "profiles_index_$(year).jld2")
     isfile(idxfile) || error("profiles index not found: $(idxfile)")
     return JLD2.load(idxfile, "result")
@@ -921,6 +995,10 @@ end
 
 function load_linearized_profiles_index(year::Int;
                                         dir::AbstractString = LINEARIZED_PROFILES_DATA_DIR)
+    _error_legacy_pipeline_api(
+        :load_linearized_profiles_index,
+        "`NestedStochasticPipeline`, `run_pipeline`, and `load_pipeline_result`",
+    )
     idxfile = joinpath(dir, "linearized_profiles_index_$(year).jld2")
     isfile(idxfile) || error("linearized profiles index not found: $(idxfile)")
     return JLD2.load(idxfile, "result")
@@ -945,6 +1023,10 @@ function generate_profiles_for_year_streamed_from_index(
             out_dir::AbstractString = PROFILES_DATA_DIR,
             variants = DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
             overwrite::Bool         = false)
+    _error_legacy_pipeline_api(
+        :generate_profiles_for_year_streamed_from_index,
+        "`run_pipeline` and `pipeline_panel_table` on `PipelineResult`s",
+    )
 
     mkpath(out_dir)
     cfg            = f3_entry.cfg
@@ -1055,6 +1137,10 @@ function linearize_profiles_for_year_streamed_from_index(
             profiles_year::OrderedDict{String,<:Any};
             out_dir::AbstractString = LINEARIZED_PROFILES_DATA_DIR,
             overwrite::Bool         = false)
+    _error_legacy_pipeline_api(
+        :linearize_profiles_for_year_streamed_from_index,
+        "`run_pipeline` and `load_pipeline_result`",
+    )
 
     mkpath(out_dir)
     cfg         = f3_entry.cfg
@@ -1149,6 +1235,10 @@ function save_or_load_profiles_for_year(year::Int,
                                         overwrite::Bool     = false,
                                         verbose::Bool       = true,
                                         variants            = DEFAULT_PIPELINE_IMPUTATION_VARIANTS)
+    _error_legacy_pipeline_api(
+        :save_or_load_profiles_for_year,
+        "`run_pipeline` and `load_pipeline_result`",
+    )
 
     mkpath(dir)
     path = joinpath(dir, "profiles_$(year).jld2")
@@ -1283,6 +1373,10 @@ function save_or_load_measures_for_year(year,
                                         dir::AbstractString = GLOBAL_MEASURE_DIR,
                                         overwrite::Bool     = false,
                                         verbose::Bool       = true)
+    _error_legacy_pipeline_api(
+        :save_or_load_measures_for_year,
+        "`run_pipeline` plus `pipeline_summary_table`/`pipeline_panel_table`",
+    )
 
     mkpath(dir)
     path = joinpath(dir, "measures_$(year).jld2")
@@ -1336,6 +1430,7 @@ function apply_group_metrics_for_year_streaming(
         cfg)
 
     out = OrderedDict()
+    year = cfg.year
 
     for (scen, m_map) in profiles_year
         scen_out = OrderedDict()
@@ -1577,6 +1672,10 @@ function save_or_load_group_metrics_for_year(year::Int,
                                              overwrite::Bool     = false,
                                              two_pass::Bool      = false,
                                              verbose::Bool       = true)
+    _error_legacy_pipeline_api(
+        :save_or_load_group_metrics_for_year,
+        "`run_pipeline` plus `pipeline_measure_table`/`pipeline_panel_table`",
+    )
 
     mkpath(dir)
     final_path = joinpath(dir, "group_metrics_$(year).jld2")
@@ -1688,6 +1787,10 @@ function plot_scenario_year(
     plot_kind::Symbol = :lines,
     connect_lines::Bool = false,
 )
+    _error_legacy_pipeline_api(
+        :plot_scenario_year,
+        "`plot_pipeline_scenario` on `PipelineResult` or `BatchRunResult` outputs",
+    )
     return _call_plotting_extension(
         :plot_scenario_year,
         year,
@@ -1745,8 +1848,12 @@ function plot_group_demographics_lines(
         n_yticks::Int = 5,
         ytick_step    = nothing,
         palette       = nothing, clist_size = 60,
-        demographics = f3[year].cfg.demographics
+        demographics = nothing
 )
+    _error_legacy_pipeline_api(
+        :plot_group_demographics_lines,
+        "`plot_pipeline_group_lines` on `PipelineResult` or `BatchRunResult` outputs",
+    )
     return _call_plotting_extension(
         :plot_group_demographics_lines,
         all_gm,
@@ -1797,7 +1904,7 @@ function plot_group_demographics_heatmap(
         measures      = [:C, :D, :G],
         modified_C::Bool = false,
         modified_G::Bool = false,
-        groupings     = f3[year].cfg.demographics,
+        groupings     = nothing,
         maxcols::Int  = 3,
         colormap      = :viridis,
         colormaps     = nothing,
@@ -1806,6 +1913,10 @@ function plot_group_demographics_heatmap(
         simplified_labels::Bool = false,
         clist_size    = 60
 )
+    _error_legacy_pipeline_api(
+        :plot_group_demographics_heatmap,
+        "`plot_pipeline_group_heatmap` on `PipelineResult` or `BatchRunResult` outputs",
+    )
     return _call_plotting_extension(
         :plot_group_demographics_heatmap,
         all_gm,
@@ -1839,6 +1950,10 @@ function save_plot(fig, year::Int, scenario::AbstractString, cfg;
                    variant::AbstractString,
                    dir::AbstractString = "imgs",
                    ext::AbstractString = ".png")
+    _error_legacy_pipeline_api(
+        :save_plot,
+        "`save_pipeline_plot` with nested batch/spec-aware stems",
+    )
     return _call_plotting_extension(
         :save_plot,
         fig,

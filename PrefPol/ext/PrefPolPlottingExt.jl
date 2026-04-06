@@ -1,6 +1,7 @@
 module PrefPolPlottingExt
 
 using CairoMakie
+using DataFrames
 using Dates
 using PrefPol
 using Printf
@@ -8,6 +9,40 @@ using Statistics: median, quantile
 using TextWrap
 
 @inline _wong_colors() = CairoMakie.Makie.wong_colors()
+
+@inline _measure_label(measure::Symbol) =
+    measure === :Psi ? "Ψ" : String(measure)
+
+function _plot_title(rows::AbstractDataFrame;
+                     year = nothing,
+                     scenario_name = nothing,
+                     imputer_backend = nothing)
+    year_label = year === nothing ?
+                 (hasproperty(rows, :year) ? string(rows[1, :year]) : string(rows[1, :wave_id])) :
+                 string(year)
+    scenario_label = scenario_name === nothing && hasproperty(rows, :scenario_name) ?
+                     string(rows[1, :scenario_name]) :
+                     string(scenario_name)
+    backend_label = imputer_backend === nothing ?
+                    string(rows[1, :imputer_backend]) :
+                    String(Symbol(imputer_backend))
+    return string(
+        "Year ",
+        year_label,
+        " • scenario = ",
+        scenario_label,
+        " • backend = ",
+        backend_label,
+        " • B = ",
+        rows[1, :B],
+        ", R = ",
+        rows[1, :R],
+        ", K = ",
+        rows[1, :K],
+        " • draws = ",
+        rows[1, :n_draws],
+    )
+end
 
 function lines_alt_by_variant(measures_over_m::AbstractDict;
                               variants = PrefPol.DEFAULT_PIPELINE_IMPUTATION_VARIANTS,
@@ -521,6 +556,344 @@ function plot_group_demographics_heatmap(all_gm,
 
     resize_to_layout!(fig)
     return fig
+end
+
+function plot_pipeline_scenario(result_or_results;
+                                year = nothing,
+                                wave_id = nothing,
+                                scenario_name = nothing,
+                                imputer_backend = :mice,
+                                measures = [:Psi, :R, :HHI, :RHHI],
+                                palette = nothing,
+                                figsize = (700, 450),
+                                plot_kind::Symbol = :lines,
+                                connect_lines::Bool = false)
+    palette === nothing && (palette = _wong_colors())
+    data = PrefPol.pipeline_scenario_plot_data(
+        result_or_results;
+        year = year,
+        wave_id = wave_id,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+        measures = measures,
+    )
+    rows = data.rows
+    m_values = Float32.(data.m_values)
+    wanted_measures = [_measure for _measure in PrefPol._normalize_measure_list(measures)]
+
+    fig = Figure(resolution = figsize)
+    ax = Axis(
+        fig[1, 1];
+        xlabel = "number of alternatives",
+        ylabel = "value",
+        xticks = (m_values, string.(Int.(m_values))),
+    )
+
+    titlegrid = GridLayout(tellwidth = true)
+    fig[0, 1] = titlegrid
+    Label(
+        titlegrid[1, 1];
+        text = _plot_title(
+            rows;
+            year = year,
+            scenario_name = scenario_name,
+            imputer_backend = imputer_backend,
+        ),
+        fontsize = 18,
+        halign = :left,
+    )
+    Label(
+        titlegrid[2, 1];
+        text = data.candidate_label,
+        fontsize = 14,
+        halign = :left,
+    )
+
+    legend_handles = Any[]
+    legend_labels = String[]
+
+    for (idx, measure) in enumerate(wanted_measures)
+        subdf = sort(rows[rows.measure .== measure, :], :n_candidates)
+        isempty(subdf) && continue
+        col = palette[(idx - 1) % length(palette) + 1]
+        xs = Float32.(subdf.n_candidates)
+        estimate = Float32.(subdf.estimate)
+        q05 = Float32.(subdf.q05)
+        q25 = Float32.(subdf.q25)
+        q75 = Float32.(subdf.q75)
+        q95 = Float32.(subdf.q95)
+        label = _measure_label(measure)
+
+        if plot_kind === :lines
+            band!(ax, xs, q05, q95; color = (col, 0.12))
+            band!(ax, xs, q25, q75; color = (col, 0.25))
+            ln = lines!(ax, xs, estimate; color = col, linewidth = 2.5)
+            push!(legend_handles, ln)
+            push!(legend_labels, label)
+        elseif plot_kind === :dotwhisker
+            rangebars!(
+                ax,
+                xs,
+                q05,
+                q95;
+                direction = :y,
+                color = (col, 0.55),
+                linewidth = 1.5,
+                whiskerwidth = 10,
+            )
+            rangebars!(
+                ax,
+                xs,
+                q25,
+                q75;
+                direction = :y,
+                color = (col, 0.9),
+                linewidth = 3.0,
+                whiskerwidth = 6,
+            )
+            sc = scatter!(ax, xs, estimate; color = col, markersize = 9)
+            connect_lines && lines!(ax, xs, estimate; color = col, linewidth = 1.5)
+            push!(legend_handles, sc)
+            push!(legend_labels, label)
+        else
+            error("Unknown plot_kind=$(plot_kind). Use :lines or :dotwhisker.")
+        end
+    end
+
+    Legend(fig[1, 2], legend_handles, legend_labels)
+    resize_to_layout!(fig)
+    return fig
+end
+
+function plot_pipeline_group_lines(result_or_results;
+                                   year = nothing,
+                                   wave_id = nothing,
+                                   scenario_name = nothing,
+                                   imputer_backend = :mice,
+                                   measures = [:C, :D, :G],
+                                   groupings = nothing,
+                                   maxcols::Int = 3,
+                                   n_yticks::Int = 5,
+                                   ytick_step = nothing,
+                                   palette = nothing,
+                                   clist_size = 60)
+    palette === nothing && (palette = _wong_colors())
+    data = PrefPol.pipeline_group_plot_data(
+        result_or_results;
+        year = year,
+        wave_id = wave_id,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+        measures = measures,
+        groupings = groupings,
+    )
+    rows = data.rows
+    m_values_int = Int.(data.m_values)
+    xs_m = Float32.(m_values_int)
+    grouping_values = data.grouping_values
+    n_groupings = length(grouping_values)
+    wanted_measures = PrefPol._normalize_measure_list(measures)
+
+    ncol = min(maxcols, n_groupings)
+    nrow = ceil(Int, n_groupings / ncol)
+    title_txt = _plot_title(
+        rows;
+        year = year,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+    )
+
+    fig = Figure(resolution = (max(320 * ncol, 10 * length(title_txt) + 60), 300 * nrow))
+    rowgap!(fig.layout, 24)
+    colgap!(fig.layout, 24)
+    fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :left)
+    fig[2, 1:ncol] = Label(
+        fig,
+        join(TextWrap.wrap(data.candidate_label; width = clist_size));
+        fontsize = 14,
+        halign = :left,
+    )
+    header_rows = 2
+
+    legend_handles = Any[]
+    legend_labels = String[]
+
+    for (idx, grouping) in enumerate(grouping_values)
+        r, c = fldmod1(idx, ncol)
+        ax = Axis(
+            fig[r + header_rows, c];
+            title = String(grouping),
+            xlabel = "number of alternatives",
+            ylabel = "value",
+            xticks = (xs_m, string.(m_values_int)),
+        )
+
+        allvals = Float32[]
+
+        for (measure_idx, measure) in enumerate(wanted_measures)
+            subdf = sort(
+                rows[(rows.measure .== measure) .& coalesce.(rows.grouping .== grouping, false), :],
+                :n_candidates,
+            )
+            isempty(subdf) && continue
+            col = palette[(measure_idx - 1) % length(palette) + 1]
+            estimate = Float32.(subdf.estimate)
+            q05 = Float32.(subdf.q05)
+            q25 = Float32.(subdf.q25)
+            q75 = Float32.(subdf.q75)
+            q95 = Float32.(subdf.q95)
+
+            append!(allvals, vcat(q05, q95, estimate))
+            band!(ax, xs_m, q05, q95; color = (col, 0.10))
+            band!(ax, xs_m, q25, q75; color = (col, 0.22))
+            ln = lines!(ax, xs_m, estimate; color = col, linewidth = 2.3)
+
+            if idx == 1
+                push!(legend_handles, ln)
+                push!(legend_labels, _measure_label(measure))
+            end
+        end
+
+        if !isempty(allvals)
+            y_min, y_max = extrema(allvals)
+            ticks = if ytick_step === nothing
+                collect(range(y_min, y_max; length = n_yticks))
+            else
+                ytick_step <= 0 && error("ytick_step must be > 0")
+                computed = collect(y_min:ytick_step:y_max)
+                length(computed) < 2 ? collect(range(y_min, y_max; length = 2)) : computed
+            end
+            ax.yticks[] = (ticks, string.(round.(ticks; digits = 3)))
+        end
+    end
+
+    Legend(fig[header_rows + 1:header_rows + nrow, ncol + 1], legend_handles, legend_labels; tellheight = false)
+    colsize!(fig.layout, ncol + 1, Relative(0.25))
+    resize_to_layout!(fig)
+    return fig
+end
+
+function plot_pipeline_group_heatmap(result_or_results;
+                                     year = nothing,
+                                     wave_id = nothing,
+                                     scenario_name = nothing,
+                                     imputer_backend = :mice,
+                                     measures = [:C, :D, :G],
+                                     statistic::Symbol = :median,
+                                     groupings = nothing,
+                                     maxcols::Int = 3,
+                                     colormap = :viridis,
+                                     fixed_colorrange::Bool = false,
+                                     show_values::Bool = false,
+                                     simplified_labels::Bool = false,
+                                     clist_size = 60)
+    data = PrefPol.pipeline_group_heatmap_values(
+        result_or_results;
+        year = year,
+        wave_id = wave_id,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+        measures = measures,
+        groupings = groupings,
+        statistic = statistic,
+    )
+    rows = data.rows
+    m_values_int = Int.(data.m_values)
+    xs_m = Float32.(m_values_int)
+    group_syms = data.grouping_values
+    group_labels = string.(group_syms)
+    wanted_measures = PrefPol._normalize_measure_list(measures)
+
+    allvals = Float32[]
+    for measure in wanted_measures
+        append!(allvals, Float32.(filter(!isnan, vec(data.matrices[measure]))))
+    end
+    data_min, data_max = isempty(allvals) ? (0.0f0, 1.0f0) : extrema(allvals)
+    colorrange = fixed_colorrange ? (0.0f0, 1.0f0) : (data_min, data_max)
+
+    n_panels = length(wanted_measures)
+    ncol = min(maxcols, n_panels)
+    nrow = ceil(Int, n_panels / ncol)
+    title_txt = _plot_title(
+        rows;
+        year = year,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+    )
+
+    fig = Figure(resolution = (max(320 * ncol, 10 * length(title_txt) + 60), 320 * nrow))
+    rowgap!(fig.layout, 24)
+    colgap!(fig.layout, 24)
+    fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :left)
+    fig[2, 1:ncol] = Label(
+        fig,
+        join(TextWrap.wrap(data.candidate_label; width = clist_size));
+        fontsize = 14,
+        halign = :left,
+    )
+    header_rows = 2
+
+    hm_ref = nothing
+    for (panel_idx, measure) in enumerate(wanted_measures)
+        r, c = fldmod1(panel_idx, ncol)
+        default_xlabel = "number of alternatives"
+        default_ylabel = "grouping"
+        if simplified_labels && length(wanted_measures) > 1
+            mid_idx = ceil(Int, length(wanted_measures) / 2)
+            xlabel_txt = panel_idx == mid_idx ? default_xlabel : ""
+            ylabel_txt = panel_idx == 1 ? default_ylabel : ""
+        else
+            xlabel_txt = default_xlabel
+            ylabel_txt = default_ylabel
+        end
+
+        ax = Axis(
+            fig[r + header_rows, c];
+            title = _measure_label(measure),
+            xlabel = xlabel_txt,
+            ylabel = ylabel_txt,
+            xticks = (xs_m, string.(m_values_int)),
+            yticks = (1:length(group_syms), group_labels),
+        )
+        z = Float32.(data.matrices[measure])
+        hm = heatmap!(ax, xs_m, 1:length(group_syms), z; colormap = colormap, colorrange = colorrange)
+
+        if show_values
+            n_m = length(xs_m)
+            xs = repeat(xs_m, inner = length(group_syms))
+            ys = repeat(collect(1:length(group_syms)), outer = n_m)
+            labels = [isnan(z[i, j]) ? "NA" : @sprintf("%.3f", z[i, j]) for i in 1:n_m for j in 1:length(group_syms)]
+            text!(ax, xs, ys; text = labels, align = (:center, :center), color = :black, fontsize = 8)
+        end
+
+        hm_ref === nothing && (hm_ref = hm)
+    end
+
+    if hm_ref !== nothing
+        cbgrid = GridLayout()
+        fig[header_rows + 1:header_rows + nrow, ncol + 1] = cbgrid
+        Label(cbgrid[1, 1]; text = "max found = $(round(data_max; digits = 3))", halign = :center)
+        Colorbar(cbgrid[2, 1], hm_ref; label = String(data.statistic))
+        Label(cbgrid[3, 1]; text = "min found = $(round(data_min; digits = 3))", halign = :center)
+        rowsize!(cbgrid, 1, Auto(0.15))
+        rowsize!(cbgrid, 3, Auto(0.15))
+        colsize!(fig.layout, ncol + 1, Relative(0.25))
+    end
+
+    resize_to_layout!(fig)
+    return fig
+end
+
+function save_pipeline_plot(fig,
+                            stem::AbstractString;
+                            dir::AbstractString = "imgs",
+                            ext::AbstractString = ".png")
+    mkpath(dir)
+    time_stamp = Dates.format(now(), "yyyymmdd-HHMMSS")
+    fname = joinpath(dir, string(stem, "_", time_stamp, ext))
+    save(fname, fig; px_per_unit = 4)
+    @info "saved plot → $fname"
+    return fname
 end
 
 function save_plot(fig,

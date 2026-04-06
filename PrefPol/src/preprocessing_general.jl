@@ -294,11 +294,10 @@ DataFrame with a single imputed dataset (`m = 1`). A random seed is set
 for reproducibility across bootstraps. The `m` keyword is accepted for
 backward compatibility but any value different from `1` is ignored.
 """
-function r_impute_mice_report(df::DataFrame)
+function r_impute_mice_report(df::DataFrame; seed::Union{Nothing,Integer} = nothing)
     rcall = _require_rcall!()
 
-    # random seed to keep bootstrap independence
-    seed = rand(1:10^6)
+    seed = seed === nothing ? rand(1:10^6) : Int(seed)
     _rcall_setglobal!(rcall, :df, df)
     _rcall_eval(rcall, "set.seed($seed)")
 
@@ -376,11 +375,11 @@ function r_impute_mice_report(df::DataFrame)
 end
 
 const GLOBAL_R_IMPUTATION = let
-    function f(df::DataFrame; m::Int = 1)
+    function f(df::DataFrame; m::Int = 1, seed::Union{Nothing,Integer} = nothing)
         if m != 1
             @warn "GLOBAL_R_IMPUTATION is fixed at m=1; received m=$m and will ignore it."
         end
-        report = r_impute_mice_report(df)
+        report = r_impute_mice_report(df; seed = seed)
         return report.completed
     end
     f
