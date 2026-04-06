@@ -782,7 +782,7 @@ function plot_pipeline_group_heatmap(result_or_results;
                                      statistic::Symbol = :median,
                                      groupings = nothing,
                                      maxcols::Int = 3,
-                                     colormap = :viridis,
+                                     colormap = CairoMakie.Makie.Reverse(:RdBu),
                                      fixed_colorrange::Bool = false,
                                      show_values::Bool = false,
                                      simplified_labels::Bool = false,

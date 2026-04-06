@@ -33,6 +33,27 @@ const _NESTED_RUN_DF = DataFrame(
     end
 end
 
+function _legacy_raw_group_coherence(bundle, demo::Symbol)
+    group_values = PrefPol._metadata_column(bundle, demo)
+    grouped = PrefPol._group_row_indices(group_values)
+    total_n = length(group_values)
+    total_n > 0 || error("test fixture produced an empty grouping")
+
+    c_raw = 0.0
+
+    for (_, idxs) in grouped
+        subbundle = PrefPol.subset_annotated_profile(bundle, idxs)
+        profile = PrefPol.strict_profile(subbundle)
+        result = PrefPol.Preferences.consensus_kendall(
+            profile;
+            cache = PrefPol.Preferences.GLOBAL_LINEAR_ORDER_CACHE,
+        )
+        c_raw += (1.0 - result.avg_normalized_distance) * (length(idxs) / total_n)
+    end
+
+    return c_raw
+end
+
 @testset "nested pipeline resolves candidate set before stochastic stages" begin
     cfg = PrefPol.ElectionConfig(
         2022,
@@ -128,10 +149,18 @@ end
     avg = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :average)
     hash = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :hash)
     interval = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :interval)
+    raw_C = _legacy_raw_group_coherence(bundle, :grp)
 
     @test avg.diagnostics.tied_groups >= 1
+    @test isapprox(avg.C, (2 * raw_C) - 1)
+    @test isapprox(hash.C, avg.C)
+    @test isapprox(interval.C, avg.C)
+    @test 0.0 <= avg.C <= 1.0
     @test interval.D_lo <= interval.D <= interval.D_hi
+    @test isapprox(avg.G, sqrt(max(avg.C * avg.D, 0.0)))
     @test interval.G_lo <= interval.G <= interval.G_hi
+    @test isapprox(interval.G_lo, sqrt(max(interval.C * interval.D_lo, 0.0)))
+    @test isapprox(interval.G_hi, sqrt(max(interval.C * interval.D_hi, 0.0)))
     @test interval.D_lo <= hash.D <= interval.D_hi
 end
 
@@ -158,6 +187,7 @@ end
     @test avg.diagnostics.tied_groups == 0
     @test hash.diagnostics.tied_groups == 0
     @test interval.diagnostics.tied_groups == 0
+    @test avg.C == 1.0
     @test avg.C == hash.C
     @test hash.C == interval.C
     @test avg.D == hash.D

@@ -103,6 +103,7 @@ end
         groupings = [:grp],
         measures = [:C, :D, :G],
         statistic = :median,
+        colormap = CairoMakie.Makie.Reverse(:RdBu),
         show_values = true,
         fixed_colorrange = true,
     )

@@ -1,5 +1,5 @@
 const NESTED_PIPELINE_SCHEMA_VERSION = 1
-const NESTED_PIPELINE_CODE_VERSION = "nested-pipeline-v1"
+const NESTED_PIPELINE_CODE_VERSION = "nested-pipeline-v2"
 const DEFAULT_NESTED_PIPELINE_CACHE_ROOT = normpath(
     joinpath(project_root, "intermediate_data", "nested_pipeline"),
 )
@@ -672,6 +672,8 @@ function _consensus_ballots_for_result(result, pool::Preferences.CandidatePool, 
     ]
 end
 
+@inline _normalize_group_coherence(raw_C::Real) = (2.0 * Float64(raw_C)) - 1.0
+
 function compute_group_measure_details(bundle::AnnotatedProfile,
                                        demo::Symbol;
                                        tie_policy::Symbol = :average,
@@ -691,7 +693,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     props = OrderedDict{Any,Float64}()
     group_profiles = OrderedDict{Any,Any}()
     consensus_results = OrderedDict{Any,Any}()
-    C = 0.0
+    C_raw = 0.0
 
     for (group, idxs) in grouped
         subbundle = subset_annotated_profile(bundle, idxs)
@@ -708,7 +710,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         props[group] = length(idxs) / total_n
         group_profiles[group] = profile
         consensus_results[group] = result
-        C += (1.0 - result.avg_normalized_distance) * props[group]
+        C_raw += (1.0 - result.avg_normalized_distance) * props[group]
     end
 
     if length(grouped) <= 1
@@ -748,6 +750,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         D_hi = hi_sum / denom
     end
 
+    C = _normalize_group_coherence(C_raw)
     G = sqrt(max(C * D, 0.0))
     G_lo = sqrt(max(C * D_lo, 0.0))
     G_hi = sqrt(max(C * D_hi, 0.0))

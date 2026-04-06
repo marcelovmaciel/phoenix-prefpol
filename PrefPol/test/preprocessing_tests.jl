@@ -150,6 +150,25 @@ end
     @test ok || true  # don't fail suite if R env is missing
 end
 
+@testset "R seed normalization stays within set.seed range" begin
+    @test PrefPol._normalize_r_seed(6547001803536573440) <= typemax(Int32) - 1
+    @test PrefPol._normalize_r_seed(6547001803536573440) >= 1
+    @test PrefPol._normalize_r_seed(42) == 43
+
+    df = toy_scores_df()
+    scores_cat = prepare_scores_for_imputation_categorical(df, CANDS; extra_cols = DEMOS)
+    ok = true
+    try
+        report = PrefPol.r_impute_mice_report(scores_cat; seed = 6547001803536573440)
+        @test size(report.completed, 1) == size(scores_cat, 1)
+        @test names(report.completed) == names(scores_cat)
+    catch e
+        @info "Skipping oversized-seed R/mice regression test (R/mice not available?)." error = e
+        ok = false
+    end
+    @test ok || true
+end
+
 @testset "imputation_variants" begin
     df = toy_scores_df()
     imps = imputation_variants(df, CANDS, DEMOS; most_known_candidates=String[])

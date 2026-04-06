@@ -162,7 +162,7 @@ function render_group_heatmaps(results)
             groupings = entry.groupings,
             statistic = :median,
             maxcols = 3,
-            colormap = :RdBu,
+            colormap = CairoMakie.Makie.Reverse(:RdBu),
             fixed_colorrange = true,
             show_values = true,
             simplified_labels = true,

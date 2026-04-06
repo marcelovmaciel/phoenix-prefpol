@@ -294,12 +294,19 @@ DataFrame with a single imputed dataset (`m = 1`). A random seed is set
 for reproducibility across bootstraps. The `m` keyword is accepted for
 backward compatibility but any value different from `1` is ignored.
 """
+const _R_VALID_SEED_MODULUS = Int128(typemax(Int32) - 1)
+
+function _normalize_r_seed(seed::Integer)
+    return Int(mod(Int128(seed), _R_VALID_SEED_MODULUS) + 1)
+end
+
 function r_impute_mice_report(df::DataFrame; seed::Union{Nothing,Integer} = nothing)
     rcall = _require_rcall!()
 
-    seed = seed === nothing ? rand(1:10^6) : Int(seed)
+    normalized_seed = seed === nothing ? rand(1:Int(_R_VALID_SEED_MODULUS)) :
+                      _normalize_r_seed(seed)
     _rcall_setglobal!(rcall, :df, df)
-    _rcall_eval(rcall, "set.seed($seed)")
+    _rcall_eval(rcall, "set.seed($normalized_seed)")
 
     _rcall_eval(rcall, raw"""
     res <- local({
