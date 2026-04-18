@@ -341,5 +341,6 @@ end
     @test isequal(collect(pp.ranks(preserved_profile.ballots[1])), Union{Missing,Int}[1, 2, missing])
 end
 
+include("pattern_conditional_linearizer_tests.jl")
 include("annotated_profiles_tests.jl")
 include("consensus_group_analysis_tests.jl")

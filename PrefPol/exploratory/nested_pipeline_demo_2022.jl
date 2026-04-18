@@ -168,7 +168,9 @@ group_heatmap_plot = pp.plot_pipeline_group_heatmap(
 )
 
 display(scenario_plot)
+
 display(group_lines_plot)
+
 display(group_heatmap_plot)
 
 scenario_plot_path = pp.save_pipeline_plot(

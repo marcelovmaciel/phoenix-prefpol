@@ -46,6 +46,7 @@ export rank, prefers, indifferent, asdict
 export perm, ranks
 export to_perm, to_weakorder, ordered_candidates, weakorder_symbol_groups
 export to_strict, make_rank_bucket_linearizer
+export AbstractWeakOrderLinearizer, PatternConditionalLinearizer
 export linearize
 
 # Policies and pairwise (dense wrapper)
