@@ -6,6 +6,7 @@ const DEFAULT_NESTED_PIPELINE_CACHE_ROOT = normpath(
 mkpath(DEFAULT_NESTED_PIPELINE_CACHE_ROOT)
 
 const SUPPORTED_NESTED_IMPUTERS = (:zero, :random, :mice)
+const SUPPORTED_LINEARIZER_POLICIES = (:random_ties, :pattern_conditional)
 const SUPPORTED_CONSENSUS_TIE_POLICIES = (:average, :hash, :interval)
 
 struct SurveyWaveConfig
@@ -160,8 +161,8 @@ function PipelineSpec(wave_id::AbstractString,
     imputer_backend in SUPPORTED_NESTED_IMPUTERS || throw(ArgumentError(
         "Unsupported imputer_backend `$imputer_backend`. Supported backends: $(SUPPORTED_NESTED_IMPUTERS).",
     ))
-    linearizer_policy === :random_ties || throw(ArgumentError(
-        "Unsupported linearizer_policy `$linearizer_policy`. Only :random_ties is currently implemented.",
+    linearizer_policy in SUPPORTED_LINEARIZER_POLICIES || throw(ArgumentError(
+        "Unsupported linearizer_policy `$linearizer_policy`. Supported policies: $(SUPPORTED_LINEARIZER_POLICIES).",
     ))
     consensus_tie_policy in SUPPORTED_CONSENSUS_TIE_POLICIES || throw(ArgumentError(
         "Unsupported consensus_tie_policy `$consensus_tie_policy`. Supported policies: $(SUPPORTED_CONSENSUS_TIE_POLICIES).",
@@ -598,6 +599,23 @@ function _weak_profile_bundle(imputed::ImputedData, spec::PipelineSpec)
     return dataframe_to_annotated_profile(df; ballot_kind = :weak)
 end
 
+function _resolve_nested_linearizer(weak_bundle::AnnotatedProfile,
+                                    spec::PipelineSpec)
+    if spec.linearizer_policy === :random_ties
+        return :random
+    elseif spec.linearizer_policy === :pattern_conditional
+        return Preferences.PatternConditionalLinearizer(
+            weak_bundle.profile;
+            alpha = 0.5,
+            fallback = :uniform,
+        )
+    end
+
+    throw(ArgumentError(
+        "Unsupported linearizer_policy `$(spec.linearizer_policy)`. Supported policies: $(SUPPORTED_LINEARIZER_POLICIES).",
+    ))
+end
+
 function _linearize_imputed(imputed::ImputedData,
                             spec::PipelineSpec,
                             spec_hash::AbstractString,
@@ -611,7 +629,13 @@ function _linearize_imputed(imputed::ImputedData,
         weak_bundle;
         context = "spec=$(spec_hash) b=$(imputed.resample_ref[2]) r=$(imputed.r) k=$k",
     )
-    strict_bundle = linearize_annotated_profile(weak_bundle; rng = _rng_from_seed(seed))
+    rng = _rng_from_seed(seed)
+    tie_break = _resolve_nested_linearizer(weak_bundle, spec)
+    strict_bundle = linearize_annotated_profile(
+        weak_bundle;
+        rng = rng,
+        tie_break = tie_break,
+    )
 
     return LinearizedProfile(
         (String(spec_hash), imputed.resample_ref[2], imputed.r),
