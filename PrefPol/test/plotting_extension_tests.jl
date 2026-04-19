@@ -45,7 +45,7 @@ function _plotting_test_results()
                 wave;
                 active_candidates = active_candidates,
                 groupings = [:grp],
-                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :G],
+                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :G, :S],
                 B = 2,
                 R = 1,
                 K = 1,
@@ -107,19 +107,36 @@ end
         show_values = true,
         fixed_colorrange = true,
     )
+    fig_signed_heatmap = PrefPol.plot_pipeline_group_heatmap(
+        results;
+        year = 2022,
+        scenario_name = "all",
+        imputer_backend = :zero,
+        groupings = [:grp],
+        measures = [:S],
+        statistic = :median,
+        colormap = CairoMakie.Makie.Reverse(:RdBu),
+        show_values = true,
+        fixed_colorrange_limits = (-1.0, 1.0),
+        colorbar_label = "median signed support-separation contrast",
+    )
 
     @test fig_lines isa CairoMakie.Makie.Figure
     @test fig_dot isa CairoMakie.Makie.Figure
     @test fig_group_lines isa CairoMakie.Makie.Figure
     @test fig_heatmap isa CairoMakie.Makie.Figure
+    @test fig_signed_heatmap isa CairoMakie.Makie.Figure
 
     mktempdir() do dir
         saved_lines = PrefPol.save_pipeline_plot(fig_lines, "plotting_lines"; dir = dir)
         saved_heatmap = PrefPol.save_pipeline_plot(fig_heatmap, "plotting_heatmap"; dir = dir)
+        saved_signed_heatmap = PrefPol.save_pipeline_plot(fig_signed_heatmap, "plotting_signed_heatmap"; dir = dir)
 
         @test isfile(saved_lines)
         @test isfile(saved_heatmap)
+        @test isfile(saved_signed_heatmap)
         @test endswith(saved_lines, ".png")
         @test endswith(saved_heatmap, ".png")
+        @test endswith(saved_signed_heatmap, ".png")
     end
 end

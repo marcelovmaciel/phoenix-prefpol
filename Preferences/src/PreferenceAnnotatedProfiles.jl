@@ -391,10 +391,24 @@ function overall_divergences(grouped_consensus::AbstractDataFrame,
     return overall_divergence(group_profiles, consensus_map)
 end
 
-function compute_group_metrics(bundle::AnnotatedProfile, demo;
-                               cache = GLOBAL_LINEAR_ORDER_CACHE,
-                               rng = nothing,
-                               tie_break_context = nothing)
+function overall_divergences_clean(grouped_consensus::AbstractDataFrame,
+                                   whole_bundle::AnnotatedProfile,
+                                   key)
+    whole_bundle = annotated_profile(whole_bundle)
+    consensus_col = _consensus_column(grouped_consensus)
+    grouped_indices = _group_row_indices(whole_bundle, key)
+    group_profiles = Dict(
+        row[key] => _subset_profile(whole_bundle.profile, grouped_indices[row[key]])
+        for row in eachrow(grouped_consensus)
+    )
+    consensus_map = Dict(row[key] => row[consensus_col] for row in eachrow(grouped_consensus))
+    return overall_divergence_clean(group_profiles, consensus_map)
+end
+
+function _compute_group_metric_details(bundle::AnnotatedProfile, demo;
+                                       cache = GLOBAL_LINEAR_ORDER_CACHE,
+                                       rng = nothing,
+                                       tie_break_context = nothing)
     bundle = annotated_profile(bundle)
     grouped_indices = _group_row_indices(bundle, demo)
     group_vals = collect(keys(grouped_indices))
@@ -436,5 +450,20 @@ function compute_group_metrics(bundle::AnnotatedProfile, demo;
     )
 
     D = overall_divergences(consensus, bundle, demo)
-    return C, D
+    D_clean = overall_divergences_clean(consensus, bundle, demo)
+    return (C = C, D = D, D_clean = D_clean)
+end
+
+function compute_group_metrics(bundle::AnnotatedProfile, demo;
+                               cache = GLOBAL_LINEAR_ORDER_CACHE,
+                               rng = nothing,
+                               tie_break_context = nothing)
+    details = _compute_group_metric_details(
+        bundle,
+        demo;
+        cache = cache,
+        rng = rng,
+        tie_break_context = tie_break_context,
+    )
+    return details.C, details.D
 end

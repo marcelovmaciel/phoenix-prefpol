@@ -85,12 +85,12 @@ function _normalize_measure(measure)
 
     if sym === Symbol("Ψ") || sym === :Psi
         return :Psi
-    elseif sym in (:R, :HHI, :RHHI, :C, :D, :G)
+    elseif sym in (:R, :HHI, :RHHI, :C, :D, :D_clean, :G, :S)
         return sym
     end
 
     throw(ArgumentError(
-        "Unsupported measure `$measure`. Supported measures: Psi, R, HHI, RHHI, C, D, G.",
+        "Unsupported measure `$measure`. Supported measures: Psi, R, HHI, RHHI, C, D, D_clean, G, S.",
     ))
 end
 
@@ -148,8 +148,8 @@ function PipelineSpec(wave_id::AbstractString,
                                              [:Psi, :R, :HHI, :RHHI, :C, :D, :G]) :
                    _normalize_measure_list(measures)
 
-    any(measure in (:C, :D, :G) for measure in measure_syms) && isempty(grouping_syms) &&
-        throw(ArgumentError("Measures C, D, and G require at least one grouping column."))
+    any(measure in (:C, :D, :D_clean, :G, :S) for measure in measure_syms) && isempty(grouping_syms) &&
+        throw(ArgumentError("Measures C, D, D_clean, G, and S require at least one grouping column."))
 
     B >= 1 || throw(ArgumentError("B must be at least 1."))
     R >= 1 || throw(ArgumentError("R must be at least 1."))
@@ -697,6 +697,111 @@ function _consensus_ballots_for_result(result, pool::Preferences.CandidatePool, 
 end
 
 @inline _normalize_group_coherence(raw_C::Real) = (2.0 * Float64(raw_C)) - 1.0
+@inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
+    Preferences.kendall_tau_distance(ballot_i, ballot_j) / norm_factor
+
+function _pairwise_consensus_distance_stats(result_i,
+                                            pool_i::Preferences.CandidatePool,
+                                            result_j,
+                                            pool_j::Preferences.CandidatePool,
+                                            tie_policy::Symbol)
+    ballots_i = _consensus_ballots_for_result(result_i, pool_i, tie_policy)
+    ballots_j = _consensus_ballots_for_result(result_j, pool_j, tie_policy)
+    norm_factor = binomial(length(pool_i), 2)
+    norm_factor > 0 || throw(ArgumentError("At least two candidates are required."))
+
+    distances = Float64[]
+    sizehint!(distances, length(ballots_i) * length(ballots_j))
+
+    for ballot_i in ballots_i, ballot_j in ballots_j
+        push!(distances, _normalized_kendall_distance(ballot_i, ballot_j, norm_factor))
+    end
+
+    point = tie_policy === :hash ? only(distances) : mean(distances)
+    return (point = point, lo = minimum(distances), hi = maximum(distances))
+end
+
+function _within_group_average_normalized_kendall(profile)
+    ballots = profile.ballots
+    n = length(ballots)
+    n > 1 || return NaN
+
+    norm_factor = binomial(length(profile.pool), 2)
+    norm_factor > 0 || throw(ArgumentError("At least two candidates are required."))
+
+    total = 0.0
+
+    # W_i is defined over ordered pairs a != b. Because Kendall distance is
+    # symmetric, summing unordered pairs once and doubling is exactly equivalent.
+    for a in 1:(n - 1)
+        ballot_a = ballots[a]
+        for b in (a + 1):n
+            total += 2.0 * _normalized_kendall_distance(ballot_a, ballots[b], norm_factor)
+        end
+    end
+
+    return total / (n * (n - 1))
+end
+
+function _cross_group_average_normalized_kendall(profile_i, profile_j)
+    ballots_i = profile_i.ballots
+    ballots_j = profile_j.ballots
+    n_i = length(ballots_i)
+    n_j = length(ballots_j)
+    (n_i > 0 && n_j > 0) || throw(ArgumentError("Grouped profiles must be nonempty."))
+    Tuple(profile_i.pool.names) == Tuple(profile_j.pool.names) || throw(ArgumentError(
+        "All groups must share the same active candidate set.",
+    ))
+
+    norm_factor = binomial(length(profile_i.pool), 2)
+    norm_factor > 0 || throw(ArgumentError("At least two candidates are required."))
+
+    total = 0.0
+    for ballot_i in ballots_i, ballot_j in ballots_j
+        total += _normalized_kendall_distance(ballot_i, ballot_j, norm_factor)
+    end
+
+    return total / (n_i * n_j)
+end
+
+function _support_separation_contrast(group_profiles, group_sizes)
+    groups = [group for group in keys(group_profiles) if group_sizes[group] > 0]
+    length(groups) >= 2 || return NaN
+
+    within = Dict{Any,Float64}()
+    for group in groups
+        within[group] = _within_group_average_normalized_kendall(group_profiles[group])
+    end
+
+    total = 0.0
+    weight_sum = 0.0
+
+    # S is aggregated over unordered pairs only. Pairs touching singleton groups
+    # are skipped because W_i is undefined at n_i = 1; if no valid pair survives,
+    # we return NaN rather than inventing a value.
+    for a in 1:(length(groups) - 1)
+        group_a = groups[a]
+        W_a = within[group_a]
+        n_a = group_sizes[group_a]
+
+        for b in (a + 1):length(groups)
+            group_b = groups[b]
+            W_b = within[group_b]
+            (isnan(W_a) || isnan(W_b)) && continue
+
+            weight = n_a * group_sizes[group_b]
+            total += weight * (
+                _cross_group_average_normalized_kendall(
+                    group_profiles[group_a],
+                    group_profiles[group_b],
+                ) - ((W_a + W_b) / 2.0)
+            )
+            weight_sum += weight
+        end
+    end
+
+    return weight_sum > 0 ? total / weight_sum : NaN
+end
 
 function compute_group_measure_details(bundle::AnnotatedProfile,
                                        demo::Symbol;
@@ -715,6 +820,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     total_n > 0 || throw(ArgumentError("Cannot compute group metrics for an empty profile."))
 
     props = OrderedDict{Any,Float64}()
+    group_sizes = OrderedDict{Any,Float64}()
     group_profiles = OrderedDict{Any,Any}()
     consensus_results = OrderedDict{Any,Any}()
     C_raw = 0.0
@@ -731,16 +837,24 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
             cache = cache,
             tie_break_key = tie_key,
         )
-        props[group] = length(idxs) / total_n
+        group_sizes[group] = length(idxs)
+        props[group] = group_sizes[group] / total_n
         group_profiles[group] = profile
         consensus_results[group] = result
         C_raw += (1.0 - result.avg_normalized_distance) * props[group]
     end
 
+    S = _support_separation_contrast(group_profiles, group_sizes)
+    S_lo = S
+    S_hi = S
+
     if length(grouped) <= 1
         D = 0.0
         D_lo = 0.0
         D_hi = 0.0
+        D_clean = 0.0
+        D_clean_lo = 0.0
+        D_clean_hi = 0.0
     else
         point_sum = 0.0
         lo_sum = 0.0
@@ -772,6 +886,39 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         D = point_sum / denom
         D_lo = lo_sum / denom
         D_hi = hi_sum / denom
+
+        clean_point_sum = 0.0
+        clean_lo_sum = 0.0
+        clean_hi_sum = 0.0
+        clean_weight_sum = 0.0
+        groups = collect(keys(group_profiles))
+
+        for a in 1:(length(groups) - 1)
+            group_a = groups[a]
+            result_a = consensus_results[group_a]
+            pool_a = group_profiles[group_a].pool
+            n_a = group_sizes[group_a]
+
+            for b in (a + 1):length(groups)
+                group_b = groups[b]
+                stats = _pairwise_consensus_distance_stats(
+                    result_a,
+                    pool_a,
+                    consensus_results[group_b],
+                    group_profiles[group_b].pool,
+                    tie_policy,
+                )
+                weight = n_a * group_sizes[group_b]
+                clean_point_sum += weight * stats.point
+                clean_lo_sum += weight * stats.lo
+                clean_hi_sum += weight * stats.hi
+                clean_weight_sum += weight
+            end
+        end
+
+        D_clean = clean_point_sum / clean_weight_sum
+        D_clean_lo = clean_lo_sum / clean_weight_sum
+        D_clean_hi = clean_hi_sum / clean_weight_sum
     end
 
     C = _normalize_group_coherence(C_raw)
@@ -799,9 +946,15 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         D = D,
         D_lo = D_lo,
         D_hi = D_hi,
+        D_clean = D_clean,
+        D_clean_lo = D_clean_lo,
+        D_clean_hi = D_clean_hi,
         G = G,
         G_lo = G_lo,
         G_hi = G_hi,
+        S = S,
+        S_lo = S_lo,
+        S_hi = S_hi,
         diagnostics = diagnostics,
     )
 end
@@ -833,7 +986,7 @@ function _measure_results_for_profile(profile::LinearizedProfile,
     )
 
     for measure in spec.measures
-        measure in (:C, :D, :G) && continue
+        measure in (:C, :D, :D_clean, :G, :S) && continue
         value = _global_measure_value(measure, profile.bundle)
         push!(results, MeasureResult(
             ref,
@@ -846,7 +999,7 @@ function _measure_results_for_profile(profile::LinearizedProfile,
         ))
     end
 
-    if any(measure in (:C, :D, :G) for measure in spec.measures)
+    if any(measure in (:C, :D, :D_clean, :G, :S) for measure in spec.measures)
         for grouping in spec.groupings
             details = compute_group_measure_details(
                 profile.bundle,
@@ -888,6 +1041,30 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                     details.D,
                     details.D_lo,
                     details.D_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :D_clean in spec.measures
+                push!(results, MeasureResult(
+                    ref,
+                    :D_clean,
+                    grouping,
+                    details.D_clean,
+                    details.D_clean_lo,
+                    details.D_clean_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :S in spec.measures
+                push!(results, MeasureResult(
+                    ref,
+                    :S,
+                    grouping,
+                    details.S,
+                    details.S_lo,
+                    details.S_hi,
                     details.diagnostics,
                 ))
             end

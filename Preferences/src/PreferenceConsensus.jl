@@ -509,10 +509,21 @@ _profile_mass(profile::Profile) = nballots(profile)
 _profile_mass(profile::WeightedProfile) = Float64(total_weight(profile))
 
 _profile_candidate_tuple(profile::AbstractVector) = _profile_candidate_tuple(strict_profile(profile))
+_profile_pool(profile::AbstractVector) = strict_profile(profile).pool
+_profile_pool(profile::Profile) = profile.pool
+_profile_pool(profile::WeightedProfile) = profile.pool
 
 _consensus_length(consensus::AbstractDict) = length(consensus)
 _consensus_length(consensus::ConsensusResult) = length(consensus.candidates)
 _consensus_length(consensus::StrictRank) = length(to_perm(consensus))
+
+function _normalized_consensus_distance(consensus_i, consensus_j, pool::CandidatePool)
+    ballot_i = _strict_consensus_ballot(consensus_i, pool)
+    ballot_j = _strict_consensus_ballot(consensus_j, pool)
+    m = length(pool)
+    m >= 2 || throw(ArgumentError("At least two candidates are required"))
+    return kendall_tau_distance(ballot_i, ballot_j) / binomial(m, 2)
+end
 
 function _assert_group_candidate_tuple_consistency(group_profiles, consensus_map)
     expected = nothing
@@ -571,6 +582,39 @@ function overall_divergence(group_profiles, consensus_map)
     return total / (k - 1)
 end
 
+function overall_divergence_clean(group_profiles, consensus_map)
+    groups = collect(keys(group_profiles))
+    isempty(groups) && throw(ArgumentError("Grouped profiles must contain at least one group."))
+
+    _assert_group_candidate_tuple_consistency(group_profiles, consensus_map)
+    length(groups) == 1 && return 0.0
+
+    total = 0.0
+    weight_sum = 0.0
+
+    for a in 1:(length(groups) - 1)
+        group_a = groups[a]
+        profile_a = group_profiles[group_a]
+        pool_a = _profile_pool(profile_a)
+        n_a = _profile_mass(profile_a)
+
+        for b in (a + 1):length(groups)
+            group_b = groups[b]
+            n_b = _profile_mass(group_profiles[group_b])
+            weight = n_a * n_b
+            total += weight * _normalized_consensus_distance(
+                consensus_map[group_a],
+                consensus_map[group_b],
+                pool_a,
+            )
+            weight_sum += weight
+        end
+    end
+
+    weight_sum > 0 || return 0.0
+    return total / weight_sum
+end
+
 function _consensus_column(grouped_consensus)
     cols = Symbol.(names(grouped_consensus))
     if :consensus_result in cols
@@ -602,6 +646,22 @@ function overall_divergences(grouped_consensus::AbstractDataFrame,
     return overall_divergence(group_profiles, consensus_map)
 end
 
+function overall_divergences_clean(grouped_consensus::AbstractDataFrame,
+                                   whole_df::AbstractDataFrame,
+                                   key)
+    consensus_col = _consensus_column(grouped_consensus)
+    k = nrow(grouped_consensus)
+    group_profiles = Dict(
+        grouped_consensus[i, key] => map(
+            row -> row.profile,
+            Base.filter(row -> row[key] == grouped_consensus[i, key], eachrow(whole_df)),
+        )
+        for i in 1:k
+    )
+    consensus_map = Dict(row[key] => row[consensus_col] for row in eachrow(grouped_consensus))
+    return overall_divergence_clean(group_profiles, consensus_map)
+end
+
 function _merge_tie_break_key(base_key, extension::NamedTuple)
     if base_key === nothing
         return extension
@@ -612,10 +672,10 @@ function _merge_tie_break_key(base_key, extension::NamedTuple)
     return (; context = base_key, extension...)
 end
 
-function compute_group_metrics(df::AbstractDataFrame, demo;
-                               cache = GLOBAL_LINEAR_ORDER_CACHE,
-                               rng = nothing,
-                               tie_break_context = nothing)
+function _compute_group_metric_details(df::AbstractDataFrame, demo;
+                                       cache = GLOBAL_LINEAR_ORDER_CACHE,
+                                       rng = nothing,
+                                       tie_break_context = nothing)
     g = groupby(df, demo)
     group_vals = Any[]
     avg_distance = Float64[]
@@ -653,7 +713,22 @@ function compute_group_metrics(df::AbstractDataFrame, demo;
     )
 
     D = overall_divergences(consensus, df, demo)
-    return C, D
+    D_clean = overall_divergences_clean(consensus, df, demo)
+    return (C = C, D = D, D_clean = D_clean)
+end
+
+function compute_group_metrics(df::AbstractDataFrame, demo;
+                               cache = GLOBAL_LINEAR_ORDER_CACHE,
+                               rng = nothing,
+                               tie_break_context = nothing)
+    details = _compute_group_metric_details(
+        df,
+        demo;
+        cache = cache,
+        rng = rng,
+        tie_break_context = tie_break_context,
+    )
+    return details.C, details.D
 end
 
 function bootstrap_group_metrics(bt_profiles, demo;
@@ -664,18 +739,25 @@ function bootstrap_group_metrics(bt_profiles, demo;
     for (variant, reps) in bt_profiles
         Cvals = Float64[]
         Dvals = Float64[]
+        Dcleanvals = Float64[]
 
         for (rep_idx, rep) in enumerate(reps)
             rep_tie_key = _merge_tie_break_key(
                 tie_break_context,
                 (variant = String(variant), replicate = rep_idx),
             )
-            C, D = compute_group_metrics(rep, demo; rng = rng, tie_break_context = rep_tie_key)
-            push!(Cvals, C)
-            push!(Dvals, D)
+            details = _compute_group_metric_details(
+                rep,
+                demo;
+                rng = rng,
+                tie_break_context = rep_tie_key,
+            )
+            push!(Cvals, details.C)
+            push!(Dvals, details.D)
+            push!(Dcleanvals, details.D_clean)
         end
 
-        result[variant] = Dict(:C => Cvals, :D => Dvals)
+        result[variant] = Dict(:C => Cvals, :D => Dvals, :D_clean => Dcleanvals)
     end
 
     return result

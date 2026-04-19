@@ -33,6 +33,8 @@ const _NESTED_RUN_DF = DataFrame(
     end
 end
 
+ranking_dict(order::Vector{Symbol}) = Dict(candidate => rank for (rank, candidate) in enumerate(order))
+
 function _legacy_raw_group_coherence(bundle, demo::Symbol)
     group_values = PrefPol._metadata_column(bundle, demo)
     grouped = PrefPol._group_row_indices(group_values)
@@ -109,7 +111,7 @@ end
             wave;
             active_candidates = ["A", "B", "C"],
             groupings = [:grp],
-            measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :G],
+            measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_clean, :G, :S],
             B = 3,
             R = 2,
             K = 2,
@@ -157,6 +159,8 @@ end
     @test isapprox(interval.C, avg.C)
     @test 0.0 <= avg.C <= 1.0
     @test interval.D_lo <= interval.D <= interval.D_hi
+    @test interval.D_clean_lo <= interval.D_clean <= interval.D_clean_hi
+    @test 0.0 <= avg.D_clean <= 1.0
     @test isapprox(avg.G, sqrt(max(avg.C * avg.D, 0.0)))
     @test interval.G_lo <= interval.G <= interval.G_hi
     @test isapprox(interval.G_lo, sqrt(max(interval.C * interval.D_lo, 0.0)))
@@ -192,12 +196,116 @@ end
     @test hash.C == interval.C
     @test avg.D == hash.D
     @test hash.D == interval.D
+    @test avg.D_clean == hash.D_clean
+    @test hash.D_clean == interval.D_clean
     @test avg.G == hash.G
     @test hash.G == interval.G
     @test interval.D_lo == interval.D
     @test interval.D == interval.D_hi
+    @test interval.D_clean_lo == interval.D_clean
+    @test interval.D_clean == interval.D_clean_hi
     @test interval.G_lo == interval.G
     @test interval.G == interval.G_hi
+end
+
+@testset "support-separation contrast S follows the sample definition" begin
+    abc = ranking_dict([:A, :B, :C])
+    acb = ranking_dict([:A, :C, :B])
+    cba = ranking_dict([:C, :B, :A])
+
+    positive_df = vcat(
+        DataFrame(grp = :A, profile = fill(abc, 3)),
+        DataFrame(grp = :B, profile = fill(cba, 3)),
+    )
+    metadata!(positive_df, "candidates", [:A, :B, :C])
+    metadata!(positive_df, "profile_kind", "linearized")
+    positive_bundle = PrefPol.dataframe_to_annotated_profile(positive_df)
+
+    positive_avg = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :average)
+    positive_hash = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :hash)
+    positive_interval = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :interval)
+
+    @test isapprox(positive_avg.S, 1.0; atol = 1e-12)
+    @test positive_avg.S == positive_hash.S
+    @test positive_hash.S == positive_interval.S
+    @test positive_avg.S_lo == positive_avg.S
+    @test positive_avg.S == positive_avg.S_hi
+
+    identical_df = vcat(
+        DataFrame(grp = :A, profile = vcat(fill(abc, 50), fill(cba, 50))),
+        DataFrame(grp = :B, profile = vcat(fill(abc, 50), fill(cba, 50))),
+    )
+    metadata!(identical_df, "candidates", [:A, :B, :C])
+    metadata!(identical_df, "profile_kind", "linearized")
+    identical_bundle = PrefPol.dataframe_to_annotated_profile(identical_df)
+    identical_details = PrefPol.compute_group_measure_details(identical_bundle, :grp; tie_policy = :average)
+
+    @test isapprox(identical_details.S, 0.0; atol = 0.01)
+
+    negative_df = vcat(
+        DataFrame(grp = :A, profile = [abc, cba]),
+        DataFrame(grp = :B, profile = [abc, cba]),
+    )
+    metadata!(negative_df, "candidates", [:A, :B, :C])
+    metadata!(negative_df, "profile_kind", "linearized")
+    negative_bundle = PrefPol.dataframe_to_annotated_profile(negative_df)
+    negative_details = PrefPol.compute_group_measure_details(negative_bundle, :grp; tie_policy = :average)
+
+    @test negative_details.S < 0.0
+
+    relabeled_df = vcat(
+        DataFrame(grp = :Z, profile = [cba, cba]),
+        DataFrame(grp = :X, profile = [abc, abc]),
+        DataFrame(grp = :Y, profile = [acb, acb]),
+    )
+    metadata!(relabeled_df, "candidates", [:A, :B, :C])
+    metadata!(relabeled_df, "profile_kind", "linearized")
+    relabeled_bundle = PrefPol.dataframe_to_annotated_profile(relabeled_df)
+
+    original_df = vcat(
+        DataFrame(grp = :A, profile = [abc, abc]),
+        DataFrame(grp = :B, profile = [cba, cba]),
+        DataFrame(grp = :C, profile = [acb, acb]),
+    )
+    metadata!(original_df, "candidates", [:A, :B, :C])
+    metadata!(original_df, "profile_kind", "linearized")
+    original_bundle = PrefPol.dataframe_to_annotated_profile(original_df)
+
+    @test isapprox(
+        PrefPol.compute_group_measure_details(original_bundle, :grp; tie_policy = :average).S,
+        PrefPol.compute_group_measure_details(relabeled_bundle, :grp; tie_policy = :average).S;
+        atol = 1e-12,
+    )
+end
+
+@testset "support-separation contrast S handles singleton groups conservatively" begin
+    abc = ranking_dict([:A, :B, :C])
+    cba = ranking_dict([:C, :B, :A])
+
+    surviving_pair_df = vcat(
+        DataFrame(grp = :A, profile = [abc]),
+        DataFrame(grp = :B, profile = [abc, abc]),
+        DataFrame(grp = :C, profile = [cba, cba]),
+    )
+    metadata!(surviving_pair_df, "candidates", [:A, :B, :C])
+    metadata!(surviving_pair_df, "profile_kind", "linearized")
+    surviving_pair_bundle = PrefPol.dataframe_to_annotated_profile(surviving_pair_df)
+
+    @test isapprox(
+        PrefPol.compute_group_measure_details(surviving_pair_bundle, :grp; tie_policy = :average).S,
+        1.0;
+        atol = 1e-12,
+    )
+
+    no_valid_pair_df = vcat(
+        DataFrame(grp = :A, profile = [abc]),
+        DataFrame(grp = :B, profile = [cba, cba]),
+    )
+    metadata!(no_valid_pair_df, "candidates", [:A, :B, :C])
+    metadata!(no_valid_pair_df, "profile_kind", "linearized")
+    no_valid_pair_bundle = PrefPol.dataframe_to_annotated_profile(no_valid_pair_df)
+
+    @test isnan(PrefPol.compute_group_measure_details(no_valid_pair_bundle, :grp; tie_policy = :average).S)
 end
 
 @testset "nested batch reporting tables preserve stored measure outputs" begin
@@ -550,7 +658,7 @@ end
                 wave;
                 active_candidates = active_candidates,
                 groupings = [:grp],
-                measures = [:Psi, :C, :D, :G],
+                measures = [:Psi, :C, :D, :D_clean, :G, :S],
                 B = 3,
                 R = 2,
                 K = 1,
@@ -581,7 +689,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :G],
+            measures = [:C, :D, :D_clean, :G, :S],
             groupings = [:grp],
             include_grouped = true,
         )
@@ -597,7 +705,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :G],
+            measures = [:C, :D, :D_clean, :G, :S],
             groupings = [:grp],
             statistic = :median,
         )
@@ -605,11 +713,17 @@ end
         @test Set(scenario_rows.n_candidates) == Set([2, 3])
         @test all(ismissing, scenario_rows.grouping)
         @test Set(Symbol.(skipmissing(group_rows.grouping))) == Set([:grp])
+        @test :D_clean in Set(Symbol.(group_rows.measure))
+        @test :S in Set(Symbol.(group_rows.measure))
         @test scenario_data.m_values == [2, 3]
         @test scenario_data.candidate_label == "Candidates: A, B, C"
 
         g_row = group_rows[(group_rows.measure .== :G) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:G][1, 1], g_row.q50)
+        dclean_row = group_rows[(group_rows.measure .== :D_clean) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:D_clean][1, 1], dclean_row.q50)
+        s_row = group_rows[(group_rows.measure .== :S) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:S][1, 1], s_row.q50)
     end
 end
 

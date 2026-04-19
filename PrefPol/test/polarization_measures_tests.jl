@@ -311,12 +311,14 @@ end
     group_profiles = Dict(:A => profA, :B => profB)
     consensus_map  = Dict(:A => consA, :B => consB)
     @test PrefPol.overall_divergence(group_profiles, consensus_map) == 1.0
+    @test PrefPol.overall_divergence_clean(group_profiles, consensus_map) == 1.0
 
     # Wrapper that uses DataFrames
     whole_df = vcat(DataFrame(group=:A, profile=profA),
                     DataFrame(group=:B, profile=profB))
     grouped_consensus = DataFrame(group=[:A,:B], consensus_ranking=Any[consA, consB])
     @test PrefPol.overall_divergences(grouped_consensus, whole_df, :group) == 1.0
+    @test PrefPol.overall_divergences_clean(grouped_consensus, whole_df, :group) == 1.0
 end
 
 # ---------------------------------------------------------------------------
@@ -385,6 +387,59 @@ end
     @test Set(keys(res)) == Set([:mice, :rand])
     @test res[:mice][:C] == fill(1.0, 2)
     @test res[:mice][:D] == fill(1.0, 2)
+    @test res[:mice][:D_clean] == fill(1.0, 2)
     @test res[:rand][:C] == fill(1.0, 1)
     @test res[:rand][:D] == fill(1.0, 1)
+    @test res[:rand][:D_clean] == fill(1.0, 1)
+end
+
+@testset "D_clean is consensus-only and properly normalized" begin
+    pure_df = vcat(
+        DataFrame(grp = :A, profile = fill(ranking_dict([:a, :b, :c]), 10)),
+        DataFrame(grp = :B, profile = fill(ranking_dict([:c, :b, :a]), 10)),
+    )
+    noisy_df = vcat(
+        DataFrame(grp = :A, profile = vcat(fill(ranking_dict([:a, :b, :c]), 9), [ranking_dict([:a, :c, :b])])),
+        DataFrame(grp = :B, profile = vcat(fill(ranking_dict([:c, :b, :a]), 9), [ranking_dict([:b, :c, :a])])),
+    )
+
+    pure_grouped = DataFrame(grp = [:A, :B], consensus_ranking = Any[
+        ranking_dict([:a, :b, :c]),
+        ranking_dict([:c, :b, :a]),
+    ])
+
+    @test PrefPol.overall_divergences_clean(pure_grouped, pure_df, :grp) == 1.0
+    @test PrefPol.overall_divergences_clean(
+        DataFrame(grp = [:A, :B], consensus_ranking = Any[
+            ranking_dict([:a, :b, :c]),
+            ranking_dict([:a, :b, :c]),
+        ]),
+        vcat(
+            DataFrame(grp = :A, profile = fill(ranking_dict([:a, :b, :c]), 3)),
+            DataFrame(grp = :B, profile = fill(ranking_dict([:a, :b, :c]), 4)),
+        ),
+        :grp,
+    ) == 0.0
+
+    pure_bundle_df = copy(pure_df)
+    noisy_bundle_df = copy(noisy_df)
+    metadata!(pure_bundle_df, "candidates", [:a, :b, :c])
+    metadata!(pure_bundle_df, "profile_kind", "linearized")
+    metadata!(noisy_bundle_df, "candidates", [:a, :b, :c])
+    metadata!(noisy_bundle_df, "profile_kind", "linearized")
+
+    pure_details = PrefPol.compute_group_measure_details(
+        PrefPol.dataframe_to_annotated_profile(pure_bundle_df),
+        :grp;
+        tie_policy = :average,
+    )
+    noisy_details = PrefPol.compute_group_measure_details(
+        PrefPol.dataframe_to_annotated_profile(noisy_bundle_df),
+        :grp;
+        tie_policy = :average,
+    )
+
+    @test isapprox(pure_details.D_clean, 1.0; atol = 1e-12)
+    @test isapprox(noisy_details.D_clean, pure_details.D_clean; atol = 1e-12)
+    @test noisy_details.D < pure_details.D
 end

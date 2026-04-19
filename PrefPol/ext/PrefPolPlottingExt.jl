@@ -13,6 +13,21 @@ using TextWrap
 @inline _measure_label(measure::Symbol) =
     measure === :Psi ? "Ψ" : String(measure)
 
+function _resolve_heatmap_colorrange(allvals;
+                                     fixed_colorrange::Bool = false,
+                                     fixed_colorrange_limits = nothing)
+    data_min, data_max = isempty(allvals) ? (0.0f0, 1.0f0) : extrema(allvals)
+
+    if fixed_colorrange_limits !== nothing
+        lo, hi = fixed_colorrange_limits
+        lo < hi || throw(ArgumentError("fixed_colorrange_limits must satisfy lo < hi."))
+        return (Float32(lo), Float32(hi)), data_min, data_max
+    end
+
+    colorrange = fixed_colorrange ? (0.0f0, 1.0f0) : (data_min, data_max)
+    return colorrange, data_min, data_max
+end
+
 function _plot_title(rows::AbstractDataFrame;
                      year = nothing,
                      scenario_name = nothing,
@@ -784,7 +799,9 @@ function plot_pipeline_group_heatmap(result_or_results;
                                      maxcols::Int = 3,
                                      colormap = CairoMakie.Makie.Reverse(:RdBu),
                                      fixed_colorrange::Bool = false,
+                                     fixed_colorrange_limits = nothing,
                                      show_values::Bool = false,
+                                     colorbar_label = nothing,
                                      simplified_labels::Bool = false,
                                      clist_size = 60)
     data = PrefPol.pipeline_group_heatmap_values(
@@ -808,8 +825,11 @@ function plot_pipeline_group_heatmap(result_or_results;
     for measure in wanted_measures
         append!(allvals, Float32.(filter(!isnan, vec(data.matrices[measure]))))
     end
-    data_min, data_max = isempty(allvals) ? (0.0f0, 1.0f0) : extrema(allvals)
-    colorrange = fixed_colorrange ? (0.0f0, 1.0f0) : (data_min, data_max)
+    colorrange, data_min, data_max = _resolve_heatmap_colorrange(
+        allvals;
+        fixed_colorrange = fixed_colorrange,
+        fixed_colorrange_limits = fixed_colorrange_limits,
+    )
 
     n_panels = length(wanted_measures)
     ncol = min(maxcols, n_panels)
@@ -873,7 +893,7 @@ function plot_pipeline_group_heatmap(result_or_results;
         cbgrid = GridLayout()
         fig[header_rows + 1:header_rows + nrow, ncol + 1] = cbgrid
         Label(cbgrid[1, 1]; text = "max found = $(round(data_max; digits = 3))", halign = :center)
-        Colorbar(cbgrid[2, 1], hm_ref; label = String(data.statistic))
+        Colorbar(cbgrid[2, 1], hm_ref; label = something(colorbar_label, String(data.statistic)))
         Label(cbgrid[3, 1]; text = "min found = $(round(data_min; digits = 3))", halign = :center)
         rowsize!(cbgrid, 1, Auto(0.15))
         rowsize!(cbgrid, 3, Auto(0.15))

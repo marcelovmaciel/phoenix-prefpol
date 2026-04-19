@@ -79,6 +79,8 @@ weighted_coherence(args...; kwargs...) = Preferences.weighted_coherence(args...;
 pairwise_group_divergence(args...; kwargs...) = Preferences.pairwise_group_divergence(args...; kwargs...)
 overall_divergence(args...; kwargs...) = Preferences.overall_divergence(args...; kwargs...)
 overall_divergences(args...; kwargs...) = Preferences.overall_divergences(args...; kwargs...)
+overall_divergence_clean(args...; kwargs...) = Preferences.overall_divergence_clean(args...; kwargs...)
+overall_divergences_clean(args...; kwargs...) = Preferences.overall_divergences_clean(args...; kwargs...)
 
 function _measure_input(x)
     if x isa DataFrame

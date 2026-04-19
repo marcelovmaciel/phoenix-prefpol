@@ -110,11 +110,13 @@ end
     group_profiles = Dict(:A => profA, :B => profB)
     consensus_map = Dict(:A => consA, :B => consB)
     @test pp.overall_divergence(group_profiles, consensus_map) == 1.0
+    @test pp.overall_divergence_clean(group_profiles, consensus_map) == 1.0
 
     whole_df = vcat(DataFrame(group = :A, profile = profA),
                     DataFrame(group = :B, profile = profB))
     grouped_consensus = DataFrame(group = [:A, :B], consensus_ranking = Any[consA, consB])
     @test pp.overall_divergences(grouped_consensus, whole_df, :group) == 1.0
+    @test pp.overall_divergences_clean(grouped_consensus, whole_df, :group) == 1.0
 
     C, D = pp.compute_group_metrics(whole_df, :group)
     @test isapprox(C, 1.0; atol = 1e-12)
@@ -125,6 +127,23 @@ end
     @test Set(keys(res)) == Set([:mice, :rand])
     @test res[:mice][:C] == fill(1.0, 2)
     @test res[:mice][:D] == fill(1.0, 2)
+    @test res[:mice][:D_clean] == fill(1.0, 2)
     @test res[:rand][:C] == fill(1.0, 1)
     @test res[:rand][:D] == fill(1.0, 1)
+    @test res[:rand][:D_clean] == fill(1.0, 1)
+end
+
+@testset "clean divergence uses weighted consensus distances" begin
+    ab = ranking_dict([:a, :b])
+    ba = ranking_dict([:b, :a])
+
+    group_profiles = Dict(
+        :A => [ab],
+        :B => fill(ba, 2),
+        :C => fill(ba, 3),
+    )
+    consensus_map = Dict(:A => ab, :B => ba, :C => ba)
+
+    @test isapprox(pp.overall_divergence_clean(group_profiles, consensus_map), 5 / 11; atol = 1e-12)
+    @test pp.overall_divergence_clean(Dict(:A => [ab], :B => [ab]), Dict(:A => ab, :B => ab)) == 0.0
 end
