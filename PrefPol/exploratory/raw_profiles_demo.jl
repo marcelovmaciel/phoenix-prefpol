@@ -5,9 +5,9 @@ import PrefPol as pp
 
 years = [2006, 2018, 2022]
 scenario_by_year = Dict(
-    2006 => "lula_alckmin",
+    2006 => "lula_alckmin_heloisa_serra_cristovam",
     2018 => "main_four",
-    2022 => "lula_bolsonaro",
+    2022 => "lula_bolsonaro_ciro_marina_tebet",
 )
 k_by_year = Dict(
     2006 => 4,
@@ -106,7 +106,7 @@ println("Navigation + type decomposition demo (2018, main_four, k = 4)")
 println("="^72)
 
 year = 2022
-scenario = "lula_bolsonaro"
+scenario = "lula_bolsonaro_ciro_marina_tebet"
 k_demo = 4
 
 raw_demo = pp.load_raw_pref_data(year; scenario_name = scenario)

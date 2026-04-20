@@ -403,6 +403,18 @@ function overall_overlaps(grouped_consensus::AbstractDataFrame,
     return overall_overlap(group_profiles)
 end
 
+function overall_overlaps_smoothed(grouped_consensus::AbstractDataFrame,
+                                   whole_bundle::AnnotatedProfile,
+                                   key)
+    whole_bundle = annotated_profile(whole_bundle)
+    grouped_indices = _group_row_indices(whole_bundle, key)
+    group_profiles = Dict(
+        row[key] => _subset_profile(whole_bundle.profile, grouped_indices[row[key]])
+        for row in eachrow(grouped_consensus)
+    )
+    return overall_overlap_smoothed(group_profiles)
+end
+
 function overall_divergences_median(grouped_consensus::AbstractDataFrame,
                                     whole_bundle::AnnotatedProfile,
                                     key)
@@ -478,6 +490,7 @@ function _compute_group_metric_details(bundle::AnnotatedProfile, demo;
     D = overall_divergences(consensus, bundle, demo)
     D_median = overall_divergences_median(consensus, bundle, demo)
     O = overall_overlaps(consensus, bundle, demo)
+    O_smoothed = overall_overlaps_smoothed(consensus, bundle, demo)
     Sep = overall_separations(consensus, bundle, demo)
     Gsep = grouped_gsep(C, Sep)
     return (
@@ -485,6 +498,7 @@ function _compute_group_metric_details(bundle::AnnotatedProfile, demo;
         D = D,
         D_median = D_median,
         O = O,
+        O_smoothed = O_smoothed,
         Sep = Sep,
         Gsep = Gsep,
     )

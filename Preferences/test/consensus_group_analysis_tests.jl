@@ -13,6 +13,14 @@ function profile_from_counts(counts::Vector{Tuple{Vector{Symbol},Int}})
     return out
 end
 
+function weighted_profile_from_counts(counts::Vector{Tuple{Vector{Symbol},Float64}})
+    candidate_order = unique(vcat((order for (order, _) in counts)...))
+    pool = pp.CandidatePool(candidate_order)
+    ballots = [pp.StrictRank(pool, order) for (order, _) in counts]
+    weights = [weight for (_, weight) in counts]
+    return pp.WeightedProfile(pp.Profile(pool, ballots), weights)
+end
+
 @testset "linear order catalog cache uses exact candidate tuples" begin
     cache = Dict{Tuple{Vararg{Symbol}},Any}()
 
@@ -134,12 +142,14 @@ end
     @test res[:mice][:D] == fill(1.0, 2)
     @test res[:mice][:D_median] == fill(1.0, 2)
     @test res[:mice][:O] == fill(0.0, 2)
+    @test res[:mice][:O_smoothed] == fill(0.0, 2)
     @test res[:mice][:Sep] == fill(1.0, 2)
     @test res[:mice][:Gsep] == fill(1.0, 2)
     @test res[:rand][:C] == fill(1.0, 1)
     @test res[:rand][:D] == fill(1.0, 1)
     @test res[:rand][:D_median] == fill(1.0, 1)
     @test res[:rand][:O] == fill(0.0, 1)
+    @test res[:rand][:O_smoothed] == fill(0.0, 1)
     @test res[:rand][:Sep] == fill(1.0, 1)
     @test res[:rand][:Gsep] == fill(1.0, 1)
 end
@@ -173,6 +183,91 @@ end
     @test isapprox(pp.pairwise_group_overlap(pure_a, pure_b), 0.0; atol = 1e-12)
     @test isapprox(pp.pairwise_group_median_distance(pure_a, pure_b), 1.0; atol = 1e-12)
     @test isapprox(pp.pairwise_group_separation(pure_a, pure_b), 1.0; atol = 1e-12)
+end
+
+@testset "smoothed overlap new measures" begin
+    abc = ranking_dict([:a, :b, :c])
+    acb = ranking_dict([:a, :c, :b])
+    bac = ranking_dict([:b, :a, :c])
+    cba = ranking_dict([:c, :b, :a])
+
+    p = vcat(fill(abc, 2), [acb], [bac])
+    q = vcat(fill(acb, 2), fill(cba, 2), [abc])
+    overlap_pq = pp.smoothed_overlap(p, q)
+    overlap_qp = pp.smoothed_overlap(q, p)
+
+    @test isapprox(pp.smoothed_overlap(p, p), 1.0; atol = 1e-12)
+    @test isapprox(overlap_pq, overlap_qp; atol = 1e-12)
+    @test 0.0 <= overlap_pq <= 1.0
+
+    ab = ranking_dict([:a, :b])
+    ba = ranking_dict([:b, :a])
+    @test isapprox(pp.smoothed_overlap(fill(ab, 3), fill(ba, 2)), 1.0; atol = 1e-12)
+
+    @test isapprox(pp.smoothed_overlap([abc], [acb]), 2 / 3; atol = 1e-12)
+end
+
+@testset "smoothed overlap respects weighted profile masses" begin
+    weighted = weighted_profile_from_counts([
+        ([:a, :b, :c], 2.0),
+        ([:a, :c, :b], 1.0),
+    ])
+    expanded = profile_from_counts([
+        ([:a, :b, :c], 2),
+        ([:a, :c, :b], 1),
+    ])
+
+    @test isapprox(pp.smoothed_overlap(weighted, expanded), 1.0; atol = 1e-12)
+end
+
+@testset "overall smoothed overlap uses the grouped pair weights" begin
+    abc = ranking_dict([:a, :b, :c])
+    acb = ranking_dict([:a, :c, :b])
+    cba = ranking_dict([:c, :b, :a])
+
+    group_profiles = Dict(
+        :A => [abc],
+        :B => fill(acb, 2),
+        :C => fill(cba, 3),
+    )
+
+    masses = Dict(group => length(profile) for (group, profile) in group_profiles)
+    total_mass = sum(values(masses))
+    proportions = Dict(group => mass / total_mass for (group, mass) in masses)
+    denom = 1.0 - sum(pi^2 for pi in values(proportions))
+
+    expected = (
+        ((2 * proportions[:A] * proportions[:B]) / denom) * pp.smoothed_overlap(group_profiles[:A], group_profiles[:B]) +
+        ((2 * proportions[:A] * proportions[:C]) / denom) * pp.smoothed_overlap(group_profiles[:A], group_profiles[:C]) +
+        ((2 * proportions[:B] * proportions[:C]) / denom) * pp.smoothed_overlap(group_profiles[:B], group_profiles[:C])
+    )
+    observed = pp.overall_overlap_smoothed(group_profiles)
+
+    @test isfinite(observed)
+    @test 0.0 <= observed <= 1.0
+    @test isapprox(observed, expected; atol = 1e-12)
+end
+
+@testset "overall smoothed overlap reaches the maximal grouped value when expected" begin
+    abc = ranking_dict([:a, :b, :c])
+    acb = ranking_dict([:a, :c, :b])
+    shared = vcat(fill(abc, 2), [acb])
+
+    identical_groups = Dict(
+        :A => shared,
+        :B => copy(shared),
+        :C => copy(shared),
+    )
+    @test isapprox(pp.overall_overlap_smoothed(identical_groups), 1.0; atol = 1e-12)
+
+    ab = ranking_dict([:a, :b])
+    ba = ranking_dict([:b, :a])
+    m2_groups = Dict(
+        :A => fill(ab, 1),
+        :B => fill(ba, 2),
+        :C => fill(ab, 3),
+    )
+    @test isapprox(pp.overall_overlap_smoothed(m2_groups), 1.0; atol = 1e-12)
 end
 
 @testset "D_median averages across all median pairs" begin

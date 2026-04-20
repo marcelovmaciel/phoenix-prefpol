@@ -33,10 +33,13 @@ const FULL_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :G]
 const GROUP_HEATMAP_MEASURES = [:C, :D, :G]
 const IMPUTER_BACKENDS = [:zero, :mice]
 const LINEARIZER_POLICIES = [:random_ties, :pattern_conditional]
+const SCENARIO_2022_TEBET = "lula_bolsonaro_ciro_marina_tebet"
+const SCENARIO_2022_TARCISIO = "lula_bolsonaro_ciro_marina_tarcisio"
 
 const TARGET_SCENARIOS = [
     (year = 2018, scenario_name = "main_four"),
-    (year = 2022, scenario_name = "lula_bolsonaro"),
+    (year = 2022, scenario_name = SCENARIO_2022_TEBET),
+    (year = 2022, scenario_name = SCENARIO_2022_TARCISIO),
 ]
 
 function load_operational_configs(cfgdir::AbstractString = CONFIG_DIR)

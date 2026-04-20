@@ -20,9 +20,14 @@ const GROUPED_OVERLAP_PANEL_ORDER = [:C, :D_median, :O, :Gsep]
 const GROUPED_OVERLAP_PANEL_LABELS = Dict(
     :C => "C",
     :D_median => "D",
-    :O => "O",
+    :O => "1 - O",
     :Gsep => "G",
 )
+
+function _panel_matrix(data, measure::Symbol)
+    matrix = data.matrices[measure]
+    return measure === :O ? 1.0 .- matrix : matrix
+end
 
 function load_target_wave(year::Int)
     cfgdir = joinpath(pp.project_root, "config")
@@ -136,7 +141,7 @@ function plot_grouped_overlap_heatmap(data;
     group_labels = string.(data.grouping_values)
     allvals = Float32[]
     for measure in GROUPED_OVERLAP_PANEL_ORDER
-        append!(allvals, Float32.(filter(!isnan, vec(data.matrices[measure]))))
+        append!(allvals, Float32.(filter(!isnan, vec(_panel_matrix(data, measure)))))
     end
     data_min, data_max = isempty(allvals) ? (0.0f0, 1.0f0) : extrema(allvals)
     title_txt = _plot_title(
@@ -172,7 +177,7 @@ function plot_grouped_overlap_heatmap(data;
             yticks = (1:length(data.grouping_values), group_labels),
         )
 
-        z = Float32.(data.matrices[measure])
+        z = Float32.(_panel_matrix(data, measure))
         hm = M.heatmap!(
             ax,
             xs_m,
@@ -211,6 +216,7 @@ function run_grouped_overlap_heatmap(year::Int,
                                      scenario_name::AbstractString;
                                      imputer_backend::Symbol = :mice,
                                      groupings = nothing,
+                                     measures = GROUPED_OVERLAP_PANEL_ORDER,
                                      statistic::Symbol = :median,
                                      consensus_tie_policy::Symbol = :average,
                                      force_pipeline::Bool = false,
@@ -244,6 +250,7 @@ function run_grouped_overlap_heatmap(year::Int,
         wave;
         scenario_name = scenario_name,
         groupings = batch_groupings,
+        measures = measures,
         B = resolved_B,
         R = R,
         K = K,
@@ -283,9 +290,10 @@ function run_grouped_overlap_heatmap(year::Int,
 end
 
 function main(; year::Int = 2022,
-              scenario_name::AbstractString = "lula_bolsonaro",
+              scenario_name::AbstractString = "lula_bolsonaro_ciro_marina_tebet",
               imputer_backend::Symbol = :mice,
               groupings = nothing,
+              measures = GROUPED_OVERLAP_PANEL_ORDER,
               statistic::Symbol = :median,
               consensus_tie_policy::Symbol = :average,
               force_pipeline::Bool = false,
@@ -297,6 +305,7 @@ function main(; year::Int = 2022,
         scenario_name;
         imputer_backend = imputer_backend,
         groupings = groupings,
+        measures = measures,
         statistic = statistic,
         consensus_tie_policy = consensus_tie_policy,
         force_pipeline = force_pipeline,

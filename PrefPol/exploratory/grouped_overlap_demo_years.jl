@@ -6,10 +6,12 @@ using .GroupedOverlapHeatmap2x2
 import PrefPol as pp
 
 const DEFAULT_SCENARIOS = Dict(
-    2006 => "lula_alckmin",
+    2006 => "lula_alckmin_heloisa_serra_cristovam",
     2018 => "main_four",
-    2022 => "lula_bolsonaro",
+    2022 => "lula_bolsonaro_ciro_marina_tebet",
 )
+
+const SUMMARY_MEASURES = [:C, :D_median, :O, :Sep, :Gsep]
 
 const SCRIPT_STEM = "grouped_overlap_demo_years"
 const OUTPUT_ROOT = joinpath(pp.project_root, "exploratory", "output", SCRIPT_STEM)
@@ -76,6 +78,7 @@ function run_demo_year(year::Int;
         scenario_name;
         imputer_backend = imputer_backend,
         groupings = groupings,
+        measures = SUMMARY_MEASURES,
         force_pipeline = force_pipeline,
         B = B,
         R = R,
@@ -89,7 +92,7 @@ function run_demo_year(year::Int;
         year = year,
         scenario_name = scenario_name,
         imputer_backend = imputer_backend,
-        measures = [:C, :D_median, :O, :Sep, :Gsep],
+        measures = SUMMARY_MEASURES,
         groupings = run.selected_groupings,
         statistic = :median,
     )

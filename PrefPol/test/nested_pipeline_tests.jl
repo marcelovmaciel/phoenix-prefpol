@@ -74,6 +74,11 @@ end
 
     active = PrefPol.resolve_active_candidate_set(wave; scenario_name = "front", m = 3)
     @test active == ["D", "A", "B"]
+    @test_throws ArgumentError PrefPol.resolve_active_candidate_set(
+        wave;
+        scenario_name = "front",
+        m = 5,
+    )
 
     spec = PrefPol.build_pipeline_spec(
         wave;
@@ -107,15 +112,15 @@ end
 
     mktempdir() do dir
         pipeline = PrefPol.NestedStochasticPipeline([wave]; cache_root = dir)
-        spec = PrefPol.build_pipeline_spec(
-            wave;
-            active_candidates = ["A", "B", "C"],
-            groupings = [:grp],
-            measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
-            B = 3,
-            R = 2,
-            K = 2,
-            imputer_backend = :zero,
+            spec = PrefPol.build_pipeline_spec(
+                wave;
+                active_candidates = ["A", "B", "C"],
+                groupings = [:grp],
+                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S],
+                B = 3,
+                R = 2,
+                K = 2,
+                imputer_backend = :zero,
             consensus_tie_policy = :average,
         )
 
@@ -165,6 +170,11 @@ end
     @test interval.D_median == interval.D_median_hi
     @test 0.0 <= avg.D_median <= 1.0
     @test 0.0 <= avg.O <= 1.0
+    @test 0.0 <= avg.O_smoothed <= 1.0
+    @test avg.O_smoothed == hash.O_smoothed
+    @test hash.O_smoothed == interval.O_smoothed
+    @test interval.O_smoothed_lo == interval.O_smoothed
+    @test interval.O_smoothed == interval.O_smoothed_hi
     @test 0.0 <= avg.Sep <= 1.0
     @test isapprox(avg.Gsep, sqrt(max(avg.C * avg.Sep, 0.0)))
     @test isapprox(avg.G, sqrt(max(avg.C * avg.D, 0.0)))
@@ -206,6 +216,8 @@ end
     @test hash.D_median == interval.D_median
     @test avg.O == hash.O
     @test hash.O == interval.O
+    @test avg.O_smoothed == hash.O_smoothed
+    @test hash.O_smoothed == interval.O_smoothed
     @test avg.Sep == hash.Sep
     @test hash.Sep == interval.Sep
     @test avg.G == hash.G
@@ -216,6 +228,8 @@ end
     @test interval.D == interval.D_hi
     @test interval.D_median_lo == interval.D_median
     @test interval.D_median == interval.D_median_hi
+    @test interval.O_smoothed_lo == interval.O_smoothed
+    @test interval.O_smoothed == interval.O_smoothed_hi
     @test interval.G_lo == interval.G
     @test interval.G == interval.G_hi
     @test interval.Gsep_lo == interval.Gsep
@@ -672,7 +686,7 @@ end
                 wave;
                 active_candidates = active_candidates,
                 groupings = [:grp],
-                measures = [:Psi, :C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
+                measures = [:Psi, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S],
                 B = 3,
                 R = 2,
                 K = 1,
@@ -703,7 +717,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
+            measures = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S],
             groupings = [:grp],
             include_grouped = true,
         )
@@ -719,7 +733,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
+            measures = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S],
             groupings = [:grp],
             statistic = :median,
         )
@@ -729,6 +743,7 @@ end
         @test Set(Symbol.(skipmissing(group_rows.grouping))) == Set([:grp])
         @test :D_median in Set(Symbol.(group_rows.measure))
         @test :O in Set(Symbol.(group_rows.measure))
+        @test :O_smoothed in Set(Symbol.(group_rows.measure))
         @test :Sep in Set(Symbol.(group_rows.measure))
         @test :Gsep in Set(Symbol.(group_rows.measure))
         @test :S in Set(Symbol.(group_rows.measure))
@@ -741,12 +756,23 @@ end
         @test isapprox(heatmap_data.matrices[:D_median][1, 1], dmedian_row.q50)
         o_row = group_rows[(group_rows.measure .== :O) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:O][1, 1], o_row.q50)
+        osmoothed_row = group_rows[(group_rows.measure .== :O_smoothed) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:O_smoothed][1, 1], osmoothed_row.q50)
         sep_row = group_rows[(group_rows.measure .== :Sep) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:Sep][1, 1], sep_row.q50)
         gsep_row = group_rows[(group_rows.measure .== :Gsep) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:Gsep][1, 1], gsep_row.q50)
         s_row = group_rows[(group_rows.measure .== :S) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:S][1, 1], s_row.q50)
+        @test_throws ArgumentError PrefPol.pipeline_group_heatmap_values(
+            results;
+            year = 2022,
+            scenario_name = "all",
+            imputer_backend = :zero,
+            measures = [:C, :HHI],
+            groupings = [:grp],
+            statistic = :median,
+        )
     end
 end
 

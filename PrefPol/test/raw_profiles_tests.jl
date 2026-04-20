@@ -80,3 +80,37 @@ using DataFrames
         @test haskey(type_tbl.by_size, 1)
     end
 end
+
+@testset "raw_profiles scenario resolution respects forced prefix and max_candidates" begin
+    df = DataFrame(
+        A = [10, 1, 1],
+        B = [1, 10, 1],
+        C = [1, 1, 10],
+        D = [96, 96, 1],
+        E = [96, 1, 96],
+        peso = [10.0, 5.0, 1.0],
+    )
+
+    cfg = PrefPol.ElectionConfig(
+        2022,
+        "__unused_loader__",
+        "/tmp/unused",
+        5,
+        [2, 3, 4, 5],
+        1,
+        5,
+        123,
+        ["A", "B", "C", "D", "E"],
+        String[],
+        [PrefPol.Scenario("front_five", ["E", "D", "C", "B", "A"])],
+    )
+
+    @test PrefPol._resolve_candidate_cols(df, cfg; scenario_name = "front_five", m = 3) ==
+          ["E", "D", "C"]
+    @test_throws ArgumentError PrefPol._resolve_candidate_cols(
+        df,
+        cfg;
+        scenario_name = "front_five",
+        m = 6,
+    )
+end

@@ -109,15 +109,16 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
 
     if scenario_name !== nothing
         sc = _scenario_for_year(cfg, scenario_name)
-        mm = m === nothing ? _infer_m(cfg) : Int(m)
-        n_forced = length(unique(sc.candidates))
-        (n_forced > mm) && throw(ArgumentError(
-            "Requested k/m = $mm is smaller than forced candidates in scenario " *
-            "`$(sc.name)` ($n_forced). Increase k/m or choose another scenario.",
-        ))
+        mm = _validate_candidate_count(
+            m === nothing ? _infer_m(cfg) : Int(m),
+            cfg.max_candidates;
+            context = "Raw profile scenario `$(sc.name)` for year $(cfg.year)",
+            min_allowed = 1,
+        )
         full_list = compute_global_candidate_list(cfg;
                                                   scenario = sc,
-                                                  m = cfg.max_candidates)
+                                                  m = mm,
+                                                  data = df)
         return length(full_list) < mm ? full_list : first(full_list, mm)
     end
 
@@ -125,9 +126,15 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
         return _resolve_candidate_cols_from_set(df, configured_universe, candidate_set)
     end
 
-    mm = m === nothing ? _infer_m(cfg) : Int(m)
+    mm = _validate_candidate_count(
+        m === nothing ? _infer_m(cfg) : Int(m),
+        cfg.max_candidates;
+        context = "Raw profile candidate selection for year $(cfg.year)",
+        min_allowed = 1,
+    )
     full_list = compute_global_candidate_list(cfg;
-                                              m = max(mm, cfg.max_candidates))
+                                              m = mm,
+                                              data = df)
     return length(full_list) < mm ? full_list : first(full_list, mm)
 end
 
@@ -230,7 +237,12 @@ function load_raw_pref_data(year::Int;
     else
         _infer_m(cfg)
     end
-    m >= 1 || throw(ArgumentError("Invalid m=$m for year $year in `$cfg_path`."))
+    _validate_candidate_count(
+        m,
+        cfg.max_candidates;
+        context = "Raw profile request for year $year in `$cfg_path`",
+        min_allowed = 1,
+    )
 
     candidate_cols = _resolve_candidate_cols(df, cfg;
                                              candidate_set = candidate_set,
@@ -312,7 +324,12 @@ function build_profile(df::DataFrame, year::Int;
     else
         _infer_m(cfg)
     end
-    m >= 1 || throw(ArgumentError("Invalid k/m = $m for year $year."))
+    _validate_candidate_count(
+        m,
+        cfg.max_candidates;
+        context = "Raw profile build for year $year",
+        min_allowed = 1,
+    )
 
     candidate_cols = _resolve_candidate_cols(df, cfg;
                                              candidate_set = candidate_set,

@@ -655,6 +655,82 @@ function pairwise_group_overlap(profile_g, profile_h)
     return _unit_interval(overlap, "Pairwise group overlap")
 end
 
+@inline function _adjacent_swap_neighbor(ranking::NTuple{N,T}, i::Int) where {N,T}
+    1 <= i < N || throw(ArgumentError(
+        "Adjacent swap index $i is out of bounds for ranking length $N.",
+    ))
+    # Kendall distance 1 between complete linear orders is exactly one adjacent transposition.
+    return ntuple(j -> j == i ? ranking[i + 1] : j == i + 1 ? ranking[i] : ranking[j], N)
+end
+
+"""
+    _radius1_smoothed_ranking_proportions(profile)
+
+Return the empirical ranking distribution after radius-1 Kendall smoothing.
+
+Each observed complete linear order spreads its normalized mass uniformly over
+its Kendall radius-1 ball: the ranking itself plus the `m - 1` rankings reached
+by one adjacent swap. Because that ball has exactly `1 + (m - 1) = m` elements,
+the uniform kernel weight on each member is exactly `1 / m`.
+"""
+function _radius1_smoothed_ranking_proportions(profile)
+    strict = strict_profile(profile)
+    props = ranking_proportions(strict)
+    m = length(strict.pool)
+    m >= 2 || throw(ArgumentError("At least two candidates are required."))
+
+    smoothed = Dict{Tuple,Float64}()
+    kernel_mass = 1.0 / m
+
+    for (ranking, mass) in props
+        contribution = mass * kernel_mass
+        smoothed[ranking] = get(smoothed, ranking, 0.0) + contribution
+
+        for swap_idx in 1:(m - 1)
+            neighbor = _adjacent_swap_neighbor(ranking, swap_idx)
+            smoothed[neighbor] = get(smoothed, neighbor, 0.0) + contribution
+        end
+    end
+
+    total = sum(values(smoothed))
+    isapprox(total, 1.0; atol = 1.0e-9, rtol = 1.0e-9) || throw(ArgumentError(
+        "Smoothed ranking proportions must sum to 1, got $total.",
+    ))
+
+    return smoothed
+end
+
+"""
+    smoothed_overlap(profile_g, profile_h)
+
+Return the radius-1 Kendall-smoothed overlap between two empirical ranking
+distributions.
+
+The smoothing kernel assigns mass `1 / m` to the ranking itself and each of the
+`m - 1` adjacent-swap neighbors in Kendall space, so this function changes only
+the underlying pairwise overlap object and not any grouped aggregation weights.
+"""
+function smoothed_overlap(profile_g, profile_h)
+    strict_g = strict_profile(profile_g)
+    strict_h = strict_profile(profile_h)
+
+    _profile_candidate_tuple(strict_g) == _profile_candidate_tuple(strict_h) || throw(ArgumentError(
+        "Cannot compare groups with different candidate sets.",
+    ))
+    _profile_mass(strict_g) > 0 || throw(ArgumentError("Grouped profiles must contain positive mass."))
+    _profile_mass(strict_h) > 0 || throw(ArgumentError("Grouped profiles must contain positive mass."))
+
+    props_g = _radius1_smoothed_ranking_proportions(strict_g)
+    props_h = _radius1_smoothed_ranking_proportions(strict_h)
+
+    if length(props_g) > length(props_h)
+        props_g, props_h = props_h, props_g
+    end
+
+    overlap = sum(min(prop_g, get(props_h, ranking, 0.0)) for (ranking, prop_g) in props_g)
+    return _unit_interval(overlap, "Smoothed pairwise group overlap")
+end
+
 """
     pairwise_group_median_distance(consensus_g, consensus_h, pool)
     pairwise_group_median_distance(consensus_g::ConsensusResult, consensus_h::ConsensusResult)
@@ -793,6 +869,22 @@ function overall_overlap(group_profiles)
 end
 
 """
+    overall_overlap_smoothed(group_profiles)
+
+Aggregate radius-1 Kendall-smoothed pairwise overlaps over unordered group pairs
+using the same normalized population weights as `overall_overlap`.
+
+This preserves the existing grouped weighting and normalization logic exactly;
+only the underlying pairwise overlap object is replaced by `smoothed_overlap`.
+"""
+function overall_overlap_smoothed(group_profiles)
+    _assert_group_profile_candidate_tuple_consistency(group_profiles)
+    return _aggregate_group_pairs(group_profiles, (group_g, group_h) ->
+        smoothed_overlap(group_profiles[group_g], group_profiles[group_h])
+    )
+end
+
+"""
     overall_divergence_median(group_profiles, consensus_map)
 
 Aggregate exact pairwise median distances over unordered group pairs using the
@@ -880,6 +972,13 @@ function overall_overlaps(grouped_consensus::AbstractDataFrame,
     return overall_overlap(group_profiles)
 end
 
+function overall_overlaps_smoothed(grouped_consensus::AbstractDataFrame,
+                                   whole_df::AbstractDataFrame,
+                                   key)
+    group_profiles = _group_profiles_from_dataframe(grouped_consensus, whole_df, key)
+    return overall_overlap_smoothed(group_profiles)
+end
+
 function overall_divergences_median(grouped_consensus::AbstractDataFrame,
                                     whole_df::AbstractDataFrame,
                                     key)
@@ -951,6 +1050,7 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
     D = overall_divergences(consensus, df, demo)
     D_median = overall_divergences_median(consensus, df, demo)
     O = overall_overlaps(consensus, df, demo)
+    O_smoothed = overall_overlaps_smoothed(consensus, df, demo)
     Sep = overall_separations(consensus, df, demo)
     Gsep = grouped_gsep(C, Sep)
     return (
@@ -958,6 +1058,7 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
         D = D,
         D_median = D_median,
         O = O,
+        O_smoothed = O_smoothed,
         Sep = Sep,
         Gsep = Gsep,
     )
@@ -987,6 +1088,7 @@ function bootstrap_group_metrics(bt_profiles, demo;
         Dvals = Float64[]
         Dmedianvals = Float64[]
         Ovals = Float64[]
+        Osmoothedvals = Float64[]
         Sepvals = Float64[]
         Gsepvals = Float64[]
 
@@ -1005,6 +1107,7 @@ function bootstrap_group_metrics(bt_profiles, demo;
             push!(Dvals, details.D)
             push!(Dmedianvals, details.D_median)
             push!(Ovals, details.O)
+            push!(Osmoothedvals, details.O_smoothed)
             push!(Sepvals, details.Sep)
             push!(Gsepvals, details.Gsep)
         end
@@ -1014,6 +1117,7 @@ function bootstrap_group_metrics(bt_profiles, demo;
             :D => Dvals,
             :D_median => Dmedianvals,
             :O => Ovals,
+            :O_smoothed => Osmoothedvals,
             :Sep => Sepvals,
             :Gsep => Gsepvals,
         )

@@ -27,7 +27,7 @@ import PrefPol as pp
 const M = pp.Makie
 
 const YEAR = 2022
-const SCENARIO_NAME = "lula_bolsonaro"
+const SCENARIO_NAME = "lula_bolsonaro_ciro_marina_tebet"
 const IMPUTER_BACKEND = :mice
 const GROUPINGS = nothing
 const CONSENSUS_TIE_POLICY = :average

@@ -60,6 +60,66 @@ struct ElectionConfig
     scenarios       :: Vector{Scenario}    # list of Scenario structs
 end
 
+const PREFPOL_ACTIVE_MAX_CANDIDATES = 5
+
+function _validate_candidate_count(m::Integer,
+                                   max_candidates::Integer;
+                                   context::AbstractString,
+                                   min_allowed::Integer = 1)
+    mm = Int(m)
+    maxc = Int(max_candidates)
+
+    maxc >= min_allowed || throw(ArgumentError(
+        "$context configured max_candidates=$maxc, but at least $min_allowed candidates are required.",
+    ))
+    mm >= min_allowed || throw(ArgumentError(
+        "$context requires m >= $min_allowed, got $mm.",
+    ))
+    mm <= maxc || throw(ArgumentError(
+        "$context requested m=$mm, but max_candidates=$maxc.",
+    ))
+
+    return mm
+end
+
+function _validate_election_cfg(cfg::ElectionConfig)
+    cfg.max_candidates == PREFPOL_ACTIVE_MAX_CANDIDATES || throw(ArgumentError(
+        "Election year $(cfg.year) must cap max_candidates at $(PREFPOL_ACTIVE_MAX_CANDIDATES); got $(cfg.max_candidates).",
+    ))
+
+    cfg.n_alternatives == cfg.max_candidates || throw(ArgumentError(
+        "Election year $(cfg.year) must set n_alternatives == max_candidates to keep the default candidate count unambiguous; " *
+        "got n_alternatives=$(cfg.n_alternatives), max_candidates=$(cfg.max_candidates).",
+    ))
+
+    expected_m_values = collect(2:cfg.max_candidates)
+    cfg.m_values_range == expected_m_values || throw(ArgumentError(
+        "Election year $(cfg.year) must use m_values_range = $(expected_m_values); got $(cfg.m_values_range).",
+    ))
+
+    scenario_names = [sc.name for sc in cfg.scenarios]
+    length(unique(scenario_names)) == length(scenario_names) || throw(ArgumentError(
+        "Election year $(cfg.year) contains duplicate scenario names: $(scenario_names).",
+    ))
+
+    universe = Set(cfg.candidates)
+    for sc in cfg.scenarios
+        unique_candidates = unique(sc.candidates)
+        length(unique_candidates) == length(sc.candidates) || throw(ArgumentError(
+            "Scenario `$(sc.name)` for year $(cfg.year) contains duplicate forced candidates.",
+        ))
+        length(sc.candidates) <= cfg.max_candidates || throw(ArgumentError(
+            "Scenario `$(sc.name)` for year $(cfg.year) forces $(length(sc.candidates)) candidates, exceeding max_candidates=$(cfg.max_candidates).",
+        ))
+        missing_candidates = setdiff(sc.candidates, universe)
+        isempty(missing_candidates) || throw(ArgumentError(
+            "Scenario `$(sc.name)` for year $(cfg.year) references unknown candidates $(missing_candidates).",
+        ))
+    end
+
+    return cfg
+end
+
 """
     load_election_cfg(path) -> ElectionConfig
 
@@ -79,7 +139,7 @@ function load_election_cfg(path::AbstractString)::ElectionConfig
     scen_vec = [Scenario(s["name"], Vector{String}(s["candidates"]))
                 for s in t["forced_scenarios"]]
 
-    ElectionConfig(
+    cfg = ElectionConfig(
         t["year"], t["data_loader"], rawfile,
         t["max_candidates"], Vector{Int}(t["m_values_range"]),
         t["n_bootstrap"], t["n_alternatives"],
@@ -88,6 +148,8 @@ function load_election_cfg(path::AbstractString)::ElectionConfig
         Vector{String}(t["demographics"]),
         scen_vec,
     )
+
+    return _validate_election_cfg(cfg)
 end
 
 import Base: show
@@ -257,6 +319,12 @@ function compute_global_candidate_list(cfg::ElectionConfig;
                                        scenario = nothing,
                                        m::Int = cfg.max_candidates,
                                        data = nothing)
+    resolved_m = _validate_candidate_count(
+        m,
+        cfg.max_candidates;
+        context = "Candidate-set resolution for year $(cfg.year)",
+        min_allowed = 1,
+    )
     df = data === nothing ? load_election_data(cfg) : data
 
     force_include = if scenario === nothing
@@ -270,7 +338,7 @@ function compute_global_candidate_list(cfg::ElectionConfig;
     weight_col = _candidate_weight_col(df)
     return compute_global_candidate_set(df;
                                         candidate_cols = cfg.candidates,
-                                        m = m,
+                                        m = resolved_m,
                                         force_include = force_include,
                                         weights = df[!, weight_col])
 end

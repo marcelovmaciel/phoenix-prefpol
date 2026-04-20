@@ -8,7 +8,7 @@ import PrefPol as pp
 # Choose a year/scenario to inspect
 # ------------------------------------------------------------------
 year = 2022
-scenario = "lula_bolsonaro"
+scenario = "lula_bolsonaro_ciro_marina_tebet"
 
 # Set `m` to a concrete Int to force a specific candidate count.
 # Leave as `nothing` to use the first available `m` for the scenario.

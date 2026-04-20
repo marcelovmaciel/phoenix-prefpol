@@ -1,5 +1,5 @@
 const NESTED_PIPELINE_SCHEMA_VERSION = 1
-const NESTED_PIPELINE_CODE_VERSION = "nested-pipeline-v2"
+const NESTED_PIPELINE_CODE_VERSION = "nested-pipeline-v2-max5"
 const DEFAULT_NESTED_PIPELINE_CACHE_ROOT = normpath(
     joinpath(project_root, "intermediate_data", "nested_pipeline"),
 )
@@ -85,12 +85,12 @@ function _normalize_measure(measure)
 
     if sym === Symbol("Ψ") || sym === :Psi
         return :Psi
-    elseif sym in (:R, :HHI, :RHHI, :C, :D, :D_median, :O, :Sep, :G, :Gsep, :S)
+    elseif sym in (:R, :HHI, :RHHI, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S)
         return sym
     end
 
     throw(ArgumentError(
-        "Unsupported measure `$measure`. Supported measures: Psi, R, HHI, RHHI, C, D, D_median, O, Sep, G, Gsep, S.",
+        "Unsupported measure `$measure`. Supported measures: Psi, R, HHI, RHHI, C, D, D_median, O, O_smoothed, Sep, G, Gsep, S.",
     ))
 end
 
@@ -148,10 +148,10 @@ function PipelineSpec(wave_id::AbstractString,
                                              [:Psi, :R, :HHI, :RHHI, :C, :D, :G]) :
                    _normalize_measure_list(measures)
 
-    any(measure in (:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S) for measure in measure_syms) &&
+    any(measure in (:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S) for measure in measure_syms) &&
         isempty(grouping_syms) &&
         throw(ArgumentError(
-            "Measures C, D, D_median, O, Sep, G, Gsep, and S require at least one grouping column.",
+            "Measures C, D, D_median, O, O_smoothed, Sep, G, Gsep, and S require at least one grouping column.",
         ))
 
     B >= 1 || throw(ArgumentError("B must be at least 1."))
@@ -204,11 +204,23 @@ function resolve_active_candidate_set(wcfg::SurveyWaveConfig;
         length(candidates) >= 2 || throw(ArgumentError(
             "Resolved active candidate set must contain at least two candidates.",
         ))
+        length(candidates) <= wcfg.max_candidates || throw(ArgumentError(
+            "Resolved active candidate set for wave $(wcfg.wave_id) has $(length(candidates)) candidates, " *
+            "but max_candidates=$(wcfg.max_candidates).",
+        ))
+        missing_candidates = setdiff(candidates, wcfg.candidate_universe)
+        isempty(missing_candidates) || throw(ArgumentError(
+            "Resolved active candidate set for wave $(wcfg.wave_id) contains unknown candidates $(missing_candidates).",
+        ))
         return candidates
     end
 
-    mm = m === nothing ? wcfg.default_m : Int(m)
-    mm >= 2 || throw(ArgumentError("Resolved m must be at least 2."))
+    mm = _validate_candidate_count(
+        m === nothing ? wcfg.default_m : Int(m),
+        wcfg.max_candidates;
+        context = "resolve_active_candidate_set for wave $(wcfg.wave_id)",
+        min_allowed = 2,
+    )
 
     df = data === nothing ? load_wave_data(wcfg) : data
     weight_col = _candidate_weight_col(df)
@@ -894,6 +906,9 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     O = Preferences.overall_overlap(group_profiles)
     O_lo = O
     O_hi = O
+    O_smoothed = Preferences.overall_overlap_smoothed(group_profiles)
+    O_smoothed_lo = O_smoothed
+    O_smoothed_hi = O_smoothed
     Sep = Preferences.overall_separation(group_profiles, consensus_results)
     Sep_lo = Sep
     Sep_hi = Sep
@@ -932,6 +947,9 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         O = O,
         O_lo = O_lo,
         O_hi = O_hi,
+        O_smoothed = O_smoothed,
+        O_smoothed_lo = O_smoothed_lo,
+        O_smoothed_hi = O_smoothed_hi,
         Sep = Sep,
         Sep_lo = Sep_lo,
         Sep_hi = Sep_hi,
@@ -975,7 +993,7 @@ function _measure_results_for_profile(profile::LinearizedProfile,
     )
 
     for measure in spec.measures
-        measure in (:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S) && continue
+        measure in (:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S) && continue
         value = _global_measure_value(measure, profile.bundle)
         push!(results, MeasureResult(
             ref,
@@ -988,7 +1006,7 @@ function _measure_results_for_profile(profile::LinearizedProfile,
         ))
     end
 
-    if any(measure in (:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S)
+    if any(measure in (:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S)
            for measure in spec.measures)
         for grouping in spec.groupings
             details = compute_group_measure_details(
@@ -1055,6 +1073,18 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                     details.O,
                     details.O_lo,
                     details.O_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :O_smoothed in spec.measures
+                push!(results, MeasureResult(
+                    ref,
+                    :O_smoothed,
+                    grouping,
+                    details.O_smoothed,
+                    details.O_smoothed_lo,
+                    details.O_smoothed_hi,
                     details.diagnostics,
                 ))
             end
@@ -1919,6 +1949,10 @@ function pipeline_group_heatmap_values(result_or_results;
 
     for measure in wanted_measures
         subdf = rows[rows.measure .== measure, :]
+        isempty(subdf) && throw(ArgumentError(
+            "No grouped rows matched measure `$measure` for the requested pipeline selection. " *
+            "This usually means the measure was not computed in the underlying batch result.",
+        ))
         z = fill(NaN, length(m_values), length(grouping_values))
 
         for row in eachrow(subdf)

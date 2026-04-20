@@ -29,6 +29,7 @@ const TIE_POLICY = :average
 
 const FULL_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :G]
 const GROUP_LINE_GROUPINGS = ["Ideology", "PT", "Abortion", "Religion", "Sex", "Income"]
+const SCENARIO_NAME = "lula_bolsonaro_ciro_marina_tebet"
 
 mkpath(CACHE_ROOT)
 mkpath(IMG_DIR)
@@ -36,7 +37,7 @@ mkpath(IMG_DIR)
 cfg = pp.load_election_cfg(CFG_PATH)
 wave = pp.SurveyWaveConfig(cfg; wave_id = string(cfg.year))
 raw_df = pp.load_wave_data(wave)
-scenario_name = only([sc.name for sc in cfg.scenarios])
+scenario_name = SCENARIO_NAME
 
 println("="^80)
 println("Nested stochastic pipeline demo for year $(cfg.year)")

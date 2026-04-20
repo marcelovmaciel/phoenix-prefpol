@@ -113,7 +113,6 @@ function _select_top_candidates_from_poplist(poplist::Vector{String};
     inc = unique(force_include)
 
     if length(inc) > m
-        @warn "force_include has more than $m names; truncating to first $m."
         inc = inc[1:m]
     end
 

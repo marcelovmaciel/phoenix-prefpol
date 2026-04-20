@@ -18,7 +18,8 @@ const _NESTED_PLOT_DF = DataFrame(
     end
 end
 
-function _plotting_test_results()
+function _plotting_test_results(;
+                                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep])
     cfg = PrefPol.ElectionConfig(
         2022,
         "__nested_plot_loader__",
@@ -46,7 +47,7 @@ function _plotting_test_results()
                 wave;
                 active_candidates = active_candidates,
                 groupings = [:grp],
-                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
+                measures = measures,
                 B = 2,
                 R = 1,
                 K = 1,
@@ -71,6 +72,7 @@ end
     @test Base.get_extension(PrefPol, :PrefPolPlottingExt) !== nothing
 
     results = _plotting_test_results()
+    signed_results = _plotting_test_results(measures = [:S])
 
     fig_lines = PrefPol.plot_pipeline_scenario(
         results;
@@ -102,14 +104,14 @@ end
         scenario_name = "all",
         imputer_backend = :zero,
         groupings = [:grp],
-        measures = [:C, :D_median, :O, :Gsep],
+        measures = [:C, :D_median, :O_smoothed, :Gsep],
         statistic = :median,
         colormap = pp.Makie.Reverse(:RdBu),
         show_values = true,
         fixed_colorrange = true,
     )
     fig_signed_heatmap = PrefPol.plot_pipeline_group_heatmap(
-        results;
+        signed_results;
         year = 2022,
         scenario_name = "all",
         imputer_backend = :zero,

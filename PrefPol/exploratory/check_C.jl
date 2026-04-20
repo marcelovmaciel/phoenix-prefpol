@@ -109,7 +109,7 @@ group_metrics_2006 = pp.save_or_load_group_metrics_for_year(
 
 
 fig_group_hm1 = pp.plot_group_demographics_heatmap(
-    Dict(2006 => group_metrics_2006), bootstrap_index, 2006, "lula_alckmin";
+    Dict(2006 => group_metrics_2006), bootstrap_index, 2006, "lula_alckmin_heloisa_serra_cristovam";
     variants = [:mice],
     measures = [:C, :D, :G],
     maxcols = 3,
@@ -128,7 +128,7 @@ fig_group_hm1 = pp.plot_group_demographics_heatmap(
 
 
 pp.save_plot(fig_group_hm1, 2006,
-             "lula_alckmin_group_hm_Cstar",
+             "lula_alckmin_heloisa_serra_cristovam_group_hm_Cstar",
              cfg_2006; variant = "mice")
 
 
@@ -157,7 +157,7 @@ group_metrics_2022 = pp.save_or_load_group_metrics_for_year(
                         overwrite = false, verbose = true, two_pass = true)
 
 fig_group_hm3 = pp.plot_group_demographics_heatmap(
-    Dict(2022 => group_metrics_2022), bootstrap_index, 2022, "lula_bolsonaro";
+    Dict(2022 => group_metrics_2022), bootstrap_index, 2022, "lula_bolsonaro_ciro_marina_tebet";
     variants = [:mice],
     measures = [:C, :D, :G],
     maxcols = 3,
@@ -170,4 +170,4 @@ fig_group_hm3 = pp.plot_group_demographics_heatmap(
     colormaps = :RdBu |> M.Reverse,
 )
 
-pp.save_plot(fig_group_hm3, 2022, "lula_bolsonaro_group_hm_Cstar", cfg_2022; variant = "mice")
+pp.save_plot(fig_group_hm3, 2022, "lula_bolsonaro_ciro_marina_tebet_group_hm_Cstar", cfg_2022; variant = "mice")

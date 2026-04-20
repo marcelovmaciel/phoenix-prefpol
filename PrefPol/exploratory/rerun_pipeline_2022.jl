@@ -14,7 +14,7 @@ import PrefPol as pp
 const M = pp.Makie
 
 year = 2022
-scenario = "lula_bolsonaro"
+scenario = "lula_bolsonaro_ciro_marina_tebet"
 
 overwrite_imputation = false
 overwrite_profiles = false
