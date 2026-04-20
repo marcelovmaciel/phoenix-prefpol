@@ -3,6 +3,7 @@ using CairoMakie
 using PrefPol
 import PrefPol as pp
 
+const M = pp.Makie
 const CONFIG_DIR = joinpath("PrefPol", "config")
 const CACHE_ROOT = joinpath(pp.project_root, "intermediate_data", "nested_pipeline", "operational")
 const IMG_DIR = joinpath(pp.project_root, "imgs", "nested_pipeline")
@@ -162,7 +163,7 @@ function render_group_heatmaps(results)
             groupings = entry.groupings,
             statistic = :median,
             maxcols = 3,
-            colormap = CairoMakie.Makie.Reverse(:RdBu),
+            colormap = M.Reverse(:RdBu),
             fixed_colorrange = true,
             show_values = true,
             simplified_labels = true,

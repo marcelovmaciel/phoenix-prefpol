@@ -12,9 +12,19 @@ This script runs the existing nested pipeline for one year/scenario/backend targ
 and writes one heatmap to `PrefPol/exploratory/output/s_heatmap/`.
 """
 
+using Pkg
+
+const PACKAGE_ROOT = normpath(joinpath(@__DIR__, ".."))
+const TEST_ENV = joinpath(PACKAGE_ROOT, "test")
+
+Pkg.activate(TEST_ENV)
+PACKAGE_ROOT in LOAD_PATH || pushfirst!(LOAD_PATH, PACKAGE_ROOT)
+
 using CairoMakie
 using PrefPol
 import PrefPol as pp
+
+const M = pp.Makie
 
 const YEAR = 2022
 const SCENARIO_NAME = "lula_bolsonaro"
@@ -79,7 +89,7 @@ end
 
 function save_figure(path::AbstractString, fig)
     mkpath(dirname(path))
-    save(path, fig; px_per_unit = 4)
+    pp.save(path, fig; px_per_unit = 4)
     println("saved ", path)
     return path
 end
@@ -101,7 +111,7 @@ fig_s = pp.plot_pipeline_group_heatmap(
     groupings = groupings,
     statistic = :median,
     maxcols = 1,
-    colormap = CairoMakie.Makie.Reverse(:RdBu),
+    colormap = M.Reverse(:RdBu),
     fixed_colorrange_limits = (-1.0, 1.0),
     show_values = true,
     colorbar_label = "median signed support-separation contrast",

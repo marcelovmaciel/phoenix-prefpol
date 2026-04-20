@@ -16,6 +16,8 @@ using DataFrames
 using PrefPol
 import PrefPol as pp
 
+const M = pp.Makie
+
 const CFG_PATH = joinpath(pp.project_root, "config", "2022.toml")
 const CACHE_ROOT = joinpath(pp.project_root, "exploratory", "_tmp", "nested_pipeline_demo_2022")
 const IMG_DIR = joinpath(pp.project_root, "exploratory", "imgs", "nested_pipeline_demo_2022")
@@ -161,7 +163,7 @@ group_heatmap_plot = pp.plot_pipeline_group_heatmap(
     measures = [:C, :D, :G],
     statistic = :median,
     maxcols = 3,
-    colormap = CairoMakie.Makie.Reverse(:RdBu),
+    colormap = M.Reverse(:RdBu),
     fixed_colorrange = true,
     show_values = true,
     simplified_labels = true,

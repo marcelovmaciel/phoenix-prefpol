@@ -1,6 +1,17 @@
 using Revise
+using Pkg
+
+const PACKAGE_ROOT = normpath(joinpath(@__DIR__, ".."))
+const TEST_ENV = joinpath(PACKAGE_ROOT, "test")
+
+Pkg.activate(TEST_ENV)
+PACKAGE_ROOT in LOAD_PATH || pushfirst!(LOAD_PATH, PACKAGE_ROOT)
+
+using CairoMakie
 using PrefPol
 import PrefPol as pp
+
+const M = pp.Makie
 
 # ------------------------------------------------------------------
 # Bootstraps: save (idempotent) and load
@@ -108,11 +119,11 @@ fig_group_hm1 = pp.plot_group_demographics_heatmap(
     simplified_labels = true,
     modified_G = false,
     modified_C = true,
-    colormaps = :RdBu |> pp.Makie.Reverse,
+    colormaps = :RdBu |> M.Reverse,
 )
 
 
-    # colormaps = pp.Makie.Reverse(:RdBu),
+    # colormaps = M.Reverse(:RdBu),
     # fixed_colorrange = true,
 
 
@@ -136,7 +147,7 @@ fig_group_hm2 = pp.plot_group_demographics_heatmap(
     simplified_labels = true,
     modified_G = false,
     modified_C = true,
-    colormaps = :RdBu |> pp.Makie.Reverse,
+    colormaps = :RdBu |> M.Reverse,
 )
 
 pp.save_plot(fig_group_hm2, 2018, "main_four_group_hm_Cstar", cfg_2018; variant = "mice")
@@ -156,7 +167,7 @@ fig_group_hm3 = pp.plot_group_demographics_heatmap(
     simplified_labels = true,
     modified_G = false,
     modified_C = true,
-    colormaps = :RdBu |> pp.Makie.Reverse,
+    colormaps = :RdBu |> M.Reverse,
 )
 
 pp.save_plot(fig_group_hm3, 2022, "lula_bolsonaro_group_hm_Cstar", cfg_2022; variant = "mice")

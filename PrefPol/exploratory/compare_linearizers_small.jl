@@ -1,10 +1,18 @@
 using Pkg
 
+const PACKAGE_ROOT = normpath(joinpath(@__DIR__, ".."))
+const TEST_ENV = joinpath(PACKAGE_ROOT, "test")
+
+Pkg.activate(TEST_ENV)
+PACKAGE_ROOT in LOAD_PATH || pushfirst!(LOAD_PATH, PACKAGE_ROOT)
+
 using CairoMakie
 using DataFrames
 using OrderedCollections: OrderedDict
 using PrefPol
 import PrefPol as pp
+
+const M = pp.Makie
 
 const CONFIG_DIR = joinpath(pp.project_root, "config")
 const CACHE_ROOT = joinpath(
@@ -358,7 +366,7 @@ function render_group_heatmaps(results_by_policy::Dict{Symbol,pp.BatchRunResult}
                     statistic = :median,
                     groupings = nothing,
                     maxcols = 3,
-                    colormap = CairoMakie.Makie.Reverse(:RdBu),
+                    colormap = M.Reverse(:RdBu),
                     fixed_colorrange = true,
                     show_values = true,
                     simplified_labels = true,

@@ -1,6 +1,17 @@
 using Revise
+using Pkg
+
+const PACKAGE_ROOT = normpath(joinpath(@__DIR__, ".."))
+const TEST_ENV = joinpath(PACKAGE_ROOT, "test")
+
+Pkg.activate(TEST_ENV)
+PACKAGE_ROOT in LOAD_PATH || pushfirst!(LOAD_PATH, PACKAGE_ROOT)
+
+using CairoMakie
 using PrefPol
 import PrefPol as pp
+
+const M = pp.Makie
 
 year = 2006
 scenario = "lula_alckmin"
@@ -73,7 +84,7 @@ fig_group_hm = pp.plot_group_demographics_heatmap(
     measures = [:C, :D, :G],
     maxcols = 3,
     clist_size = 60,
-    colormaps = :RdBu |> pp.Makie.Reverse,
+    colormaps = :RdBu |> M.Reverse,
     fixed_colorrange = true,
     show_values = true,
     simplified_labels = true)

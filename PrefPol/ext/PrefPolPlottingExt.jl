@@ -8,7 +8,18 @@ using Printf
 using Statistics: median, quantile
 using TextWrap
 
-@inline _wong_colors() = CairoMakie.Makie.wong_colors()
+const Makie = CairoMakie.Makie
+const _cairomakie_save = CairoMakie.save
+
+if !isdefined(PrefPol, :Makie)
+    @eval PrefPol const Makie = $Makie
+end
+
+if !isdefined(PrefPol, :save)
+    @eval PrefPol save(args...; kwargs...) = $_cairomakie_save(args...; kwargs...)
+end
+
+@inline _wong_colors() = Makie.wong_colors()
 
 @inline _measure_label(measure::Symbol) =
     measure === :Psi ? "Ψ" : String(measure)
@@ -797,7 +808,7 @@ function plot_pipeline_group_heatmap(result_or_results;
                                      statistic::Symbol = :median,
                                      groupings = nothing,
                                      maxcols::Int = 3,
-                                     colormap = CairoMakie.Makie.Reverse(:RdBu),
+                                     colormap = Makie.Reverse(:RdBu),
                                      fixed_colorrange::Bool = false,
                                      fixed_colorrange_limits = nothing,
                                      show_values::Bool = false,

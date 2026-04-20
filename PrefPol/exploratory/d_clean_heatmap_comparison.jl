@@ -21,6 +21,8 @@ using Printf
 using TextWrap
 import PrefPol as pp
 
+const M = pp.Makie
+
 const YEAR = 2022
 const SCENARIO_NAME = "lula_bolsonaro"
 const IMPUTER_BACKEND = :mice
@@ -87,7 +89,7 @@ function annotate_heatmap_values!(ax, xs_m, z::AbstractMatrix)
     xs = repeat(xs_m, inner = n_groups)
     ys = repeat(collect(1:n_groups), outer = n_m)
     labels = [@sprintf("%.3f", z[i, j]) for i in 1:n_m for j in 1:n_groups]
-    text!(ax, xs, ys; text = labels, align = (:center, :center), color = :black, fontsize = 8)
+    M.text!(ax, xs, ys; text = labels, align = (:center, :center), color = :black, fontsize = 8)
     return ax
 end
 
@@ -120,19 +122,19 @@ function plot_difference_heatmap(diff_matrix::AbstractMatrix, heatmap_data)
         rows[1, :n_draws],
     )
 
-    fig = Figure(resolution = (max(360, 10 * length(title_txt) + 60), 360))
-    rowgap!(fig.layout, 24)
-    colgap!(fig.layout, 24)
+    fig = M.Figure(resolution = (max(360, 10 * length(title_txt) + 60), 360))
+    M.rowgap!(fig.layout, 24)
+    M.colgap!(fig.layout, 24)
 
-    fig[1, 1] = Label(fig, title_txt; fontsize = 20, halign = :left)
-    fig[2, 1] = Label(
+    fig[1, 1] = M.Label(fig, title_txt; fontsize = 20, halign = :left)
+    fig[2, 1] = M.Label(
         fig,
         join(TextWrap.wrap(candidate_label; width = 60));
         fontsize = 14,
         halign = :left,
     )
 
-    ax = Axis(
+    ax = M.Axis(
         fig[3, 1];
         title = "D_clean - D",
         xlabel = "number of alternatives",
@@ -142,24 +144,24 @@ function plot_difference_heatmap(diff_matrix::AbstractMatrix, heatmap_data)
     )
 
     z = Float32.(diff_matrix)
-    hm = heatmap!(
+    hm = M.heatmap!(
         ax,
         xs_m,
         1:length(grouping_values),
         z;
-        colormap = CairoMakie.Makie.Reverse(:RdBu),
+        colormap = M.Reverse(:RdBu),
         colorrange = colorrange,
     )
     annotate_heatmap_values!(ax, xs_m, z)
-    Colorbar(fig[3, 2], hm; label = "median difference")
+    M.Colorbar(fig[3, 2], hm; label = "median difference")
 
-    resize_to_layout!(fig)
+    M.resize_to_layout!(fig)
     return fig
 end
 
 function save_figure(path::AbstractString, fig)
     mkpath(dirname(path))
-    save(path, fig; px_per_unit = 4)
+    pp.save(path, fig; px_per_unit = 4)
     println("saved ", path)
     return path
 end
@@ -181,7 +183,7 @@ fig_d = pp.plot_pipeline_group_heatmap(
     groupings = groupings,
     statistic = :median,
     maxcols = 1,
-    colormap = CairoMakie.Makie.Reverse(:RdBu),
+    colormap = M.Reverse(:RdBu),
     fixed_colorrange = true,
     show_values = true,
     simplified_labels = false,
@@ -197,7 +199,7 @@ fig_d_clean = pp.plot_pipeline_group_heatmap(
     groupings = groupings,
     statistic = :median,
     maxcols = 1,
-    colormap = CairoMakie.Makie.Reverse(:RdBu),
+    colormap = M.Reverse(:RdBu),
     fixed_colorrange = true,
     show_values = true,
     simplified_labels = false,
