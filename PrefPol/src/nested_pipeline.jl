@@ -85,12 +85,12 @@ function _normalize_measure(measure)
 
     if sym === Symbol("Ψ") || sym === :Psi
         return :Psi
-    elseif sym in (:R, :HHI, :RHHI, :C, :D, :D_clean, :G, :S)
+    elseif sym in (:R, :HHI, :RHHI, :C, :D, :D_median, :O, :Sep, :G, :Gsep, :S)
         return sym
     end
 
     throw(ArgumentError(
-        "Unsupported measure `$measure`. Supported measures: Psi, R, HHI, RHHI, C, D, D_clean, G, S.",
+        "Unsupported measure `$measure`. Supported measures: Psi, R, HHI, RHHI, C, D, D_median, O, Sep, G, Gsep, S.",
     ))
 end
 
@@ -148,8 +148,11 @@ function PipelineSpec(wave_id::AbstractString,
                                              [:Psi, :R, :HHI, :RHHI, :C, :D, :G]) :
                    _normalize_measure_list(measures)
 
-    any(measure in (:C, :D, :D_clean, :G, :S) for measure in measure_syms) && isempty(grouping_syms) &&
-        throw(ArgumentError("Measures C, D, D_clean, G, and S require at least one grouping column."))
+    any(measure in (:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S) for measure in measure_syms) &&
+        isempty(grouping_syms) &&
+        throw(ArgumentError(
+            "Measures C, D, D_median, O, Sep, G, Gsep, and S require at least one grouping column.",
+        ))
 
     B >= 1 || throw(ArgumentError("B must be at least 1."))
     R >= 1 || throw(ArgumentError("R must be at least 1."))
@@ -852,9 +855,6 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         D = 0.0
         D_lo = 0.0
         D_hi = 0.0
-        D_clean = 0.0
-        D_clean_lo = 0.0
-        D_clean_hi = 0.0
     else
         point_sum = 0.0
         lo_sum = 0.0
@@ -886,45 +886,25 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         D = point_sum / denom
         D_lo = lo_sum / denom
         D_hi = hi_sum / denom
-
-        clean_point_sum = 0.0
-        clean_lo_sum = 0.0
-        clean_hi_sum = 0.0
-        clean_weight_sum = 0.0
-        groups = collect(keys(group_profiles))
-
-        for a in 1:(length(groups) - 1)
-            group_a = groups[a]
-            result_a = consensus_results[group_a]
-            pool_a = group_profiles[group_a].pool
-            n_a = group_sizes[group_a]
-
-            for b in (a + 1):length(groups)
-                group_b = groups[b]
-                stats = _pairwise_consensus_distance_stats(
-                    result_a,
-                    pool_a,
-                    consensus_results[group_b],
-                    group_profiles[group_b].pool,
-                    tie_policy,
-                )
-                weight = n_a * group_sizes[group_b]
-                clean_point_sum += weight * stats.point
-                clean_lo_sum += weight * stats.lo
-                clean_hi_sum += weight * stats.hi
-                clean_weight_sum += weight
-            end
-        end
-
-        D_clean = clean_point_sum / clean_weight_sum
-        D_clean_lo = clean_lo_sum / clean_weight_sum
-        D_clean_hi = clean_hi_sum / clean_weight_sum
     end
+
+    D_median = Preferences.overall_divergence_median(group_profiles, consensus_results)
+    D_median_lo = D_median
+    D_median_hi = D_median
+    O = Preferences.overall_overlap(group_profiles)
+    O_lo = O
+    O_hi = O
+    Sep = Preferences.overall_separation(group_profiles, consensus_results)
+    Sep_lo = Sep
+    Sep_hi = Sep
 
     C = _normalize_group_coherence(C_raw)
     G = sqrt(max(C * D, 0.0))
     G_lo = sqrt(max(C * D_lo, 0.0))
     G_hi = sqrt(max(C * D_hi, 0.0))
+    Gsep = Preferences.grouped_gsep(C, Sep)
+    Gsep_lo = Gsep
+    Gsep_hi = Gsep
 
     n_tied_groups = count(result -> result.is_tied_minimizer, values(consensus_results))
     max_minimizers = isempty(consensus_results) ? 0 :
@@ -946,12 +926,21 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         D = D,
         D_lo = D_lo,
         D_hi = D_hi,
-        D_clean = D_clean,
-        D_clean_lo = D_clean_lo,
-        D_clean_hi = D_clean_hi,
+        D_median = D_median,
+        D_median_lo = D_median_lo,
+        D_median_hi = D_median_hi,
+        O = O,
+        O_lo = O_lo,
+        O_hi = O_hi,
+        Sep = Sep,
+        Sep_lo = Sep_lo,
+        Sep_hi = Sep_hi,
         G = G,
         G_lo = G_lo,
         G_hi = G_hi,
+        Gsep = Gsep,
+        Gsep_lo = Gsep_lo,
+        Gsep_hi = Gsep_hi,
         S = S,
         S_lo = S_lo,
         S_hi = S_hi,
@@ -986,7 +975,7 @@ function _measure_results_for_profile(profile::LinearizedProfile,
     )
 
     for measure in spec.measures
-        measure in (:C, :D, :D_clean, :G, :S) && continue
+        measure in (:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S) && continue
         value = _global_measure_value(measure, profile.bundle)
         push!(results, MeasureResult(
             ref,
@@ -999,7 +988,8 @@ function _measure_results_for_profile(profile::LinearizedProfile,
         ))
     end
 
-    if any(measure in (:C, :D, :D_clean, :G, :S) for measure in spec.measures)
+    if any(measure in (:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S)
+           for measure in spec.measures)
         for grouping in spec.groupings
             details = compute_group_measure_details(
                 profile.bundle,
@@ -1045,14 +1035,38 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                 ))
             end
 
-            if :D_clean in spec.measures
+            if :D_median in spec.measures
                 push!(results, MeasureResult(
                     ref,
-                    :D_clean,
+                    :D_median,
                     grouping,
-                    details.D_clean,
-                    details.D_clean_lo,
-                    details.D_clean_hi,
+                    details.D_median,
+                    details.D_median_lo,
+                    details.D_median_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :O in spec.measures
+                push!(results, MeasureResult(
+                    ref,
+                    :O,
+                    grouping,
+                    details.O,
+                    details.O_lo,
+                    details.O_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :Sep in spec.measures
+                push!(results, MeasureResult(
+                    ref,
+                    :Sep,
+                    grouping,
+                    details.Sep,
+                    details.Sep_lo,
+                    details.Sep_hi,
                     details.diagnostics,
                 ))
             end
@@ -1065,6 +1079,18 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                     details.S,
                     details.S_lo,
                     details.S_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :Gsep in spec.measures
+                push!(results, MeasureResult(
+                    ref,
+                    :Gsep,
+                    grouping,
+                    details.Gsep,
+                    details.Gsep_lo,
+                    details.Gsep_hi,
                     details.diagnostics,
                 ))
             end

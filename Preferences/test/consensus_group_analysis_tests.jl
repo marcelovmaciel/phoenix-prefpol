@@ -110,13 +110,18 @@ end
     group_profiles = Dict(:A => profA, :B => profB)
     consensus_map = Dict(:A => consA, :B => consB)
     @test pp.overall_divergence(group_profiles, consensus_map) == 1.0
-    @test pp.overall_divergence_clean(group_profiles, consensus_map) == 1.0
+    @test pp.overall_divergence_median(group_profiles, consensus_map) == 1.0
+    @test pp.overall_overlap(group_profiles) == 0.0
+    @test pp.overall_separation(group_profiles, consensus_map) == 1.0
+    @test pp.grouped_gsep(1.0, 1.0) == 1.0
 
     whole_df = vcat(DataFrame(group = :A, profile = profA),
                     DataFrame(group = :B, profile = profB))
     grouped_consensus = DataFrame(group = [:A, :B], consensus_ranking = Any[consA, consB])
     @test pp.overall_divergences(grouped_consensus, whole_df, :group) == 1.0
-    @test pp.overall_divergences_clean(grouped_consensus, whole_df, :group) == 1.0
+    @test pp.overall_divergences_median(grouped_consensus, whole_df, :group) == 1.0
+    @test pp.overall_overlaps(grouped_consensus, whole_df, :group) == 0.0
+    @test pp.overall_separations(grouped_consensus, whole_df, :group) == 1.0
 
     C, D = pp.compute_group_metrics(whole_df, :group)
     @test isapprox(C, 1.0; atol = 1e-12)
@@ -127,13 +132,19 @@ end
     @test Set(keys(res)) == Set([:mice, :rand])
     @test res[:mice][:C] == fill(1.0, 2)
     @test res[:mice][:D] == fill(1.0, 2)
-    @test res[:mice][:D_clean] == fill(1.0, 2)
+    @test res[:mice][:D_median] == fill(1.0, 2)
+    @test res[:mice][:O] == fill(0.0, 2)
+    @test res[:mice][:Sep] == fill(1.0, 2)
+    @test res[:mice][:Gsep] == fill(1.0, 2)
     @test res[:rand][:C] == fill(1.0, 1)
     @test res[:rand][:D] == fill(1.0, 1)
-    @test res[:rand][:D_clean] == fill(1.0, 1)
+    @test res[:rand][:D_median] == fill(1.0, 1)
+    @test res[:rand][:O] == fill(0.0, 1)
+    @test res[:rand][:Sep] == fill(1.0, 1)
+    @test res[:rand][:Gsep] == fill(1.0, 1)
 end
 
-@testset "clean divergence uses weighted consensus distances" begin
+@testset "D_median uses weighted median-set distances" begin
     ab = ranking_dict([:a, :b])
     ba = ranking_dict([:b, :a])
 
@@ -144,6 +155,64 @@ end
     )
     consensus_map = Dict(:A => ab, :B => ba, :C => ba)
 
-    @test isapprox(pp.overall_divergence_clean(group_profiles, consensus_map), 5 / 11; atol = 1e-12)
-    @test pp.overall_divergence_clean(Dict(:A => [ab], :B => [ab]), Dict(:A => ab, :B => ab)) == 0.0
+    @test isapprox(pp.overall_divergence_median(group_profiles, consensus_map), 5 / 11; atol = 1e-12)
+    @test pp.overall_divergence_median(Dict(:A => [ab], :B => [ab]), Dict(:A => ab, :B => ab)) == 0.0
+end
+
+@testset "overlap and separation new measures" begin
+    abc = ranking_dict([:a, :b, :c])
+    cba = ranking_dict([:c, :b, :a])
+
+    identical_a = vcat(fill(abc, 3), fill(cba, 1))
+    identical_b = vcat(fill(abc, 30), fill(cba, 10))
+    @test isapprox(pp.pairwise_group_overlap(identical_a, identical_b), 1.0; atol = 1e-12)
+    @test isapprox(pp.pairwise_group_separation(identical_a, identical_b), 0.0; atol = 1e-12)
+
+    pure_a = fill(abc, 4)
+    pure_b = fill(cba, 4)
+    @test isapprox(pp.pairwise_group_overlap(pure_a, pure_b), 0.0; atol = 1e-12)
+    @test isapprox(pp.pairwise_group_median_distance(pure_a, pure_b), 1.0; atol = 1e-12)
+    @test isapprox(pp.pairwise_group_separation(pure_a, pure_b), 1.0; atol = 1e-12)
+end
+
+@testset "D_median averages across all median pairs" begin
+    ab = ranking_dict([:a, :b])
+    ba = ranking_dict([:b, :a])
+
+    tied_profile = [ab, ba]
+    tied_result = pp.consensus_kendall(pp.strict_profile(tied_profile), (:a, :b))
+
+    @test tied_result.is_tied_minimizer
+    @test tied_result.n_minimizers == 2
+    @test isapprox(pp.pairwise_group_median_distance(tied_result, tied_result), 0.5; atol = 1e-12)
+
+    grouped_consensus = DataFrame(group = [:A, :B], consensus_result = Any[tied_result, tied_result])
+    whole_df = vcat(DataFrame(group = :A, profile = tied_profile),
+                    DataFrame(group = :B, profile = tied_profile))
+    @test isapprox(pp.overall_divergences_median(grouped_consensus, whole_df, :group), 0.5; atol = 1e-12)
+end
+
+@testset "grouped overlap measures stay in [0, 1]" begin
+    ab = ranking_dict([:a, :b])
+    ba = ranking_dict([:b, :a])
+
+    mixed_profiles = Dict(
+        :A => vcat(fill(ab, 3), fill(ba, 1)),
+        :B => vcat(fill(ab, 1), fill(ba, 3)),
+        :C => fill(ab, 2),
+    )
+    consensus_map = Dict(
+        group => pp.consensus_kendall(pp.strict_profile(profile), (:a, :b))
+        for (group, profile) in mixed_profiles
+    )
+
+    d_median = pp.overall_divergence_median(mixed_profiles, consensus_map)
+    overlap = pp.overall_overlap(mixed_profiles)
+    sep = pp.overall_separation(mixed_profiles, consensus_map)
+    gsep = pp.grouped_gsep(0.75, sep)
+
+    @test 0.0 <= d_median <= 1.0
+    @test 0.0 <= overlap <= 1.0
+    @test 0.0 <= sep <= 1.0
+    @test 0.0 <= gsep <= 1.0
 end

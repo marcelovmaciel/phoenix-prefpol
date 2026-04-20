@@ -494,6 +494,14 @@ function weighted_coherence(results_distance::AbstractDataFrame, proportion_map:
     return sum(row.group_coherence * proportion_map[row[key]] for row in eachrow(results_distance))
 end
 
+@inline function _unit_interval(value::Real, name::AbstractString)
+    x = Float64(value)
+    if x < -1.0e-9 || x > 1.0 + 1.0e-9
+        throw(ArgumentError("$name must lie in [0, 1], got $x."))
+    end
+    return clamp(x, 0.0, 1.0)
+end
+
 function pairwise_group_divergence(profile_i, consensus_j, m::Int)
     strict = strict_profile(profile_i)
     _candidate_set_matches(strict, consensus_j) || throw(ArgumentError(
@@ -517,6 +525,18 @@ _consensus_length(consensus::AbstractDict) = length(consensus)
 _consensus_length(consensus::ConsensusResult) = length(consensus.candidates)
 _consensus_length(consensus::StrictRank) = length(to_perm(consensus))
 
+function _consensus_ballots(consensus::ConsensusResult, pool::CandidatePool)
+    return [_ballot_from_perm(pool, perm) for perm in consensus.all_minimizers]
+end
+
+function _consensus_ballots(consensus::StrictRank, pool::CandidatePool)
+    return [_strict_consensus_ballot(consensus, pool)]
+end
+
+function _consensus_ballots(consensus::AbstractDict, pool::CandidatePool)
+    return [_strict_consensus_ballot(consensus, pool)]
+end
+
 function _normalized_consensus_distance(consensus_i, consensus_j, pool::CandidatePool)
     ballot_i = _strict_consensus_ballot(consensus_i, pool)
     ballot_j = _strict_consensus_ballot(consensus_j, pool)
@@ -525,7 +545,7 @@ function _normalized_consensus_distance(consensus_i, consensus_j, pool::Candidat
     return kendall_tau_distance(ballot_i, ballot_j) / binomial(m, 2)
 end
 
-function _assert_group_candidate_tuple_consistency(group_profiles, consensus_map)
+function _assert_group_profile_candidate_tuple_consistency(group_profiles)
     expected = nothing
 
     for profile in values(group_profiles)
@@ -538,6 +558,11 @@ function _assert_group_candidate_tuple_consistency(group_profiles, consensus_map
     end
 
     expected === nothing && throw(ArgumentError("Grouped profiles must contain at least one group."))
+    return expected
+end
+
+function _assert_group_candidate_tuple_consistency(group_profiles, consensus_map)
+    expected = _assert_group_profile_candidate_tuple_consistency(group_profiles)
 
     for consensus in values(consensus_map)
         if consensus isa ConsensusResult
@@ -558,6 +583,178 @@ function _assert_group_candidate_tuple_consistency(group_profiles, consensus_map
     end
 
     return expected
+end
+
+function _group_pair_weights(group_profiles)
+    groups = Any[]
+    masses = Float64[]
+    total_mass = 0.0
+
+    for (group, profile) in pairs(group_profiles)
+        mass = Float64(_profile_mass(profile))
+        mass < 0.0 && throw(ArgumentError("Group profile masses must be nonnegative."))
+        mass == 0.0 && continue
+        push!(groups, group)
+        push!(masses, mass)
+        total_mass += mass
+    end
+
+    total_mass > 0 || throw(ArgumentError("Grouped profiles must contain positive mass."))
+    length(groups) <= 1 && return OrderedDict{Tuple{Any,Any},Float64}()
+
+    props = masses ./ total_mass
+    denom = 1.0 - sum(pi^2 for pi in props)
+    denom > 0 || return OrderedDict{Tuple{Any,Any},Float64}()
+
+    weights = OrderedDict{Tuple{Any,Any},Float64}()
+    for a in 1:(length(groups) - 1)
+        for b in (a + 1):length(groups)
+            weights[(groups[a], groups[b])] = (2.0 * props[a] * props[b]) / denom
+        end
+    end
+
+    return weights
+end
+
+function _aggregate_group_pairs(group_profiles, pairwise_value)
+    weights = _group_pair_weights(group_profiles)
+    isempty(weights) && return 0.0
+
+    total = 0.0
+    for ((group_a, group_b), weight) in weights
+        total += weight * pairwise_value(group_a, group_b)
+    end
+
+    return _unit_interval(total, "Grouped aggregate")
+end
+
+"""
+    pairwise_group_overlap(profile_g, profile_h)
+
+Return the overlap `sum_r min(p_g(r), p_h(r))` between two empirical ranking
+distributions normalized within each group.
+"""
+function pairwise_group_overlap(profile_g, profile_h)
+    strict_g = strict_profile(profile_g)
+    strict_h = strict_profile(profile_h)
+
+    _profile_candidate_tuple(strict_g) == _profile_candidate_tuple(strict_h) || throw(ArgumentError(
+        "Cannot compare groups with different candidate sets.",
+    ))
+    _profile_mass(strict_g) > 0 || throw(ArgumentError("Grouped profiles must contain positive mass."))
+    _profile_mass(strict_h) > 0 || throw(ArgumentError("Grouped profiles must contain positive mass."))
+
+    props_g = ranking_proportions(strict_g)
+    props_h = ranking_proportions(strict_h)
+
+    if length(props_g) > length(props_h)
+        props_g, props_h = props_h, props_g
+    end
+
+    overlap = sum(min(prop_g, get(props_h, ranking, 0.0)) for (ranking, prop_g) in props_g)
+    return _unit_interval(overlap, "Pairwise group overlap")
+end
+
+"""
+    pairwise_group_median_distance(consensus_g, consensus_h, pool)
+    pairwise_group_median_distance(consensus_g::ConsensusResult, consensus_h::ConsensusResult)
+
+Return the normalized Kendall distance between two group-median sets, averaged
+exactly over all median pairs.
+"""
+function pairwise_group_median_distance(consensus_g, consensus_h, pool::CandidatePool)
+    ballots_g = _consensus_ballots(consensus_g, pool)
+    ballots_h = _consensus_ballots(consensus_h, pool)
+    norm_factor = binomial(length(pool), 2)
+    norm_factor > 0 || throw(ArgumentError("At least two candidates are required."))
+
+    total = 0.0
+    for ballot_g in ballots_g, ballot_h in ballots_h
+        total += kendall_tau_distance(ballot_g, ballot_h) / norm_factor
+    end
+
+    distance = total / (length(ballots_g) * length(ballots_h))
+    return _unit_interval(distance, "Pairwise group median distance")
+end
+
+function pairwise_group_median_distance(consensus_g::ConsensusResult,
+                                        consensus_h::ConsensusResult)
+    consensus_g.candidates == consensus_h.candidates || throw(ArgumentError(
+        "Cannot compare consensus results with different candidate tuples.",
+    ))
+    return pairwise_group_median_distance(
+        consensus_g,
+        consensus_h,
+        CandidatePool(collect(consensus_g.candidates)),
+    )
+end
+
+function pairwise_group_median_distance(profile_g, profile_h;
+                                        cache = GLOBAL_LINEAR_ORDER_CACHE,
+                                        rng = nothing,
+                                        tie_break_key = nothing,
+                                        debug_all_minimizers::Bool = false)
+    strict_g = strict_profile(profile_g)
+    strict_h = strict_profile(profile_h)
+
+    _profile_candidate_tuple(strict_g) == _profile_candidate_tuple(strict_h) || throw(ArgumentError(
+        "Cannot compare groups with different candidate sets.",
+    ))
+
+    result_g = consensus_kendall(
+        strict_g;
+        cache = cache,
+        rng = rng,
+        tie_break_key = tie_break_key,
+        debug_all_minimizers = debug_all_minimizers,
+    )
+    result_h = consensus_kendall(
+        strict_h;
+        cache = cache,
+        rng = rng,
+        tie_break_key = tie_break_key,
+        debug_all_minimizers = debug_all_minimizers,
+    )
+    return pairwise_group_median_distance(result_g, result_h, strict_g.pool)
+end
+
+"""
+    pairwise_group_separation(profile_g, consensus_g, profile_h, consensus_h)
+
+Return the overlap-adjusted pairwise separation
+
+`D_median(g, h) * (1 - O(g, h))`.
+"""
+function pairwise_group_separation(profile_g, consensus_g, profile_h, consensus_h)
+    strict_g = strict_profile(profile_g)
+    strict_h = strict_profile(profile_h)
+
+    _profile_candidate_tuple(strict_g) == _profile_candidate_tuple(strict_h) || throw(ArgumentError(
+        "Cannot compare groups with different candidate sets.",
+    ))
+
+    distance = pairwise_group_median_distance(consensus_g, consensus_h, strict_g.pool)
+    overlap = pairwise_group_overlap(strict_g, strict_h)
+    return _unit_interval(distance * (1.0 - overlap), "Pairwise group separation")
+end
+
+function pairwise_group_separation(profile_g, profile_h;
+                                   cache = GLOBAL_LINEAR_ORDER_CACHE,
+                                   rng = nothing,
+                                   tie_break_key = nothing,
+                                   debug_all_minimizers::Bool = false)
+    strict_g = strict_profile(profile_g)
+    strict_h = strict_profile(profile_h)
+    distance = pairwise_group_median_distance(
+        strict_g,
+        strict_h;
+        cache = cache,
+        rng = rng,
+        tie_break_key = tie_break_key,
+        debug_all_minimizers = debug_all_minimizers,
+    )
+    overlap = pairwise_group_overlap(strict_g, strict_h)
+    return _unit_interval(distance * (1.0 - overlap), "Pairwise group separation")
 end
 
 function overall_divergence(group_profiles, consensus_map)
@@ -582,37 +779,74 @@ function overall_divergence(group_profiles, consensus_map)
     return total / (k - 1)
 end
 
-function overall_divergence_clean(group_profiles, consensus_map)
-    groups = collect(keys(group_profiles))
-    isempty(groups) && throw(ArgumentError("Grouped profiles must contain at least one group."))
+"""
+    overall_overlap(group_profiles)
 
+Aggregate pairwise overlaps over unordered group pairs using the normalized
+population weights `2π_gπ_h / (1 - sum_r π_r^2)`.
+"""
+function overall_overlap(group_profiles)
+    _assert_group_profile_candidate_tuple_consistency(group_profiles)
+    return _aggregate_group_pairs(group_profiles, (group_g, group_h) ->
+        pairwise_group_overlap(group_profiles[group_g], group_profiles[group_h])
+    )
+end
+
+"""
+    overall_divergence_median(group_profiles, consensus_map)
+
+Aggregate exact pairwise median distances over unordered group pairs using the
+normalized population pair weights induced by `group_profiles`.
+"""
+function overall_divergence_median(group_profiles, consensus_map)
     _assert_group_candidate_tuple_consistency(group_profiles, consensus_map)
-    length(groups) == 1 && return 0.0
+    return _aggregate_group_pairs(group_profiles, (group_g, group_h) ->
+        pairwise_group_median_distance(
+            consensus_map[group_g],
+            consensus_map[group_h],
+            _profile_pool(group_profiles[group_g]),
+        )
+    )
+end
 
-    total = 0.0
-    weight_sum = 0.0
+"""
+    overall_separation(group_profiles, consensus_map)
 
-    for a in 1:(length(groups) - 1)
-        group_a = groups[a]
-        profile_a = group_profiles[group_a]
-        pool_a = _profile_pool(profile_a)
-        n_a = _profile_mass(profile_a)
+Aggregate exact pairwise separations `D_median * (1 - O)` over unordered group
+pairs using the normalized population pair weights induced by `group_profiles`.
+"""
+function overall_separation(group_profiles, consensus_map)
+    _assert_group_candidate_tuple_consistency(group_profiles, consensus_map)
+    return _aggregate_group_pairs(group_profiles, (group_g, group_h) ->
+        pairwise_group_separation(
+            group_profiles[group_g],
+            consensus_map[group_g],
+            group_profiles[group_h],
+            consensus_map[group_h],
+        )
+    )
+end
 
-        for b in (a + 1):length(groups)
-            group_b = groups[b]
-            n_b = _profile_mass(group_profiles[group_b])
-            weight = n_a * n_b
-            total += weight * _normalized_consensus_distance(
-                consensus_map[group_a],
-                consensus_map[group_b],
-                pool_a,
-            )
-            weight_sum += weight
-        end
-    end
+"""
+    grouped_gsep(C, Sep)
 
-    weight_sum > 0 || return 0.0
-    return total / weight_sum
+Return `sqrt(C * Sep)` after validating that both arguments lie in `[0, 1]`.
+"""
+function grouped_gsep(C::Real, Sep::Real)
+    return sqrt(_unit_interval(C, "C") * _unit_interval(Sep, "Sep"))
+end
+
+function _group_profiles_from_dataframe(grouped_consensus::AbstractDataFrame,
+                                        whole_df::AbstractDataFrame,
+                                        key)
+    k = nrow(grouped_consensus)
+    return Dict(
+        grouped_consensus[i, key] => map(
+            row -> row.profile,
+            Base.filter(row -> row[key] == grouped_consensus[i, key], eachrow(whole_df)),
+        )
+        for i in 1:k
+    )
 end
 
 function _consensus_column(grouped_consensus)
@@ -634,32 +868,34 @@ function overall_divergences(grouped_consensus::AbstractDataFrame,
                              whole_df::AbstractDataFrame,
                              key)
     consensus_col = _consensus_column(grouped_consensus)
-    k = nrow(grouped_consensus)
-    group_profiles = Dict(
-        grouped_consensus[i, key] => map(
-            row -> row.profile,
-            Base.filter(row -> row[key] == grouped_consensus[i, key], eachrow(whole_df)),
-        )
-        for i in 1:k
-    )
+    group_profiles = _group_profiles_from_dataframe(grouped_consensus, whole_df, key)
     consensus_map = Dict(row[key] => row[consensus_col] for row in eachrow(grouped_consensus))
     return overall_divergence(group_profiles, consensus_map)
 end
 
-function overall_divergences_clean(grouped_consensus::AbstractDataFrame,
-                                   whole_df::AbstractDataFrame,
-                                   key)
+function overall_overlaps(grouped_consensus::AbstractDataFrame,
+                          whole_df::AbstractDataFrame,
+                          key)
+    group_profiles = _group_profiles_from_dataframe(grouped_consensus, whole_df, key)
+    return overall_overlap(group_profiles)
+end
+
+function overall_divergences_median(grouped_consensus::AbstractDataFrame,
+                                    whole_df::AbstractDataFrame,
+                                    key)
     consensus_col = _consensus_column(grouped_consensus)
-    k = nrow(grouped_consensus)
-    group_profiles = Dict(
-        grouped_consensus[i, key] => map(
-            row -> row.profile,
-            Base.filter(row -> row[key] == grouped_consensus[i, key], eachrow(whole_df)),
-        )
-        for i in 1:k
-    )
+    group_profiles = _group_profiles_from_dataframe(grouped_consensus, whole_df, key)
     consensus_map = Dict(row[key] => row[consensus_col] for row in eachrow(grouped_consensus))
-    return overall_divergence_clean(group_profiles, consensus_map)
+    return overall_divergence_median(group_profiles, consensus_map)
+end
+
+function overall_separations(grouped_consensus::AbstractDataFrame,
+                             whole_df::AbstractDataFrame,
+                             key)
+    consensus_col = _consensus_column(grouped_consensus)
+    group_profiles = _group_profiles_from_dataframe(grouped_consensus, whole_df, key)
+    consensus_map = Dict(row[key] => row[consensus_col] for row in eachrow(grouped_consensus))
+    return overall_separation(group_profiles, consensus_map)
 end
 
 function _merge_tie_break_key(base_key, extension::NamedTuple)
@@ -713,8 +949,18 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
     )
 
     D = overall_divergences(consensus, df, demo)
-    D_clean = overall_divergences_clean(consensus, df, demo)
-    return (C = C, D = D, D_clean = D_clean)
+    D_median = overall_divergences_median(consensus, df, demo)
+    O = overall_overlaps(consensus, df, demo)
+    Sep = overall_separations(consensus, df, demo)
+    Gsep = grouped_gsep(C, Sep)
+    return (
+        C = C,
+        D = D,
+        D_median = D_median,
+        O = O,
+        Sep = Sep,
+        Gsep = Gsep,
+    )
 end
 
 function compute_group_metrics(df::AbstractDataFrame, demo;
@@ -739,7 +985,10 @@ function bootstrap_group_metrics(bt_profiles, demo;
     for (variant, reps) in bt_profiles
         Cvals = Float64[]
         Dvals = Float64[]
-        Dcleanvals = Float64[]
+        Dmedianvals = Float64[]
+        Ovals = Float64[]
+        Sepvals = Float64[]
+        Gsepvals = Float64[]
 
         for (rep_idx, rep) in enumerate(reps)
             rep_tie_key = _merge_tie_break_key(
@@ -754,10 +1003,20 @@ function bootstrap_group_metrics(bt_profiles, demo;
             )
             push!(Cvals, details.C)
             push!(Dvals, details.D)
-            push!(Dcleanvals, details.D_clean)
+            push!(Dmedianvals, details.D_median)
+            push!(Ovals, details.O)
+            push!(Sepvals, details.Sep)
+            push!(Gsepvals, details.Gsep)
         end
 
-        result[variant] = Dict(:C => Cvals, :D => Dvals, :D_clean => Dcleanvals)
+        result[variant] = Dict(
+            :C => Cvals,
+            :D => Dvals,
+            :D_median => Dmedianvals,
+            :O => Ovals,
+            :Sep => Sepvals,
+            :Gsep => Gsepvals,
+        )
     end
 
     return result

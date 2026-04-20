@@ -46,7 +46,7 @@ function _plotting_test_results()
                 wave;
                 active_candidates = active_candidates,
                 groupings = [:grp],
-                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :G, :S],
+                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
                 B = 2,
                 R = 1,
                 K = 1,
@@ -102,7 +102,7 @@ end
         scenario_name = "all",
         imputer_backend = :zero,
         groupings = [:grp],
-        measures = [:C, :D, :G],
+        measures = [:C, :D_median, :O, :Gsep],
         statistic = :median,
         colormap = pp.Makie.Reverse(:RdBu),
         show_values = true,

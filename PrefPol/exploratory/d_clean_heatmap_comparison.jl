@@ -1,18 +1,18 @@
 """
-Compare the current grouped divergence `D` against the consensus-only alternative `D_clean`.
+Compare the current grouped divergence `D` against the consensus-only alternative `D_median`.
 
 `D` averages distances from individuals in group `i` to the consensus of group `j`,
 so it can change when within-group dispersion changes even if the estimated group
-consensuses stay fixed. `D_clean` instead uses only the estimated group consensus
+consensuses stay fixed. `D_median` instead uses only the estimated group consensus
 rankings and computes a weighted average of normalized Kendall distances between
 group consensuses, with unordered-pair weights proportional to `n_i * n_j`.
 
-This script runs the existing nested pipeline for one year/scenario/backend target
-and writes three heatmaps to `PrefPol/exploratory/output/d_clean_heatmap_comparison/`:
+This script runs the existing nested pipeline for one year/scenario/backend target and
+writes three heatmaps to `PrefPol/exploratory/output/d_median_heatmap_comparison/`:
 
 - the current `D`
-- the new `D_clean`
-- the difference `D_clean - D`
+- the new `D_median`
+- the difference `D_median - D`
 """
 
 using CairoMakie
@@ -32,7 +32,7 @@ const FORCE_PIPELINE = false
 const R = parse(Int, get(ENV, "PREFPOL_D_CLEAN_R", "2"))
 const K = parse(Int, get(ENV, "PREFPOL_D_CLEAN_K", "2"))
 
-const SCRIPT_STEM = "d_clean_heatmap_comparison"
+const SCRIPT_STEM = "d_median_heatmap_comparison"
 const OUTPUT_ROOT = joinpath(pp.project_root, "exploratory", "output", SCRIPT_STEM)
 const CACHE_ROOT = joinpath(pp.project_root, "exploratory", "_tmp", SCRIPT_STEM)
 
@@ -65,7 +65,7 @@ function build_target_batch(cfg, wave)
             scenario_name = SCENARIO_NAME,
             m = m,
             groupings = groupings,
-            measures = [:C, :D, :D_clean, :G],
+            measures = [:C, :D, :D_median, :G],
             B = cfg.n_bootstrap,
             R = R,
             K = K,
@@ -136,7 +136,7 @@ function plot_difference_heatmap(diff_matrix::AbstractMatrix, heatmap_data)
 
     ax = M.Axis(
         fig[3, 1];
-        title = "D_clean - D",
+        title = "D_median - D",
         xlabel = "number of alternatives",
         ylabel = "grouping",
         xticks = (xs_m, string.(m_values_int)),
@@ -190,12 +190,12 @@ fig_d = pp.plot_pipeline_group_heatmap(
     clist_size = 60,
 )
 
-fig_d_clean = pp.plot_pipeline_group_heatmap(
+fig_d_median = pp.plot_pipeline_group_heatmap(
     results;
     year = YEAR,
     scenario_name = SCENARIO_NAME,
     imputer_backend = IMPUTER_BACKEND,
-    measures = [:D_clean],
+    measures = [:D_median],
     groupings = groupings,
     statistic = :median,
     maxcols = 1,
@@ -216,27 +216,27 @@ d_data = pp.pipeline_group_heatmap_values(
     statistic = :median,
 )
 
-d_clean_data = pp.pipeline_group_heatmap_values(
+d_median_data = pp.pipeline_group_heatmap_values(
     results;
     year = YEAR,
     scenario_name = SCENARIO_NAME,
     imputer_backend = IMPUTER_BACKEND,
-    measures = [:D_clean],
+    measures = [:D_median],
     groupings = groupings,
     statistic = :median,
 )
 
-d_data.m_values == d_clean_data.m_values || error("D and D_clean m grids do not match.")
-d_data.grouping_values == d_clean_data.grouping_values || error("D and D_clean grouping grids do not match.")
+d_data.m_values == d_median_data.m_values || error("D and D_median m grids do not match.")
+d_data.grouping_values == d_median_data.grouping_values || error("D and D_median grouping grids do not match.")
 
-diff_matrix = d_clean_data.matrices[:D_clean] .- d_data.matrices[:D]
-fig_diff = plot_difference_heatmap(diff_matrix, d_clean_data)
+diff_matrix = d_median_data.matrices[:D_median] .- d_data.matrices[:D]
+fig_diff = plot_difference_heatmap(diff_matrix, d_median_data)
 
 file_stub = string(YEAR, "_", SCENARIO_NAME, "_", Symbol(IMPUTER_BACKEND))
 d_path = joinpath(OUTPUT_ROOT, "d_current_heatmap_" * file_stub * ".png")
-d_clean_path = joinpath(OUTPUT_ROOT, "d_clean_heatmap_" * file_stub * ".png")
-diff_path = joinpath(OUTPUT_ROOT, "d_clean_minus_d_heatmap_" * file_stub * ".png")
+d_median_path = joinpath(OUTPUT_ROOT, "d_median_heatmap_" * file_stub * ".png")
+diff_path = joinpath(OUTPUT_ROOT, "d_median_minus_d_heatmap_" * file_stub * ".png")
 
 save_figure(d_path, fig_d)
-save_figure(d_clean_path, fig_d_clean)
+save_figure(d_median_path, fig_d_median)
 save_figure(diff_path, fig_diff)

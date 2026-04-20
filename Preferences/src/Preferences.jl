@@ -96,7 +96,10 @@ export strict_profile, ConsensusResult
 export consensus_kendall, get_consensus_ranking, kendall_tau_dict
 export consensus_for_group, group_avg_distance, weighted_coherence
 export pairwise_group_divergence, overall_divergence, overall_divergences
-export overall_divergence_clean, overall_divergences_clean
+export pairwise_group_overlap, pairwise_group_median_distance, pairwise_group_separation
+export overall_overlap, overall_overlaps
+export overall_divergence_median, overall_divergences_median
+export overall_separation, overall_separations, grouped_gsep
 export compute_group_metrics, bootstrap_group_metrics
 
 # Dynamics / mutable strict

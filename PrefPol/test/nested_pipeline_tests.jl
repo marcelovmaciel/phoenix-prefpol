@@ -111,7 +111,7 @@ end
             wave;
             active_candidates = ["A", "B", "C"],
             groupings = [:grp],
-            measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_clean, :G, :S],
+            measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
             B = 3,
             R = 2,
             K = 2,
@@ -159,8 +159,14 @@ end
     @test isapprox(interval.C, avg.C)
     @test 0.0 <= avg.C <= 1.0
     @test interval.D_lo <= interval.D <= interval.D_hi
-    @test interval.D_clean_lo <= interval.D_clean <= interval.D_clean_hi
-    @test 0.0 <= avg.D_clean <= 1.0
+    @test avg.D_median == hash.D_median
+    @test hash.D_median == interval.D_median
+    @test interval.D_median_lo == interval.D_median
+    @test interval.D_median == interval.D_median_hi
+    @test 0.0 <= avg.D_median <= 1.0
+    @test 0.0 <= avg.O <= 1.0
+    @test 0.0 <= avg.Sep <= 1.0
+    @test isapprox(avg.Gsep, sqrt(max(avg.C * avg.Sep, 0.0)))
     @test isapprox(avg.G, sqrt(max(avg.C * avg.D, 0.0)))
     @test interval.G_lo <= interval.G <= interval.G_hi
     @test isapprox(interval.G_lo, sqrt(max(interval.C * interval.D_lo, 0.0)))
@@ -196,16 +202,24 @@ end
     @test hash.C == interval.C
     @test avg.D == hash.D
     @test hash.D == interval.D
-    @test avg.D_clean == hash.D_clean
-    @test hash.D_clean == interval.D_clean
+    @test avg.D_median == hash.D_median
+    @test hash.D_median == interval.D_median
+    @test avg.O == hash.O
+    @test hash.O == interval.O
+    @test avg.Sep == hash.Sep
+    @test hash.Sep == interval.Sep
     @test avg.G == hash.G
     @test hash.G == interval.G
+    @test avg.Gsep == hash.Gsep
+    @test hash.Gsep == interval.Gsep
     @test interval.D_lo == interval.D
     @test interval.D == interval.D_hi
-    @test interval.D_clean_lo == interval.D_clean
-    @test interval.D_clean == interval.D_clean_hi
+    @test interval.D_median_lo == interval.D_median
+    @test interval.D_median == interval.D_median_hi
     @test interval.G_lo == interval.G
     @test interval.G == interval.G_hi
+    @test interval.Gsep_lo == interval.Gsep
+    @test interval.Gsep == interval.Gsep_hi
 end
 
 @testset "support-separation contrast S follows the sample definition" begin
@@ -658,7 +672,7 @@ end
                 wave;
                 active_candidates = active_candidates,
                 groupings = [:grp],
-                measures = [:Psi, :C, :D, :D_clean, :G, :S],
+                measures = [:Psi, :C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
                 B = 3,
                 R = 2,
                 K = 1,
@@ -689,7 +703,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :D_clean, :G, :S],
+            measures = [:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
             groupings = [:grp],
             include_grouped = true,
         )
@@ -705,7 +719,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :D_clean, :G, :S],
+            measures = [:C, :D, :D_median, :O, :Sep, :G, :Gsep, :S],
             groupings = [:grp],
             statistic = :median,
         )
@@ -713,15 +727,24 @@ end
         @test Set(scenario_rows.n_candidates) == Set([2, 3])
         @test all(ismissing, scenario_rows.grouping)
         @test Set(Symbol.(skipmissing(group_rows.grouping))) == Set([:grp])
-        @test :D_clean in Set(Symbol.(group_rows.measure))
+        @test :D_median in Set(Symbol.(group_rows.measure))
+        @test :O in Set(Symbol.(group_rows.measure))
+        @test :Sep in Set(Symbol.(group_rows.measure))
+        @test :Gsep in Set(Symbol.(group_rows.measure))
         @test :S in Set(Symbol.(group_rows.measure))
         @test scenario_data.m_values == [2, 3]
         @test scenario_data.candidate_label == "Candidates: A, B, C"
 
         g_row = group_rows[(group_rows.measure .== :G) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:G][1, 1], g_row.q50)
-        dclean_row = group_rows[(group_rows.measure .== :D_clean) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
-        @test isapprox(heatmap_data.matrices[:D_clean][1, 1], dclean_row.q50)
+        dmedian_row = group_rows[(group_rows.measure .== :D_median) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:D_median][1, 1], dmedian_row.q50)
+        o_row = group_rows[(group_rows.measure .== :O) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:O][1, 1], o_row.q50)
+        sep_row = group_rows[(group_rows.measure .== :Sep) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:Sep][1, 1], sep_row.q50)
+        gsep_row = group_rows[(group_rows.measure .== :Gsep) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:Gsep][1, 1], gsep_row.q50)
         s_row = group_rows[(group_rows.measure .== :S) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:S][1, 1], s_row.q50)
     end

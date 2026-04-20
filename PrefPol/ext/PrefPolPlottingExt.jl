@@ -11,18 +11,22 @@ using TextWrap
 const Makie = CairoMakie.Makie
 const _cairomakie_save = CairoMakie.save
 
-if !isdefined(PrefPol, :Makie)
-    @eval PrefPol const Makie = $Makie
-end
+function __init__()
+    if !isdefined(PrefPol, :Makie)
+        Core.eval(PrefPol, :(const Makie = $Makie))
+    end
 
-if !isdefined(PrefPol, :save)
-    @eval PrefPol save(args...; kwargs...) = $_cairomakie_save(args...; kwargs...)
+    if !isdefined(PrefPol, :save)
+        Core.eval(PrefPol, :(save(args...; kwargs...) = $_cairomakie_save(args...; kwargs...)))
+    end
 end
 
 @inline _wong_colors() = Makie.wong_colors()
 
 @inline _measure_label(measure::Symbol) =
-    measure === :Psi ? "Ψ" : String(measure)
+    measure === :Psi ? "Ψ" :
+    measure === :D_median ? "D" :
+    String(measure)
 
 function _resolve_heatmap_colorrange(allvals;
                                      fixed_colorrange::Bool = false,
