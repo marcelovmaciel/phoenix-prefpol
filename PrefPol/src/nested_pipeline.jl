@@ -1,5 +1,5 @@
 const NESTED_PIPELINE_SCHEMA_VERSION = 1
-const NESTED_PIPELINE_CODE_VERSION = "nested-pipeline-v3-tree-decomposition"
+const NESTED_PIPELINE_CODE_VERSION = "nested-pipeline-v4-ordered-batch"
 const DEFAULT_NESTED_PIPELINE_CACHE_ROOT = normpath(
     joinpath(project_root, "intermediate_data", "nested_pipeline"),
 )
@@ -306,7 +306,7 @@ end
 
 _stable_serialize(x) = repr(x)
 
-pipeline_spec_hash(spec::PipelineSpec) =
+_pipeline_cache_key(spec::PipelineSpec) =
     bytes2hex(SHA.sha256(codeunits(_stable_serialize(spec))))
 
 function _seed_int(seed::UInt64)
@@ -326,14 +326,13 @@ function _digest_seed(payload::AbstractString)
 end
 
 function _stage_seed(spec::PipelineSpec,
-                     spec_hash::AbstractString,
                      stage::Symbol;
                      b::Int = 0,
                      r::Int = 0,
                      k::Int = 0)
     return _digest_seed(_stable_serialize((
         namespace = spec.seed_namespace,
-        spec_hash = String(spec_hash),
+        spec = spec,
         stage = String(stage),
         b = b,
         r = r,
@@ -382,7 +381,6 @@ struct ObservedData
 end
 
 struct Resample
-    observed_ref::String
     b::Int
     indices::Vector{Int}
     multiplicities::Vector{Int}
@@ -391,7 +389,7 @@ struct Resample
 end
 
 struct ImputedData
-    resample_ref::Tuple{String,Int}
+    b::Int
     r::Int
     table::DataFrame
     backend::Symbol
@@ -401,7 +399,8 @@ struct ImputedData
 end
 
 struct LinearizedProfile
-    imputed_ref::Tuple{String,Int,Int}
+    b::Int
+    r::Int
     k::Int
     bundle::AnnotatedProfile
     candidate_tuple::Tuple{Vararg{Symbol}}
@@ -410,7 +409,9 @@ struct LinearizedProfile
 end
 
 struct MeasureResult
-    profile_ref::Tuple{String,Int,Int,Int}
+    b::Int
+    r::Int
+    k::Int
     measure_id::Symbol
     grouping::Union{Nothing,Symbol}
     value::Float64
@@ -439,7 +440,6 @@ end
 
 struct PipelineResult
     spec::PipelineSpec
-    spec_hash::String
     cache_dir::String
     stage_manifest::DataFrame
     measure_cube::DataFrame
@@ -456,6 +456,8 @@ end
 StudyBatchItem(spec::PipelineSpec; metadata...) =
     StudyBatchItem(spec, (; metadata...))
 
+# Batch items are an ordered job list. Identical PipelineSpecs are legal and
+# remain distinct by position in `items`.
 struct StudyBatchSpec
     items::Vector{StudyBatchItem}
 end
@@ -472,15 +474,29 @@ end
 
 struct BatchRunResult
     batch::StudyBatchSpec
-    results::OrderedDict{String,PipelineResult}
-    metadata_by_hash::Dict{String,NamedTuple}
+    results::Vector{PipelineResult}
+    metadata::Vector{NamedTuple}
+end
+
+function BatchRunResult(batch::StudyBatchSpec,
+                        results::AbstractVector{<:PipelineResult},
+                        metadata::AbstractVector{<:NamedTuple})
+    length(results) == length(batch.items) || throw(ArgumentError(
+        "BatchRunResult results must align 1:1 with StudyBatchSpec.items.",
+    ))
+    length(metadata) == length(batch.items) || throw(ArgumentError(
+        "BatchRunResult metadata must align 1:1 with StudyBatchSpec.items.",
+    ))
+    return BatchRunResult(batch, collect(results), collect(metadata))
 end
 
 Base.length(results::BatchRunResult) = length(results.results)
-Base.haskey(results::BatchRunResult, key) = haskey(results.results, key)
-Base.getindex(results::BatchRunResult, key) = results.results[key]
-Base.keys(results::BatchRunResult) = keys(results.results)
-Base.values(results::BatchRunResult) = values(results.results)
+Base.haskey(results::BatchRunResult, idx::Integer) = checkbounds(Bool, results.results, idx)
+Base.getindex(results::BatchRunResult, idx::Integer) = results.results[idx]
+Base.firstindex(results::BatchRunResult) = firstindex(results.results)
+Base.lastindex(results::BatchRunResult) = lastindex(results.results)
+Base.keys(results::BatchRunResult) = eachindex(results.results)
+Base.values(results::BatchRunResult) = results.results
 Base.pairs(results::BatchRunResult) = pairs(results.results)
 Base.iterate(results::BatchRunResult, state...) = iterate(results.results, state...)
 
@@ -530,15 +546,13 @@ end
 
 function _draw_resample(observed::ObservedData,
                         spec::PipelineSpec,
-                        spec_hash::AbstractString,
                         b::Int)
-    seed = _stage_seed(spec, spec_hash, :resample; b = b)
+    seed = _stage_seed(spec, :resample; b = b)
     rng = _rng_from_seed(seed)
     n = nrow(observed.scores)
     idxs = sample(rng, 1:n, Weights(observed.weights), n; replace = true)
 
     return Resample(
-        String(spec_hash),
         b,
         idxs,
         _multiplicities(idxs, n),
@@ -557,9 +571,8 @@ end
 
 function _impute_resample(resample::Resample,
                           spec::PipelineSpec,
-                          spec_hash::AbstractString,
                           r::Int)
-    seed = _stage_seed(spec, spec_hash, :imputation; b = resample.b, r = r)
+    seed = _stage_seed(spec, :imputation; b = resample.b, r = r)
     scores, groups = _score_and_group_tables(
         resample.table,
         spec.active_candidates,
@@ -594,7 +607,7 @@ function _impute_resample(resample::Resample,
     table = isempty(spec.groupings) ? completed_scores : hcat(completed_scores, groups)
 
     return ImputedData(
-        (String(spec_hash), resample.b),
+        resample.b,
         r,
         table,
         spec.imputer_backend,
@@ -636,16 +649,15 @@ end
 
 function _linearize_imputed(imputed::ImputedData,
                             spec::PipelineSpec,
-                            spec_hash::AbstractString,
                             k::Int)
-    seed = _stage_seed(spec, spec_hash, :linearization;
-                       b = imputed.resample_ref[2],
+    seed = _stage_seed(spec, :linearization;
+                       b = imputed.b,
                        r = imputed.r,
                        k = k)
     weak_bundle = _weak_profile_bundle(imputed, spec)
     _assert_complete_weak_orders(
         weak_bundle;
-        context = "spec=$(spec_hash) b=$(imputed.resample_ref[2]) r=$(imputed.r) k=$k",
+        context = "wave=$(spec.wave_id) b=$(imputed.b) r=$(imputed.r) k=$k",
     )
     rng = _rng_from_seed(seed)
     tie_break = _resolve_nested_linearizer(weak_bundle, spec)
@@ -656,7 +668,8 @@ function _linearize_imputed(imputed::ImputedData,
     )
 
     return LinearizedProfile(
-        (String(spec_hash), imputed.resample_ref[2], imputed.r),
+        imputed.b,
+        imputed.r,
         k,
         strict_bundle,
         tuple(Symbol.(spec.active_candidates)...),
@@ -988,18 +1001,13 @@ function _measure_results_for_profile(profile::LinearizedProfile,
     results = MeasureResult[]
     audits = NamedTuple[]
 
-    ref = (
-        profile.imputed_ref[1],
-        profile.imputed_ref[2],
-        profile.imputed_ref[3],
-        profile.k,
-    )
-
     for measure in spec.measures
         measure in (:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S) && continue
         value = _global_measure_value(measure, profile.bundle)
         push!(results, MeasureResult(
-            ref,
+            profile.b,
+            profile.r,
+            profile.k,
             measure,
             nothing,
             Float64(value),
@@ -1017,24 +1025,27 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                 grouping;
                 tie_policy = spec.consensus_tie_policy,
                 tie_break_context = (
-                    spec_hash = profile.imputed_ref[1],
-                    b = profile.imputed_ref[2],
-                    r = profile.imputed_ref[3],
+                    seed_namespace = spec.seed_namespace,
+                    spec_payload = _stable_serialize(spec),
+                    b = profile.b,
+                    r = profile.r,
                     k = profile.k,
                 ),
             )
 
             details.diagnostics.tied_groups > 0 && push!(audits, (
                 stage = :measure,
-                b = profile.imputed_ref[2],
-                r = profile.imputed_ref[3],
+                b = profile.b,
+                r = profile.r,
                 k = profile.k,
                 message = "Grouping $(grouping) had $(details.diagnostics.tied_groups) tied consensus groups under policy $(spec.consensus_tie_policy).",
             ))
 
             if :C in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :C,
                     grouping,
                     details.C,
@@ -1046,7 +1057,9 @@ function _measure_results_for_profile(profile::LinearizedProfile,
 
             if :D in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :D,
                     grouping,
                     details.D,
@@ -1058,7 +1071,9 @@ function _measure_results_for_profile(profile::LinearizedProfile,
 
             if :D_median in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :D_median,
                     grouping,
                     details.D_median,
@@ -1070,7 +1085,9 @@ function _measure_results_for_profile(profile::LinearizedProfile,
 
             if :O in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :O,
                     grouping,
                     details.O,
@@ -1082,7 +1099,9 @@ function _measure_results_for_profile(profile::LinearizedProfile,
 
             if :O_smoothed in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :O_smoothed,
                     grouping,
                     details.O_smoothed,
@@ -1094,7 +1113,9 @@ function _measure_results_for_profile(profile::LinearizedProfile,
 
             if :Sep in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :Sep,
                     grouping,
                     details.Sep,
@@ -1106,7 +1127,9 @@ function _measure_results_for_profile(profile::LinearizedProfile,
 
             if :S in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :S,
                     grouping,
                     details.S,
@@ -1118,7 +1141,9 @@ function _measure_results_for_profile(profile::LinearizedProfile,
 
             if :Gsep in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :Gsep,
                     grouping,
                     details.Gsep,
@@ -1130,7 +1155,9 @@ function _measure_results_for_profile(profile::LinearizedProfile,
 
             if :G in spec.measures
                 push!(results, MeasureResult(
-                    ref,
+                    profile.b,
+                    profile.r,
+                    profile.k,
                     :G,
                     grouping,
                     details.G,
@@ -1149,12 +1176,10 @@ function _measure_results_dataframe(results::Vector{MeasureResult})
     rows = NamedTuple[]
 
     for result in results
-        spec_hash, b, r, k = result.profile_ref
         push!(rows, (
-            spec_hash = spec_hash,
-            b = b,
-            r = r,
-            k = k,
+            b = result.b,
+            r = result.r,
+            k = result.k,
             measure = result.measure_id,
             grouping = something(result.grouping, missing),
             value = result.value,
@@ -1287,16 +1312,16 @@ function _audit_dataframe(rows)
     ) : DataFrame(rows)
 end
 
-function pipeline_result_path(pipeline::NestedStochasticPipeline, spec_hash::AbstractString)
-    return joinpath(pipeline.cache_root, String(spec_hash), "result.jld2")
+function pipeline_result_path(pipeline::NestedStochasticPipeline, spec::PipelineSpec)
+    return joinpath(pipeline.cache_root, _pipeline_cache_key(spec), "result.jld2")
 end
 
 function load_pipeline_result(path::AbstractString)
     return JLD2.load(path, "result")
 end
 
-function load_pipeline_result(pipeline::NestedStochasticPipeline, spec_hash::AbstractString)
-    return load_pipeline_result(pipeline_result_path(pipeline, spec_hash))
+function load_pipeline_result(pipeline::NestedStochasticPipeline, spec::PipelineSpec)
+    return load_pipeline_result(pipeline_result_path(pipeline, spec))
 end
 
 function _metadata_value(metadata::NamedTuple, key::Symbol, default = missing)
@@ -1307,11 +1332,10 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
                       spec::PipelineSpec;
                       force::Bool = false,
                       progress::Bool = true)
-    spec_hash = pipeline_spec_hash(spec)
-    cache_dir = joinpath(pipeline.cache_root, spec_hash)
+    cache_dir = joinpath(pipeline.cache_root, _pipeline_cache_key(spec))
     mkpath(cache_dir)
 
-    result_path = joinpath(cache_dir, "result.jld2")
+    result_path = pipeline_result_path(pipeline, spec)
     if isfile(result_path) && !force
         return load_pipeline_result(result_path)
     end
@@ -1323,11 +1347,11 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
             b = 0,
             r = 0,
             k = 0,
-            message = "Running spec $(spec_hash) with B=$(spec.B), R=$(spec.R), K=$(spec.K).",
+            message = "Running wave $(spec.wave_id) with $(length(spec.active_candidates)) candidates, B=$(spec.B), R=$(spec.R), K=$(spec.K).",
         ),
     ]
 
-    spec_path, spec_hash_file = _save_stage_artifact(cache_dir, :spec, (spec = spec, spec_hash = spec_hash))
+    spec_path, spec_artifact_hash = _save_stage_artifact(cache_dir, :spec, (spec = spec,))
     push!(stage_rows, (
         stage = :spec,
         b = 0,
@@ -1335,7 +1359,7 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
         k = 0,
         seed = UInt64(0),
         path = spec_path,
-        artifact_hash = spec_hash_file,
+        artifact_hash = spec_artifact_hash,
         artifact_kind = "PipelineSpec",
     ))
 
@@ -1361,7 +1385,7 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
     )
 
     for b in 1:spec.B
-        resample = _draw_resample(observed, spec, spec_hash, b)
+        resample = _draw_resample(observed, spec, b)
         resample_path, resample_hash = _save_stage_artifact(
             cache_dir,
             :resample,
@@ -1384,7 +1408,7 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
         ))
 
         for r in 1:spec.R
-            imputed = _impute_resample(resample, spec, spec_hash, r)
+            imputed = _impute_resample(resample, spec, r)
             imputed_path, imputed_hash = _save_stage_artifact(
                 cache_dir,
                 :imputed,
@@ -1409,7 +1433,7 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
             ))
 
             for k in 1:spec.K
-                linearized = _linearize_imputed(imputed, spec, spec_hash, k)
+                linearized = _linearize_imputed(imputed, spec, k)
                 linearized_artifact = compact_profile_artifact_dataframe(linearized.bundle)
                 linearized_path, linearized_hash = _save_stage_artifact(
                     cache_dir,
@@ -1476,7 +1500,6 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
 
     result = PipelineResult(
         spec,
-        spec_hash,
         cache_dir,
         stage_manifest,
         measure_cube,
@@ -1499,8 +1522,8 @@ function run_batch(runner::BatchRunner,
                    batch::StudyBatchSpec;
                    force::Bool = false,
                    progress::Bool = true)
-    results = OrderedDict{String,PipelineResult}()
-    metadata_by_hash = Dict{String,NamedTuple}()
+    results = PipelineResult[]
+    metadata = NamedTuple[]
     batch_progress = pm.Progress(
         length(batch.items);
         desc = "Nested batch",
@@ -1510,12 +1533,8 @@ function run_batch(runner::BatchRunner,
 
     for item in batch.items
         result = run_pipeline(runner.pipeline, item.spec; force = force, progress = false)
-        haskey(results, result.spec_hash) && throw(ArgumentError(
-            "StudyBatchSpec contains duplicate spec hash $(result.spec_hash). " *
-            "Each batch item must identify a distinct PipelineSpec.",
-        ))
-        results[result.spec_hash] = result
-        metadata_by_hash[result.spec_hash] = item.metadata
+        push!(results, result)
+        push!(metadata, item.metadata)
         pm.next!(
             batch_progress;
             showvalues = [
@@ -1529,7 +1548,7 @@ function run_batch(runner::BatchRunner,
     end
 
     pm.finish!(batch_progress)
-    return BatchRunResult(batch, results, metadata_by_hash)
+    return BatchRunResult(batch, results, metadata)
 end
 
 function _result_collection(result::PipelineResult)
@@ -1545,13 +1564,12 @@ function _result_collection(results::AbstractDict{<:Any,<:PipelineResult})
 end
 
 function _result_collection(results::BatchRunResult)
-    return Tuple(values(results.results))
+    return Tuple(results.results)
 end
 
 function _result_spec_metadata(result::PipelineResult)
     spec = result.spec
     return (
-        spec_hash = result.spec_hash,
         wave_id = spec.wave_id,
         active_candidates_key = join(spec.active_candidates, "|"),
         n_candidates = length(spec.active_candidates),
@@ -1564,6 +1582,9 @@ function _result_spec_metadata(result::PipelineResult)
         imputer_backend = String(spec.imputer_backend),
         linearizer_policy = String(spec.linearizer_policy),
         consensus_tie_policy = String(spec.consensus_tie_policy),
+        seed_namespace = spec.seed_namespace,
+        schema_version = spec.schema_version,
+        code_version = spec.code_version,
         cache_dir = result.cache_dir,
     )
 end
@@ -1590,8 +1611,8 @@ end
 function _merge_batch_result_tables(results::BatchRunResult, builder)
     tables = DataFrame[]
 
-    for result in values(results.results)
-        meta = get(results.metadata_by_hash, result.spec_hash, (;))
+    for (idx, result) in enumerate(results.results)
+        meta = merge(results.metadata[idx], (batch_index = idx,))
         push!(tables, builder(result, meta))
     end
 
@@ -1604,7 +1625,8 @@ end
 
 Return the normalized raw measure cube augmented with fixed-spec metadata.
 When passed a collection of `PipelineResult`s, rows are stacked with one row per
-`(spec_hash, b, r, k, measure, grouping)` observation.
+`(b, r, k, measure, grouping)` observation. `BatchRunResult` tables also carry
+`batch_index` so duplicate specs remain distinct by position.
 """
 function pipeline_measure_table(result::PipelineResult)
     return _decorate_result_table(result.measure_cube, result)

@@ -176,7 +176,8 @@ end
 
         result = PrefPol.run_pipeline(pipeline, spec; force = true)
 
-        @test result.spec_hash == PrefPol.pipeline_spec_hash(spec)
+        @test result.spec.wave_id == spec.wave_id
+        @test result.spec.active_candidates == spec.active_candidates
         @test nrow(result.measure_cube) == spec.B * spec.R * spec.K * length(spec.measures)
         @test all(isfile, result.stage_manifest.path)
         @test nrow(result.stage_manifest) == 2 + spec.B + spec.B * spec.R + 2 * spec.B * spec.R * spec.K
@@ -462,21 +463,19 @@ end
 
         @test length(results) == 2
 
-        grouped_hash = PrefPol.pipeline_spec_hash(grouped_spec)
-        grouped_result = results[grouped_hash]
-        loaded = PrefPol.load_pipeline_result(pipeline, grouped_hash)
-        @test loaded.spec_hash == grouped_result.spec_hash
+        grouped_result = results[1]
+        loaded = PrefPol.load_pipeline_result(pipeline, grouped_spec)
         @test isequal(loaded.pooled_summaries, grouped_result.pooled_summaries)
 
         measure_table = PrefPol.pipeline_measure_table(results)
         summary_table = PrefPol.pipeline_summary_table(results)
         panel_table = PrefPol.pipeline_panel_table(results)
 
-        @test nrow(measure_table) == sum(nrow(result.measure_cube) for result in values(results))
-        @test nrow(summary_table) == sum(nrow(result.pooled_summaries) for result in values(results))
+        @test nrow(measure_table) == sum(nrow(result.measure_cube) for result in results)
+        @test nrow(summary_table) == sum(nrow(result.pooled_summaries) for result in results)
         @test nrow(panel_table) == nrow(summary_table)
-        @test Set(summary_table.spec_hash) == Set(keys(results))
-        @test Set(panel_table.spec_hash) == Set(keys(results))
+        @test collect(unique(summary_table.batch_index)) == [1, 2]
+        @test collect(unique(panel_table.batch_index)) == [1, 2]
 
         g_draws = Float64.(grouped_result.measure_cube[
             (grouped_result.measure_cube.measure .== :G) .&
@@ -495,13 +494,13 @@ end
         ])
 
         g_panel = panel_table[
-            (panel_table.spec_hash .== grouped_hash) .&
+            (panel_table.batch_index .== 1) .&
             (panel_table.measure .== :G) .&
             coalesce.(panel_table.grouping .== :grp, false),
             :,
         ][1, :]
         g_summary = summary_table[
-            (summary_table.spec_hash .== grouped_hash) .&
+            (summary_table.batch_index .== 1) .&
             (summary_table.measure .== :G) .&
             coalesce.(summary_table.grouping .== :grp, false),
             :,
@@ -562,15 +561,64 @@ end
         summary = PrefPol.pipeline_summary_table(results)
 
         @test length(results) == 2
-        @test haskey(results, PrefPol.pipeline_spec_hash(spec_m2))
-        @test haskey(results, PrefPol.pipeline_spec_hash(spec_m3))
+        @test results[1].spec.active_candidates == spec_m2.active_candidates
+        @test results[2].spec.active_candidates == spec_m3.active_candidates
         @test :year in propertynames(panel)
         @test :scenario_name in propertynames(panel)
         @test :m in propertynames(panel)
         @test :candidate_label in propertynames(panel)
+        @test :batch_index in propertynames(panel)
+        @test :batch_index in propertynames(summary)
         @test Set(panel.m) == Set([2, 3])
         @test Set(summary.scenario_name) == Set(["all"])
         @test Set(summary.year) == Set([2022])
+    end
+end
+
+@testset "nested batch allows identical specs and preserves item order" begin
+    cfg = PrefPol.ElectionConfig(
+        2022,
+        "__nested_run_loader__",
+        "/tmp/unused",
+        3,
+        [3],
+        3,
+        3,
+        123,
+        ["A", "B", "C"],
+        ["grp"],
+        [PrefPol.Scenario("all", String[])],
+    )
+    wave = PrefPol.SurveyWaveConfig(cfg; wave_id = "duplicate-wave")
+
+    mktempdir() do dir
+        pipeline = PrefPol.NestedStochasticPipeline([wave]; cache_root = dir)
+        spec = PrefPol.build_pipeline_spec(
+            wave;
+            active_candidates = ["A", "B", "C"],
+            groupings = [:grp],
+            measures = [:Psi, :C, :D, :G],
+            B = 2,
+            R = 1,
+            K = 1,
+            imputer_backend = :zero,
+        )
+
+        batch = PrefPol.StudyBatchSpec([
+            PrefPol.StudyBatchItem(spec; run_label = "first"),
+            PrefPol.StudyBatchItem(spec; run_label = "second"),
+        ])
+        results = PrefPol.run_batch(PrefPol.BatchRunner(pipeline), batch; force = true)
+        summary = PrefPol.pipeline_summary_table(results)
+
+        @test length(results) == 2
+        @test results[1].spec.active_candidates == spec.active_candidates
+        @test results[2].spec.active_candidates == spec.active_candidates
+        @test isequal(results[1].measure_cube, results[2].measure_cube)
+        @test collect(unique(summary.batch_index)) == [1, 2]
+        @test Set(summary.run_label) == Set(["first", "second"])
+        @test all(summary[summary.batch_index .== 1, :run_label] .== "first")
+        @test all(summary[summary.batch_index .== 2, :run_label] .== "second")
     end
 end
 
