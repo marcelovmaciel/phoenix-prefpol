@@ -1,5 +1,5 @@
 const NESTED_PIPELINE_SCHEMA_VERSION = 1
-const NESTED_PIPELINE_CODE_VERSION = "nested-pipeline-v2-max5"
+const NESTED_PIPELINE_CODE_VERSION = "nested-pipeline-v3-tree-decomposition"
 const DEFAULT_NESTED_PIPELINE_CACHE_ROOT = normpath(
     joinpath(project_root, "intermediate_data", "nested_pipeline"),
 )
@@ -419,6 +419,9 @@ struct MeasureResult
     diagnostics::NamedTuple
 end
 
+# `V_res` is kept as a legacy field name for backward compatibility with
+# existing scripts; in the explicit tree decomposition it is the bootstrap
+# component `Var_b(E[M | b])`.
 struct VarianceComponentSummary
     measure_id::Symbol
     grouping::Union{Nothing,Symbol}
@@ -1164,37 +1167,28 @@ function _measure_results_dataframe(results::Vector{MeasureResult})
     return DataFrame(rows)
 end
 
-function _sample_variance(values)
-    vals = Float64.(collect(values))
-    length(vals) <= 1 && return 0.0
-    return max(var(vals; corrected = true), 0.0)
-end
-
 function compute_variance_decomposition(measure_cube::DataFrame)
     summaries = VarianceComponentSummary[]
+    summary_df = tree_variance_decomposition_table(
+        measure_cube;
+        id_cols = [:measure, :grouping],
+        bootstrap_col = :b,
+        imputation_col = :r,
+        linearization_col = :k,
+        value_col = :value,
+    )
 
-    for subdf in groupby(measure_cube, [:measure, :grouping])
-        mu_br = combine(groupby(subdf, [:b, :r]), :value => mean => :mu_br)
-        mu_b = combine(groupby(mu_br, :b), :mu_br => mean => :mu_b)
-
-        measure_id = Symbol(subdf[1, :measure])
-        grouping_value = subdf[1, :grouping]
-        grouping = ismissing(grouping_value) ? nothing : Symbol(grouping_value)
-
-        V_lin = mean(_sample_variance(g.value) for g in groupby(subdf, [:b, :r]))
-        V_imp = mean(_sample_variance(g.mu_br) for g in groupby(mu_br, :b))
-        V_res = _sample_variance(mu_b.mu_b)
-        total_variance = V_res + V_imp + V_lin
-
+    for row in eachrow(summary_df)
+        grouping_value = row.grouping
         push!(summaries, VarianceComponentSummary(
-            measure_id,
-            grouping,
-            mean(mu_b.mu_b),
-            V_res,
-            V_imp,
-            V_lin,
-            total_variance,
-            _sample_variance(subdf.value),
+            Symbol(row.measure),
+            ismissing(grouping_value) ? nothing : Symbol(grouping_value),
+            Float64(row.estimate),
+            Float64(row.bootstrap_variance),
+            Float64(row.imputation_variance),
+            Float64(row.linearization_variance),
+            Float64(row.total_variance),
+            Float64(row.empirical_variance),
         ))
     end
 
@@ -1205,16 +1199,26 @@ function decomposition_table(decomposition::VarianceDecomposition)
     rows = NamedTuple[]
 
     for summary in decomposition.summaries
+        bootstrap_variance = summary.V_res
+        imputation_variance = summary.V_imp
+        linearization_variance = summary.V_lin
+
         push!(rows, (
             measure = summary.measure_id,
             grouping = something(summary.grouping, missing),
             estimate = summary.estimate,
-            V_res = summary.V_res,
-            V_imp = summary.V_imp,
-            V_lin = summary.V_lin,
             total_variance = summary.total_variance,
+            bootstrap_variance = bootstrap_variance,
+            imputation_variance = imputation_variance,
+            linearization_variance = linearization_variance,
+            bootstrap_share = _safe_variance_share(bootstrap_variance, summary.total_variance),
+            imputation_share = _safe_variance_share(imputation_variance, summary.total_variance),
+            linearization_share = _safe_variance_share(linearization_variance, summary.total_variance),
             total_sd = sqrt(max(summary.total_variance, 0.0)),
             empirical_variance = summary.empirical_variance,
+            V_res = bootstrap_variance,
+            V_imp = imputation_variance,
+            V_lin = linearization_variance,
         ))
     end
 
@@ -1295,9 +1299,14 @@ function load_pipeline_result(pipeline::NestedStochasticPipeline, spec_hash::Abs
     return load_pipeline_result(pipeline_result_path(pipeline, spec_hash))
 end
 
+function _metadata_value(metadata::NamedTuple, key::Symbol, default = missing)
+    return hasproperty(metadata, key) ? getproperty(metadata, key) : default
+end
+
 function run_pipeline(pipeline::NestedStochasticPipeline,
                       spec::PipelineSpec;
-                      force::Bool = false)
+                      force::Bool = false,
+                      progress::Bool = true)
     spec_hash = pipeline_spec_hash(spec)
     cache_dir = joinpath(pipeline.cache_root, spec_hash)
     mkpath(cache_dir)
@@ -1344,6 +1353,12 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
     ))
 
     all_results = MeasureResult[]
+    leaf_progress = pm.Progress(
+        spec.B * spec.R * spec.K;
+        desc = "Nested BRK $(spec.wave_id)",
+        dt = 1.0,
+        enabled = progress,
+    )
 
     for b in 1:spec.B
         resample = _draw_resample(observed, spec, spec_hash, b)
@@ -1438,6 +1453,17 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
                     artifact_hash = measure_hash,
                     artifact_kind = "MeasureResult",
                 ))
+                pm.next!(
+                    leaf_progress;
+                    showvalues = [
+                        (:wave_id, spec.wave_id),
+                        (:b, b),
+                        (:r, r),
+                        (:k, k),
+                        (:imputer_backend, spec.imputer_backend),
+                        (:linearizer_policy, spec.linearizer_policy),
+                    ],
+                )
             end
         end
     end
@@ -1460,28 +1486,49 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
     )
 
     JLD2.@save result_path result
+    pm.finish!(leaf_progress)
     return result
 end
 
-run(pipeline::NestedStochasticPipeline, spec::PipelineSpec; force::Bool = false) =
-    run_pipeline(pipeline, spec; force = force)
+run(pipeline::NestedStochasticPipeline, spec::PipelineSpec;
+    force::Bool = false,
+    progress::Bool = true) =
+    run_pipeline(pipeline, spec; force = force, progress = progress)
 
 function run_batch(runner::BatchRunner,
                    batch::StudyBatchSpec;
-                   force::Bool = false)
+                   force::Bool = false,
+                   progress::Bool = true)
     results = OrderedDict{String,PipelineResult}()
     metadata_by_hash = Dict{String,NamedTuple}()
+    batch_progress = pm.Progress(
+        length(batch.items);
+        desc = "Nested batch",
+        dt = 1.0,
+        enabled = progress,
+    )
 
     for item in batch.items
-        result = run_pipeline(runner.pipeline, item.spec; force = force)
+        result = run_pipeline(runner.pipeline, item.spec; force = force, progress = false)
         haskey(results, result.spec_hash) && throw(ArgumentError(
             "StudyBatchSpec contains duplicate spec hash $(result.spec_hash). " *
             "Each batch item must identify a distinct PipelineSpec.",
         ))
         results[result.spec_hash] = result
         metadata_by_hash[result.spec_hash] = item.metadata
+        pm.next!(
+            batch_progress;
+            showvalues = [
+                (:wave_id, item.spec.wave_id),
+                (:scenario_name, _metadata_value(item.metadata, :scenario_name)),
+                (:m, _metadata_value(item.metadata, :m)),
+                (:imputer_backend, item.spec.imputer_backend),
+                (:linearizer_policy, item.spec.linearizer_policy),
+            ],
+        )
     end
 
+    pm.finish!(batch_progress)
     return BatchRunResult(batch, results, metadata_by_hash)
 end
 
@@ -1580,7 +1627,10 @@ pipeline_measure_table(results::BatchRunResult) =
     pipeline_summary_table(result_or_results) -> DataFrame
 
 Return pooled estimates and variance components augmented with fixed-spec
-metadata. One row is produced per `(measure, grouping)` summary.
+metadata. One row is produced per `(measure, grouping)` summary. The explicit
+tree decomposition is reported in `bootstrap_variance`,
+`imputation_variance`, and `linearization_variance`; legacy aliases
+`V_res`, `V_imp`, and `V_lin` are retained for compatibility.
 """
 function pipeline_summary_table(result::PipelineResult)
     return _decorate_result_table(result.pooled_summaries, result)
@@ -1600,6 +1650,32 @@ pipeline_summary_table(results::BatchRunResult) =
     _merge_batch_result_tables(results, pipeline_summary_table)
 
 """
+    pipeline_variance_decomposition_table(result_or_results) -> DataFrame
+
+Return the tidy variance decomposition table for the nested
+`bootstrap -> imputation -> linearization` pipeline tree.
+"""
+pipeline_variance_decomposition_table(result::PipelineResult) =
+    pipeline_summary_table(result)
+
+pipeline_variance_decomposition_table(result::PipelineResult, extra_meta::NamedTuple) =
+    pipeline_summary_table(result, extra_meta)
+
+pipeline_variance_decomposition_table(results::AbstractVector{<:PipelineResult}) =
+    pipeline_summary_table(results)
+
+pipeline_variance_decomposition_table(results::AbstractDict{<:Any,<:PipelineResult}) =
+    pipeline_summary_table(results)
+
+pipeline_variance_decomposition_table(results::BatchRunResult) =
+    pipeline_summary_table(results)
+
+function save_pipeline_variance_decomposition_csv(path::AbstractString, result_or_results)
+    table = pipeline_variance_decomposition_table(result_or_results)
+    return _write_table_csv(path, table)
+end
+
+"""
     pipeline_panel_table(result_or_results) -> DataFrame
 
 Summarize the raw measure cube for plotting/reporting. The returned rows are
@@ -1613,6 +1689,12 @@ function pipeline_panel_table(result::PipelineResult)
     for row in eachrow(result.pooled_summaries)
         summary_lookup[(Symbol(row.measure), row.grouping)] = (
             estimate = Float64(row.estimate),
+            bootstrap_variance = Float64(row.bootstrap_variance),
+            imputation_variance = Float64(row.imputation_variance),
+            linearization_variance = Float64(row.linearization_variance),
+            bootstrap_share = Float64(row.bootstrap_share),
+            imputation_share = Float64(row.imputation_share),
+            linearization_share = Float64(row.linearization_share),
             V_res = Float64(row.V_res),
             V_imp = Float64(row.V_imp),
             V_lin = Float64(row.V_lin),
@@ -1647,6 +1729,12 @@ function pipeline_panel_table(result::PipelineResult)
             value_lo_min = isempty(los) ? missing : minimum(Float64.(los)),
             value_hi_max = isempty(his) ? missing : maximum(Float64.(his)),
             estimate = summary.estimate,
+            bootstrap_variance = summary.bootstrap_variance,
+            imputation_variance = summary.imputation_variance,
+            linearization_variance = summary.linearization_variance,
+            bootstrap_share = summary.bootstrap_share,
+            imputation_share = summary.imputation_share,
+            linearization_share = summary.linearization_share,
             V_res = summary.V_res,
             V_imp = summary.V_imp,
             V_lin = summary.V_lin,
@@ -1666,6 +1754,12 @@ function pipeline_panel_table(result::PipelineResult, extra_meta::NamedTuple)
     for row in eachrow(result.pooled_summaries)
         summary_lookup[(Symbol(row.measure), row.grouping)] = (
             estimate = Float64(row.estimate),
+            bootstrap_variance = Float64(row.bootstrap_variance),
+            imputation_variance = Float64(row.imputation_variance),
+            linearization_variance = Float64(row.linearization_variance),
+            bootstrap_share = Float64(row.bootstrap_share),
+            imputation_share = Float64(row.imputation_share),
+            linearization_share = Float64(row.linearization_share),
             V_res = Float64(row.V_res),
             V_imp = Float64(row.V_imp),
             V_lin = Float64(row.V_lin),
@@ -1700,6 +1794,12 @@ function pipeline_panel_table(result::PipelineResult, extra_meta::NamedTuple)
             value_lo_min = isempty(los) ? missing : minimum(Float64.(los)),
             value_hi_max = isempty(his) ? missing : maximum(Float64.(his)),
             estimate = summary.estimate,
+            bootstrap_variance = summary.bootstrap_variance,
+            imputation_variance = summary.imputation_variance,
+            linearization_variance = summary.linearization_variance,
+            bootstrap_share = summary.bootstrap_share,
+            imputation_share = summary.imputation_share,
+            linearization_share = summary.linearization_share,
             V_res = summary.V_res,
             V_imp = summary.V_imp,
             V_lin = summary.V_lin,

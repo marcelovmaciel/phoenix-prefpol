@@ -56,6 +56,56 @@ function _legacy_raw_group_coherence(bundle, demo::Symbol)
     return c_raw
 end
 
+@testset "tree variance decomposition follows the explicit BRK identity" begin
+    leaf_table = DataFrame(
+        measure = fill(:M, 8),
+        grouping = fill(missing, 8),
+        b = repeat(1:2; inner = 4),
+        r = repeat(1:2; inner = 2, outer = 2),
+        k = repeat(1:2; outer = 4),
+        value = [
+            -3.5, -2.5, 0.5, 1.5,
+            -1.5, -0.5, 2.5, 3.5,
+        ],
+    )
+
+    table = PrefPol.tree_variance_decomposition_table(leaf_table)
+    row = table[1, :]
+
+    @test row.measure == :M
+    @test ismissing(row.grouping)
+    @test isapprox(row.estimate, 0.0; atol = 1e-12)
+    @test isapprox(row.bootstrap_variance, 1.0; atol = 1e-12)
+    @test isapprox(row.imputation_variance, 4.0; atol = 1e-12)
+    @test isapprox(row.linearization_variance, 0.25; atol = 1e-12)
+    @test isapprox(row.total_variance, 5.25; atol = 1e-12)
+    @test isapprox(
+        row.total_variance,
+        row.bootstrap_variance + row.imputation_variance + row.linearization_variance;
+        atol = 1e-12,
+    )
+    @test isapprox(row.bootstrap_share, 1 / 5.25; atol = 1e-12)
+    @test isapprox(row.imputation_share, 4 / 5.25; atol = 1e-12)
+    @test isapprox(row.linearization_share, 0.25 / 5.25; atol = 1e-12)
+end
+
+@testset "tree variance decomposition returns zero shares when total variance is zero" begin
+    leaf_table = DataFrame(
+        measure = fill(:flat, 8),
+        grouping = fill(missing, 8),
+        b = repeat(1:2; inner = 4),
+        r = repeat(1:2; inner = 2, outer = 2),
+        k = repeat(1:2; outer = 4),
+        value = fill(3.0, 8),
+    )
+
+    row = PrefPol.tree_variance_decomposition_table(leaf_table)[1, :]
+    @test row.total_variance == 0.0
+    @test row.bootstrap_share == 0.0
+    @test row.imputation_share == 0.0
+    @test row.linearization_share == 0.0
+end
+
 @testset "nested pipeline resolves candidate set before stochastic stages" begin
     cfg = PrefPol.ElectionConfig(
         2022,
@@ -132,8 +182,36 @@ end
         @test nrow(result.stage_manifest) == 2 + spec.B + spec.B * spec.R + 2 * spec.B * spec.R * spec.K
         @test Set(result.measure_cube.measure) == Set(spec.measures)
         @test all(isfinite, result.pooled_summaries.estimate)
+        summary_cols = propertynames(result.pooled_summaries)
+        @test :bootstrap_variance in summary_cols
+        @test :imputation_variance in summary_cols
+        @test :linearization_variance in summary_cols
+        @test :bootstrap_share in summary_cols
+        @test :imputation_share in summary_cols
+        @test :linearization_share in summary_cols
+        @test all(result.pooled_summaries.bootstrap_variance .≈ result.pooled_summaries.V_res)
+        @test all(result.pooled_summaries.imputation_variance .≈ result.pooled_summaries.V_imp)
+        @test all(result.pooled_summaries.linearization_variance .≈ result.pooled_summaries.V_lin)
+        @test all(
+            isapprox.(
+                result.pooled_summaries.total_variance,
+                result.pooled_summaries.bootstrap_variance .+
+                result.pooled_summaries.imputation_variance .+
+                result.pooled_summaries.linearization_variance;
+                atol = 1e-12,
+                rtol = 1e-10,
+            ),
+        )
         @test all(result.pooled_summaries.V_imp .≈ 0.0)
         @test all(result.pooled_summaries.V_lin .≈ 0.0)
+
+        csv_path = joinpath(dir, "variance_decomposition.csv")
+        saved_path = PrefPol.save_pipeline_variance_decomposition_csv(csv_path, result)
+        @test saved_path == csv_path
+        @test isfile(csv_path)
+        csv_text = read(csv_path, String)
+        @test occursin("bootstrap_variance", csv_text)
+        @test occursin("linearization_share", csv_text)
     end
 end
 

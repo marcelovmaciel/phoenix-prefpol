@@ -93,6 +93,7 @@ include("mallows_play.jl")
 include("polarization_measures.jl")
 include("pipeline.jl")
 include("raw_profiles.jl")
+include("variance_decomposition.jl")
 include("nested_pipeline.jl")
 
 #include("newplotting.jl")
@@ -115,6 +116,7 @@ export SurveyWaveConfig,
        load_survey_wave_config,
        build_source_registry,
        resolve_active_candidate_set,
+       tree_variance_decomposition_table,
        PipelineSpec,
        build_pipeline_spec,
        NestedStochasticPipeline,
@@ -135,6 +137,7 @@ export SurveyWaveConfig,
        pipeline_spec_hash,
        pipeline_measure_table,
        pipeline_summary_table,
+       pipeline_variance_decomposition_table,
        pipeline_panel_table,
        select_pipeline_panel_rows,
        pipeline_candidate_label,
@@ -142,6 +145,7 @@ export SurveyWaveConfig,
        pipeline_group_plot_data,
        pipeline_group_heatmap_values,
        decomposition_table,
+       save_pipeline_variance_decomposition_csv,
        run_pipeline,
        load_pipeline_result,
        run_batch,

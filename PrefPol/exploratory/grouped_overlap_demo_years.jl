@@ -6,9 +6,9 @@ using .GroupedOverlapHeatmap2x2
 import PrefPol as pp
 
 const DEFAULT_SCENARIOS = Dict(
-    2006 => "lula_alckmin_heloisa_serra_cristovam",
+    2006 => "lula_alckmin",
     2018 => "main_four",
-    2022 => "lula_bolsonaro_ciro_marina_tebet",
+    2022 => "lula_bolsonaro",
 )
 
 const SUMMARY_MEASURES = [:C, :D_median, :O, :Sep, :Gsep]
@@ -168,3 +168,5 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     main()
 end
+
+main()

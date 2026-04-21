@@ -28,6 +28,37 @@ end
     measure === :D_median ? "D" :
     String(measure)
 
+const _CANONICAL_GROUP_HEATMAP_MEASURES = (:C, :D_median, :O, :Gsep)
+const _CANONICAL_GROUP_HEATMAP_COMPLEMENTS = (:O,)
+const _CANONICAL_GROUP_HEATMAP_LABELS = Dict(
+    :C => "C",
+    :D_median => "D",
+    :O => "1 - O",
+    :Gsep => "G",
+)
+
+function _plot_measure_label(measure::Symbol, measure_labels)
+    if measure_labels !== nothing && haskey(measure_labels, measure)
+        return String(measure_labels[measure])
+    end
+
+    return _measure_label(measure)
+end
+
+function _normalized_measure_set(measures)
+    measures === nothing && return Set{Symbol}()
+    raw = measures isa Symbol || measures isa AbstractString ? (measures,) : Tuple(measures)
+    return Set(Symbol(measure) for measure in raw)
+end
+
+@inline _is_canonical_group_heatmap(measures) =
+    Tuple(PrefPol._normalize_measure_list(measures)) == _CANONICAL_GROUP_HEATMAP_MEASURES
+
+function _heatmap_panel_matrix(data, measure::Symbol, complement_measures::Set{Symbol})
+    matrix = Float32.(data.matrices[measure])
+    return measure in complement_measures ? Float32.(1.0 .- matrix) : matrix
+end
+
 function _resolve_heatmap_colorrange(allvals;
                                      fixed_colorrange::Bool = false,
                                      fixed_colorrange_limits = nothing)
@@ -808,10 +839,12 @@ function plot_pipeline_group_heatmap(result_or_results;
                                      wave_id = nothing,
                                      scenario_name = nothing,
                                      imputer_backend = :mice,
-                                     measures = [:C, :D, :G],
+                                     measures = collect(_CANONICAL_GROUP_HEATMAP_MEASURES),
                                      statistic::Symbol = :median,
                                      groupings = nothing,
-                                     maxcols::Int = 3,
+                                     complement_measures = nothing,
+                                     measure_labels = nothing,
+                                     maxcols::Int = 2,
                                      colormap = Makie.Reverse(:RdBu),
                                      fixed_colorrange::Bool = false,
                                      fixed_colorrange_limits = nothing,
@@ -835,10 +868,16 @@ function plot_pipeline_group_heatmap(result_or_results;
     group_syms = data.grouping_values
     group_labels = string.(group_syms)
     wanted_measures = PrefPol._normalize_measure_list(measures)
+    canonical_group_heatmap = _is_canonical_group_heatmap(wanted_measures)
+    complement_measures === nothing && canonical_group_heatmap &&
+        (complement_measures = _CANONICAL_GROUP_HEATMAP_COMPLEMENTS)
+    measure_labels === nothing && canonical_group_heatmap &&
+        (measure_labels = _CANONICAL_GROUP_HEATMAP_LABELS)
+    complemented = _normalized_measure_set(complement_measures)
 
     allvals = Float32[]
     for measure in wanted_measures
-        append!(allvals, Float32.(filter(!isnan, vec(data.matrices[measure]))))
+        append!(allvals, Float32.(filter(!isnan, vec(_heatmap_panel_matrix(data, measure, complemented)))))
     end
     colorrange, data_min, data_max = _resolve_heatmap_colorrange(
         allvals;
@@ -884,13 +923,13 @@ function plot_pipeline_group_heatmap(result_or_results;
 
         ax = Axis(
             fig[r + header_rows, c];
-            title = _measure_label(measure),
+            title = _plot_measure_label(measure, measure_labels),
             xlabel = xlabel_txt,
             ylabel = ylabel_txt,
             xticks = (xs_m, string.(m_values_int)),
             yticks = (1:length(group_syms), group_labels),
         )
-        z = Float32.(data.matrices[measure])
+        z = _heatmap_panel_matrix(data, measure, complemented)
         hm = heatmap!(ax, xs_m, 1:length(group_syms), z; colormap = colormap, colorrange = colorrange)
 
         if show_values
