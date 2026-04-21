@@ -290,6 +290,36 @@ end
     @test pdf.profile[1] == Dict(:A => 1, :B => 1, :C => 2, :D => 3)
 end
 
+@testset "profile_dataframe handles numeric score strings from mice-style categoricals" begin
+    df = DataFrame(
+        A = categorical(["10", "7", "5"], ordered = true),
+        B = categorical(["7", "7", "10"], ordered = true),
+        grp = categorical(["x", "y", "x"]),
+    )
+
+    weak_pdf = profile_dataframe(
+        df;
+        score_cols = ["A", "B"],
+        demo_cols = ["grp"],
+        kind = :weak,
+    )
+    @test weak_pdf.profile == [
+        Dict(:A => 1, :B => 2),
+        Dict(:A => 1, :B => 1),
+        Dict(:A => 2, :B => 1),
+    ]
+
+    linear_profiles = build_profile(
+        df;
+        score_cols = ["A", "B"],
+        rng = MersenneTwister(7),
+        kind = :linear,
+    )
+    @test linear_profiles[1][:A] < linear_profiles[1][:B]
+    @test sort(collect(values(linear_profiles[2]))) == [1, 2]
+    @test linear_profiles[3][:A] > linear_profiles[3][:B]
+end
+
 
 @testset "dict2svec / decode_rank / perm2dict[alias]" begin
     d = toy_ranking_dict()

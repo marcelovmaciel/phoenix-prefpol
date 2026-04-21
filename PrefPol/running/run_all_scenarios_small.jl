@@ -176,7 +176,6 @@ end
 function result_metadata(result::pp.PipelineResult, extra_meta::NamedTuple = (;))
     spec = result.spec
     return merge((
-        spec_hash = result.spec_hash,
         wave_id = spec.wave_id,
         active_candidates_key = join(spec.active_candidates, "|"),
         n_candidates = length(spec.active_candidates),
@@ -218,11 +217,12 @@ function manifest_row(result::pp.PipelineResult, extra_meta::NamedTuple)
         "m", lpad(string(getproperty(extra_meta, :m)), 2, '0'),
         "_", String(spec.imputer_backend),
         "_", String(spec.linearizer_policy),
-        "_", result.spec_hash[1:8],
+        "_idx", lpad(string(getproperty(extra_meta, :batch_index)), 4, '0'),
     )
     scenario_root = joinpath(OUTPUT_ROOT, String(getproperty(extra_meta, :scenario_dir)))
 
     return (
+        batch_index = getproperty(extra_meta, :batch_index),
         wave_id = spec.wave_id,
         year = getproperty(extra_meta, :year),
         scenario_name = getproperty(extra_meta, :scenario_name),
@@ -233,7 +233,6 @@ function manifest_row(result::pp.PipelineResult, extra_meta::NamedTuple)
         B = spec.B,
         R = spec.R,
         K = spec.K,
-        spec_hash = result.spec_hash,
         output_dir = scenario_root,
         cache_dir = result.cache_dir,
         result_path = result_path,
@@ -334,10 +333,9 @@ function main()
     manifest_rows = NamedTuple[]
     decomp_tables = DataFrame[]
 
-    for item in results.batch.items
-        spec_hash = pp.pipeline_spec_hash(item.spec)
-        result = results[spec_hash]
-        meta = results.metadata_by_hash[spec_hash]
+    for (batch_index, result) in enumerate(results.results)
+        item = results.batch.items[batch_index]
+        meta = merge(results.metadata[batch_index], (batch_index = batch_index,))
         scenario_root = joinpath(OUTPUT_ROOT, String(getproperty(meta, :scenario_dir)))
         mkpath(joinpath(scenario_root, "specs"))
 
@@ -375,5 +373,4 @@ end
 
 
 main()
-
 

@@ -499,6 +499,9 @@ end
         return missing
     elseif raw isa Real
         return Float64(raw)
+    elseif raw isa AbstractString
+        parsed = tryparse(Float64, strip(raw))
+        parsed === nothing || return parsed
     end
 
     throw(ArgumentError(
