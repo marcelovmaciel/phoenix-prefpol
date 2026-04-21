@@ -492,15 +492,36 @@ function get_row_candidate_score_pairs(row, score_cols)
     Dict(Symbol(c) => row[c] for c in score_cols)
 end
 
+@inline function _normalize_score_value(value)
+    raw = value isa CategoricalValue ? unwrap(value) : value
+
+    if ismissing(raw)
+        return missing
+    elseif raw isa Real
+        return Float64(raw)
+    end
+
+    throw(ArgumentError(
+        "Score values must be numeric, missing, or categorical-wrapped numeric values; got $(typeof(value)).",
+    ))
+end
+
+@inline _score_sort_key(value) = ismissing(value) ? -Inf : value
+
+function _normalized_score_dict(score_dict)
+    return Dict(cand => _normalize_score_value(score) for (cand, score) in score_dict)
+end
+
 """
     get_order_dict(score_dict)
 
 Convert score values to ranks where higher scores receive smaller rank numbers.
 """
 function  get_order_dict(score_dict)
-    unique_scores = sort(unique(values(score_dict)); rev = true)
+    normalized_scores = _normalized_score_dict(score_dict)
+    unique_scores = sort(unique(values(normalized_scores)); by = _score_sort_key, rev = true)
     lookup = Dict(s => r for (r,s) in enumerate(unique_scores))
-    Dict(k => lookup[v] for (k,v) in score_dict)
+    Dict(k => lookup[v] for (k,v) in normalized_scores)
 end
 
 """
@@ -509,14 +530,15 @@ end
 Break ties in `score_dict` at random to obtain a linear ranking.
 """
 function force_scores_become_linear_rankings(score_dict; rng=MersenneTwister())
+    normalized_scores = _normalized_score_dict(score_dict)
 
-    grouped = Dict(score => Symbol[] for score in unique(values(score_dict)))
+    grouped = Dict(score => Symbol[] for score in unique(values(normalized_scores)))
     
-    for (cand, score) in score_dict
+    for (cand, score) in normalized_scores
         push!(grouped[score], cand)
     end
 
-    sorted_scores = sort(collect(keys(grouped)), rev=true)
+    sorted_scores = sort(collect(keys(grouped)); by = _score_sort_key, rev = true)
     linear_ranking = Dict{Symbol, Int}()
     next_rank = 1
 

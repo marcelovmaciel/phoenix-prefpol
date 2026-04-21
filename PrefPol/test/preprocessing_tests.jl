@@ -54,6 +54,33 @@ function toy_ranking_dict()
     return get_order_dict(scores)
 end
 
+function unequal_pool_score(value, levels)
+    scores = categorical([value], ordered = true)
+    levels!(scores, levels)
+    return scores[1]
+end
+
+function unequal_pool_score_dict()
+    return Dict(
+        :A => unequal_pool_score(10, [10, 5, 1]),
+        :B => unequal_pool_score(10, [1, 5, 10]),
+        :C => unequal_pool_score(5, [5, 1, 10]),
+        :D => unequal_pool_score(1, [1, 10, 5]),
+    )
+end
+
+function unequal_pool_scores_df()
+    A = categorical([10], ordered = true)
+    B = categorical([10], ordered = true)
+    C = categorical([5], ordered = true)
+    D = categorical([1], ordered = true)
+    levels!(A, [10, 5, 1])
+    levels!(B, [1, 5, 10])
+    levels!(C, [5, 1, 10])
+    levels!(D, [1, 10, 5])
+    return DataFrame(A = A, B = B, C = C, D = D)
+end
+
 # ============================== TESTS ==============================
 
 @testset "build_candidate_score_distributions" begin
@@ -208,11 +235,24 @@ end
     row = df[1, :]
     d = get_row_candidate_score_pairs(row, CANDS)
     @test Set(keys(d)) == Set(Symbol.(CANDS))
-    # weak-order mapping
-    ord = get_order_dict(Dict(:A=>10,:B=>10,:C=>5,:D=>1))
-    @test ord[:A] == 1 && ord[:B] == 1
-    lin = force_scores_become_linear_rankings(Dict(:A=>10,:B=>10,:C=>5,:D=>1); rng=MersenneTwister(1))
-    @test Set(values(lin)) == Set(1:4) # strict ranks 1..4
+end
+
+@testset "get_order_dict handles plain numeric scores" begin
+    ord = get_order_dict(Dict(:A => 10, :B => 10, :C => 5, :D => 1))
+    @test ord == Dict(:A => 1, :B => 1, :C => 2, :D => 3)
+end
+
+@testset "get_order_dict handles categorical scores from unequal pools" begin
+    ord = get_order_dict(unequal_pool_score_dict())
+    @test ord == Dict(:A => 1, :B => 1, :C => 2, :D => 3)
+end
+
+@testset "force_scores_become_linear_rankings handles categorical scores from unequal pools" begin
+    lin = force_scores_become_linear_rankings(unequal_pool_score_dict(); rng = MersenneTwister(1))
+    @test sort(collect(values(lin))) == [1, 2, 3, 4]
+    @test Set([lin[:A], lin[:B]]) == Set([1, 2])
+    @test lin[:C] == 3
+    @test lin[:D] == 4
 end
 
 @testset "linearize_ranking_dict / linearize_profile_column!" begin
@@ -237,6 +277,17 @@ end
     pdf = profile_dataframe(df; score_cols=CANDS, demo_cols=DEMOS, rng=MersenneTwister(3))
     @test ((:profile in names(pdf)) || ("profile" in names(pdf)))
     @test all(in(names(pdf)).(DEMOS))
+end
+
+@testset "profile_dataframe handles unequal categorical score pools on the weak-order path" begin
+    pdf = profile_dataframe(
+        unequal_pool_scores_df();
+        score_cols = CANDS,
+        demo_cols = String[],
+        kind = :weak,
+    )
+    @test nrow(pdf) == 1
+    @test pdf.profile[1] == Dict(:A => 1, :B => 1, :C => 2, :D => 3)
 end
 
 
