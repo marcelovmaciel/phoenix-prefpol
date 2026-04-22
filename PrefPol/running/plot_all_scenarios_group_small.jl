@@ -13,13 +13,14 @@ This script does not rerun the analysis pipeline. It reads the saved manifest at
 
 Run later with:
 
-    julia +1.11 --startup-file=no --project=PrefPol PrefPol/running/plot_all_scenarios_group_small.jl
+    julia +1.11.9 --startup-file=no --project=PrefPol/running/plotting_env -e 'using Pkg; Pkg.instantiate()'
+    julia +1.11.9 --startup-file=no --project=PrefPol/running/plotting_env PrefPol/running/plot_all_scenarios_group_small.jl
 """
 
 include(joinpath(@__DIR__, "plot_all_scenarios_global_small.jl"))
 
 const GROUP_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "group")
-const M = pp.Makie
+const M = CairoMakie.Makie
 
 # These match the current canonical grouped plotting workflow:
 # line plots use the exported defaults, while the heatmaps use the intended

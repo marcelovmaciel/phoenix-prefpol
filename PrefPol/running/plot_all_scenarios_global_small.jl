@@ -13,14 +13,20 @@ This script does not rerun the analysis pipeline. It reads the saved manifest at
 
 Run later with:
 
-    julia +1.11 --startup-file=no --project=PrefPol PrefPol/running/plot_all_scenarios_global_small.jl
+    julia +1.11.9 --startup-file=no --project=PrefPol/running/plotting_env -e 'using Pkg; Pkg.instantiate()'
+    julia +1.11.9 --startup-file=no --project=PrefPol/running/plotting_env PrefPol/running/plot_all_scenarios_global_small.jl
 """
+
+include(joinpath(@__DIR__, "plotting_setup.jl"))
+ensure_prefpol_plotting_environment!()
 
 using CairoMakie
 using DataFrames
 using OrderedCollections: OrderedDict
 using PrefPol
 import PrefPol as pp
+
+const _PLOT_EXT = ensure_prefpol_plotting_extension!(pp)
 
 const SMALL_OUTPUT_ROOT = joinpath(pp.project_root, "running", "output", "all_scenarios_small")
 const MANIFEST_PATH = joinpath(SMALL_OUTPUT_ROOT, "run_manifest.csv")

@@ -1,9 +1,17 @@
+# Run with:
+#   julia +1.11.9 --startup-file=no --project=PrefPol/running/plotting_env -e 'using Pkg; Pkg.instantiate()'
+#   julia +1.11.9 --startup-file=no --project=PrefPol/running/plotting_env PrefPol/running/running.jl
+
+include(joinpath(@__DIR__, "plotting_setup.jl"))
+ensure_prefpol_plotting_environment!()
+
 using Revise
 using CairoMakie
 using PrefPol
 import PrefPol as pp
 
-const M = pp.Makie
+const _PLOT_EXT = ensure_prefpol_plotting_extension!(pp)
+const M = CairoMakie.Makie
 const CONFIG_DIR = joinpath("PrefPol", "config")
 const CACHE_ROOT = joinpath(pp.project_root, "intermediate_data", "nested_pipeline", "operational")
 const IMG_DIR = joinpath(pp.project_root, "imgs", "nested_pipeline")
