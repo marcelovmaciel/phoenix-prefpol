@@ -502,6 +502,9 @@ end
     return clamp(x, 0.0, 1.0)
 end
 
+@inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
+    kendall_tau_distance(ballot_i, ballot_j) / norm_factor
+
 function pairwise_group_divergence(profile_i, consensus_j, m::Int)
     strict = strict_profile(profile_i)
     _candidate_set_matches(strict, consensus_j) || throw(ArgumentError(
@@ -928,6 +931,115 @@ function grouped_gsep(C::Real, Sep::Real)
     return sqrt(_unit_interval(C, "C") * _unit_interval(Sep, "Sep"))
 end
 
+"""
+    overall_sstar_from_CD(C, D)
+
+Return the cleaned excess-separation statistic `D - (1 - C) / 2`.
+
+`C` and `D` are validated on their native grouped-measure scales, but the
+returned statistic is kept on its raw excess-separation scale and is not
+rebased to `[0, 1]`.
+"""
+function overall_sstar_from_CD(C::Real, D::Real)
+    coherence = _unit_interval(C, "C")
+    divergence = _unit_interval(D, "D")
+    return divergence - ((1.0 - coherence) / 2.0)
+end
+
+S(C::Real, D::Real) = overall_sstar_from_CD(C, D)
+
+function _within_group_average_normalized_kendall(profile)
+    strict = strict_profile(profile)
+    ballots = strict.ballots
+    n = length(ballots)
+    n > 1 || return NaN
+
+    norm_factor = binomial(length(strict.pool), 2)
+    norm_factor > 0 || throw(ArgumentError("At least two candidates are required."))
+
+    total = 0.0
+
+    for a in 1:(n - 1)
+        ballot_a = ballots[a]
+        for b in (a + 1):n
+            total += 2.0 * _normalized_kendall_distance(ballot_a, ballots[b], norm_factor)
+        end
+    end
+
+    return total / (n * (n - 1))
+end
+
+function _cross_group_average_normalized_kendall(profile_i, profile_j)
+    strict_i = strict_profile(profile_i)
+    strict_j = strict_profile(profile_j)
+    ballots_i = strict_i.ballots
+    ballots_j = strict_j.ballots
+    n_i = length(ballots_i)
+    n_j = length(ballots_j)
+    (n_i > 0 && n_j > 0) || throw(ArgumentError("Grouped profiles must be nonempty."))
+    Tuple(strict_i.pool.names) == Tuple(strict_j.pool.names) || throw(ArgumentError(
+        "All groups must share the same active candidate set.",
+    ))
+
+    norm_factor = binomial(length(strict_i.pool), 2)
+    norm_factor > 0 || throw(ArgumentError("At least two candidates are required."))
+
+    total = 0.0
+    for ballot_i in ballots_i, ballot_j in ballots_j
+        total += _normalized_kendall_distance(ballot_i, ballot_j, norm_factor)
+    end
+
+    return total / (n_i * n_j)
+end
+
+"""
+    overall_support_separation_old(group_profiles, group_sizes)
+
+Return the legacy support-separation contrast that used to back grouped `S`.
+
+This logic is preserved unchanged under the explicit public alias `S_old` so
+the new cleaned `S` can remain unambiguous.
+"""
+function overall_support_separation_old(group_profiles, group_sizes)
+    groups = [group for group in keys(group_profiles) if group_sizes[group] > 0]
+    length(groups) >= 2 || return NaN
+
+    within = Dict{Any,Float64}()
+    for group in groups
+        within[group] = _within_group_average_normalized_kendall(group_profiles[group])
+    end
+
+    total = 0.0
+    weight_sum = 0.0
+
+    # Legacy S_old is aggregated over unordered pairs only. Pairs touching
+    # singleton groups are skipped because W_i is undefined at n_i = 1.
+    for a in 1:(length(groups) - 1)
+        group_a = groups[a]
+        W_a = within[group_a]
+        n_a = group_sizes[group_a]
+
+        for b in (a + 1):length(groups)
+            group_b = groups[b]
+            W_b = within[group_b]
+            (isnan(W_a) || isnan(W_b)) && continue
+
+            weight = n_a * group_sizes[group_b]
+            total += weight * (
+                _cross_group_average_normalized_kendall(
+                    group_profiles[group_a],
+                    group_profiles[group_b],
+                ) - ((W_a + W_b) / 2.0)
+            )
+            weight_sum += weight
+        end
+    end
+
+    return weight_sum > 0 ? total / weight_sum : NaN
+end
+
+S_old(group_profiles, group_sizes) = overall_support_separation_old(group_profiles, group_sizes)
+
 function _group_profiles_from_dataframe(grouped_consensus::AbstractDataFrame,
                                         whole_df::AbstractDataFrame,
                                         key)
@@ -1053,6 +1165,15 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
     O_smoothed = overall_overlaps_smoothed(consensus, df, demo)
     Sep = overall_separations(consensus, df, demo)
     Gsep = grouped_gsep(C, Sep)
+    group_profiles = _group_profiles_from_dataframe(consensus, df, demo)
+    group_sizes = OrderedDict{Any,Float64}()
+
+    for (group, profile) in pairs(group_profiles)
+        group_sizes[group] = Float64(_profile_mass(profile))
+    end
+
+    cleaned_S = overall_sstar_from_CD(C, D)
+    support_separation_S_old = overall_support_separation_old(group_profiles, group_sizes)
     return (
         C = C,
         D = D,
@@ -1061,6 +1182,8 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
         O_smoothed = O_smoothed,
         Sep = Sep,
         Gsep = Gsep,
+        S = cleaned_S,
+        S_old = support_separation_S_old,
     )
 end
 
@@ -1091,6 +1214,8 @@ function bootstrap_group_metrics(bt_profiles, demo;
         Osmoothedvals = Float64[]
         Sepvals = Float64[]
         Gsepvals = Float64[]
+        Svals = Float64[]
+        Soldvals = Float64[]
 
         for (rep_idx, rep) in enumerate(reps)
             rep_tie_key = _merge_tie_break_key(
@@ -1110,6 +1235,8 @@ function bootstrap_group_metrics(bt_profiles, demo;
             push!(Osmoothedvals, details.O_smoothed)
             push!(Sepvals, details.Sep)
             push!(Gsepvals, details.Gsep)
+            push!(Svals, details.S)
+            push!(Soldvals, details.S_old)
         end
 
         result[variant] = Dict(
@@ -1120,6 +1247,8 @@ function bootstrap_group_metrics(bt_profiles, demo;
             :O_smoothed => Osmoothedvals,
             :Sep => Sepvals,
             :Gsep => Gsepvals,
+            :S => Svals,
+            :S_old => Soldvals,
         )
     end
 

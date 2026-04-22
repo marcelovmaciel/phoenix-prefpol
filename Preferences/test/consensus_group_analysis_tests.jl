@@ -134,6 +134,9 @@ end
     C, D = pp.compute_group_metrics(whole_df, :group)
     @test isapprox(C, 1.0; atol = 1e-12)
     @test isapprox(D, 1.0; atol = 1e-12)
+    @test isapprox(pp.S(0.8, 0.6), 0.5; atol = 1e-12)
+    @test isapprox(pp.S(C, D), pp.overall_sstar_from_CD(C, D); atol = 1e-12)
+    @test isapprox(pp.S_old(group_profiles, Dict(:A => 4.0, :B => 6.0)), 1.0; atol = 1e-12)
 
     bt_profiles = Dict(:mice => [whole_df, whole_df], :rand => [whole_df])
     res = pp.bootstrap_group_metrics(bt_profiles, :group)
@@ -145,6 +148,8 @@ end
     @test res[:mice][:O_smoothed] == fill(0.0, 2)
     @test res[:mice][:Sep] == fill(1.0, 2)
     @test res[:mice][:Gsep] == fill(1.0, 2)
+    @test res[:mice][:S] == fill(1.0, 2)
+    @test res[:mice][:S_old] == fill(1.0, 2)
     @test res[:rand][:C] == fill(1.0, 1)
     @test res[:rand][:D] == fill(1.0, 1)
     @test res[:rand][:D_median] == fill(1.0, 1)
@@ -152,6 +157,8 @@ end
     @test res[:rand][:O_smoothed] == fill(0.0, 1)
     @test res[:rand][:Sep] == fill(1.0, 1)
     @test res[:rand][:Gsep] == fill(1.0, 1)
+    @test res[:rand][:S] == fill(1.0, 1)
+    @test res[:rand][:S_old] == fill(1.0, 1)
 end
 
 @testset "D_median uses weighted median-set distances" begin

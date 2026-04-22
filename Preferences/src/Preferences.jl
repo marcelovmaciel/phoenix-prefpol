@@ -101,6 +101,7 @@ export smoothed_overlap, overall_overlap, overall_overlap_smoothed
 export overall_overlaps, overall_overlaps_smoothed
 export overall_divergence_median, overall_divergences_median
 export overall_separation, overall_separations, grouped_gsep
+export S, S_old
 export compute_group_metrics, bootstrap_group_metrics
 
 # Dynamics / mutable strict

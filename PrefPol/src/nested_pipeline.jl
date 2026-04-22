@@ -8,6 +8,10 @@ mkpath(DEFAULT_NESTED_PIPELINE_CACHE_ROOT)
 const SUPPORTED_NESTED_IMPUTERS = (:zero, :random, :mice)
 const SUPPORTED_LINEARIZER_POLICIES = (:random_ties, :pattern_conditional)
 const SUPPORTED_CONSENSUS_TIE_POLICIES = (:average, :hash, :interval)
+const SUPPORTED_GLOBAL_NESTED_MEASURES = (:Psi, :R, :HHI, :RHHI)
+const SUPPORTED_GROUPED_NESTED_MEASURES = (
+    :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old,
+)
 
 struct SurveyWaveConfig
     wave_id::String
@@ -85,12 +89,17 @@ function _normalize_measure(measure)
 
     if sym === Symbol("Ψ") || sym === :Psi
         return :Psi
-    elseif sym in (:R, :HHI, :RHHI, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S)
+    elseif sym in SUPPORTED_GLOBAL_NESTED_MEASURES || sym in SUPPORTED_GROUPED_NESTED_MEASURES
         return sym
     end
 
+    supported = join(
+        (String(measure_id)
+         for measure_id in (SUPPORTED_GLOBAL_NESTED_MEASURES..., SUPPORTED_GROUPED_NESTED_MEASURES...)),
+        ", ",
+    )
     throw(ArgumentError(
-        "Unsupported measure `$measure`. Supported measures: Psi, R, HHI, RHHI, C, D, D_median, O, O_smoothed, Sep, G, Gsep, S.",
+        "Unsupported measure `$measure`. Supported measures: $supported.",
     ))
 end
 
@@ -148,10 +157,11 @@ function PipelineSpec(wave_id::AbstractString,
                                              [:Psi, :R, :HHI, :RHHI, :C, :D, :G]) :
                    _normalize_measure_list(measures)
 
-    any(measure in (:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S) for measure in measure_syms) &&
+    grouped_measure_names = join(String.(SUPPORTED_GROUPED_NESTED_MEASURES), ", ")
+    any(measure in SUPPORTED_GROUPED_NESTED_MEASURES for measure in measure_syms) &&
         isempty(grouping_syms) &&
         throw(ArgumentError(
-            "Measures C, D, D_median, O, O_smoothed, Sep, G, Gsep, and S require at least one grouping column.",
+            "Measures $grouped_measure_names require at least one grouping column.",
         ))
 
     B >= 1 || throw(ArgumentError("B must be at least 1."))
@@ -752,88 +762,6 @@ function _pairwise_consensus_distance_stats(result_i,
     return (point = point, lo = minimum(distances), hi = maximum(distances))
 end
 
-function _within_group_average_normalized_kendall(profile)
-    ballots = profile.ballots
-    n = length(ballots)
-    n > 1 || return NaN
-
-    norm_factor = binomial(length(profile.pool), 2)
-    norm_factor > 0 || throw(ArgumentError("At least two candidates are required."))
-
-    total = 0.0
-
-    # W_i is defined over ordered pairs a != b. Because Kendall distance is
-    # symmetric, summing unordered pairs once and doubling is exactly equivalent.
-    for a in 1:(n - 1)
-        ballot_a = ballots[a]
-        for b in (a + 1):n
-            total += 2.0 * _normalized_kendall_distance(ballot_a, ballots[b], norm_factor)
-        end
-    end
-
-    return total / (n * (n - 1))
-end
-
-function _cross_group_average_normalized_kendall(profile_i, profile_j)
-    ballots_i = profile_i.ballots
-    ballots_j = profile_j.ballots
-    n_i = length(ballots_i)
-    n_j = length(ballots_j)
-    (n_i > 0 && n_j > 0) || throw(ArgumentError("Grouped profiles must be nonempty."))
-    Tuple(profile_i.pool.names) == Tuple(profile_j.pool.names) || throw(ArgumentError(
-        "All groups must share the same active candidate set.",
-    ))
-
-    norm_factor = binomial(length(profile_i.pool), 2)
-    norm_factor > 0 || throw(ArgumentError("At least two candidates are required."))
-
-    total = 0.0
-    for ballot_i in ballots_i, ballot_j in ballots_j
-        total += _normalized_kendall_distance(ballot_i, ballot_j, norm_factor)
-    end
-
-    return total / (n_i * n_j)
-end
-
-function _support_separation_contrast(group_profiles, group_sizes)
-    groups = [group for group in keys(group_profiles) if group_sizes[group] > 0]
-    length(groups) >= 2 || return NaN
-
-    within = Dict{Any,Float64}()
-    for group in groups
-        within[group] = _within_group_average_normalized_kendall(group_profiles[group])
-    end
-
-    total = 0.0
-    weight_sum = 0.0
-
-    # S is aggregated over unordered pairs only. Pairs touching singleton groups
-    # are skipped because W_i is undefined at n_i = 1; if no valid pair survives,
-    # we return NaN rather than inventing a value.
-    for a in 1:(length(groups) - 1)
-        group_a = groups[a]
-        W_a = within[group_a]
-        n_a = group_sizes[group_a]
-
-        for b in (a + 1):length(groups)
-            group_b = groups[b]
-            W_b = within[group_b]
-            (isnan(W_a) || isnan(W_b)) && continue
-
-            weight = n_a * group_sizes[group_b]
-            total += weight * (
-                _cross_group_average_normalized_kendall(
-                    group_profiles[group_a],
-                    group_profiles[group_b],
-                ) - ((W_a + W_b) / 2.0)
-            )
-            weight_sum += weight
-        end
-    end
-
-    return weight_sum > 0 ? total / weight_sum : NaN
-end
-
 function compute_group_measure_details(bundle::AnnotatedProfile,
                                        demo::Symbol;
                                        tie_policy::Symbol = :average,
@@ -875,9 +803,12 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         C_raw += (1.0 - result.avg_normalized_distance) * props[group]
     end
 
-    S = _support_separation_contrast(group_profiles, group_sizes)
-    S_lo = S
-    S_hi = S
+    support_separation_S_old = Preferences.overall_support_separation_old(
+        group_profiles,
+        group_sizes,
+    )
+    support_separation_S_old_lo = support_separation_S_old
+    support_separation_S_old_hi = support_separation_S_old
 
     if length(grouped) <= 1
         D = 0.0
@@ -930,6 +861,9 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     Sep_hi = Sep
 
     C = _normalize_group_coherence(C_raw)
+    cleaned_S = Preferences.overall_sstar_from_CD(C, D)
+    cleaned_S_lo = Preferences.overall_sstar_from_CD(C, D_lo)
+    cleaned_S_hi = Preferences.overall_sstar_from_CD(C, D_hi)
     G = sqrt(max(C * D, 0.0))
     G_lo = sqrt(max(C * D_lo, 0.0))
     G_hi = sqrt(max(C * D_hi, 0.0))
@@ -975,9 +909,12 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         Gsep = Gsep,
         Gsep_lo = Gsep_lo,
         Gsep_hi = Gsep_hi,
-        S = S,
-        S_lo = S_lo,
-        S_hi = S_hi,
+        S = cleaned_S,
+        S_lo = cleaned_S_lo,
+        S_hi = cleaned_S_hi,
+        S_old = support_separation_S_old,
+        S_old_lo = support_separation_S_old_lo,
+        S_old_hi = support_separation_S_old_hi,
         diagnostics = diagnostics,
     )
 end
@@ -1002,7 +939,7 @@ function _measure_results_for_profile(profile::LinearizedProfile,
     audits = NamedTuple[]
 
     for measure in spec.measures
-        measure in (:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S) && continue
+        measure in SUPPORTED_GROUPED_NESTED_MEASURES && continue
         value = _global_measure_value(measure, profile.bundle)
         push!(results, MeasureResult(
             profile.b,
@@ -1017,8 +954,7 @@ function _measure_results_for_profile(profile::LinearizedProfile,
         ))
     end
 
-    if any(measure in (:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S)
-           for measure in spec.measures)
+    if any(measure in SUPPORTED_GROUPED_NESTED_MEASURES for measure in spec.measures)
         for grouping in spec.groupings
             details = compute_group_measure_details(
                 profile.bundle,
@@ -1135,6 +1071,20 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                     details.S,
                     details.S_lo,
                     details.S_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :S_old in spec.measures
+                push!(results, MeasureResult(
+                    profile.b,
+                    profile.r,
+                    profile.k,
+                    :S_old,
+                    grouping,
+                    details.S_old,
+                    details.S_old_lo,
+                    details.S_old_hi,
                     details.diagnostics,
                 ))
             end

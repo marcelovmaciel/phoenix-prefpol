@@ -101,6 +101,8 @@ include("nested_pipeline.jl")
 export project_root, eseb_22, CANDIDATOS_eseb2022
 export load_raw_pref_data,
        build_profile,
+       S,
+       S_old,
        profile_pattern_proportions,
        pretty_print_profile_patterns,
        ranked_count,

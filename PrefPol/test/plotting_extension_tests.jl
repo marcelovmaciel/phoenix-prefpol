@@ -121,7 +121,7 @@ end
         colormap = pp.Makie.Reverse(:RdBu),
         show_values = true,
         fixed_colorrange_limits = (-1.0, 1.0),
-        colorbar_label = "median signed support-separation contrast",
+        colorbar_label = "median cleaned excess-separation",
     )
 
     @test pp.Makie === CairoMakie.Makie

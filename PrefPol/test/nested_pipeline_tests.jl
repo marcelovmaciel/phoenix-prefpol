@@ -144,6 +144,48 @@ end
     @test spec.active_candidates == ["D", "A", "B"]
 end
 
+@testset "nested grouped measure normalization accepts S and S_old" begin
+    @test PrefPol._normalize_measure_list([:S, :S_old, :S, "Psi"]) == [:S, :S_old, :Psi]
+
+    cfg = PrefPol.ElectionConfig(
+        2022,
+        "__nested_run_loader__",
+        "/tmp/unused",
+        3,
+        [3],
+        3,
+        3,
+        123,
+        ["A", "B", "C"],
+        ["grp"],
+        [PrefPol.Scenario("all", String[])],
+    )
+    wave = PrefPol.SurveyWaveConfig(cfg; wave_id = "measure-wave")
+
+    spec = PrefPol.build_pipeline_spec(
+        wave;
+        active_candidates = ["A", "B", "C"],
+        groupings = [:grp],
+        measures = [:S, :S_old],
+        B = 1,
+        R = 1,
+        K = 1,
+        imputer_backend = :zero,
+    )
+    @test spec.measures == [:S, :S_old]
+
+    @test_throws ArgumentError PrefPol.build_pipeline_spec(
+        wave;
+        active_candidates = ["A", "B", "C"],
+        groupings = Symbol[],
+        measures = [:S_old],
+        B = 1,
+        R = 1,
+        K = 1,
+        imputer_backend = :zero,
+    )
+end
+
 @testset "nested pipeline run preserves BRK lineage and zeroes inactive variance layers" begin
     cfg = PrefPol.ElectionConfig(
         2022,
@@ -166,7 +208,7 @@ end
                 wave;
                 active_candidates = ["A", "B", "C"],
                 groupings = [:grp],
-                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S],
+                measures = [:Psi, :R, :HHI, :RHHI, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old],
                 B = 3,
                 R = 2,
                 K = 2,
@@ -255,6 +297,14 @@ end
     @test interval.O_smoothed_lo == interval.O_smoothed
     @test interval.O_smoothed == interval.O_smoothed_hi
     @test 0.0 <= avg.Sep <= 1.0
+    @test isapprox(avg.S, PrefPol.Preferences.overall_sstar_from_CD(avg.C, avg.D))
+    @test avg.S_old == hash.S_old
+    @test hash.S_old == interval.S_old
+    @test interval.S_lo <= interval.S <= interval.S_hi
+    @test isapprox(interval.S_lo, PrefPol.Preferences.overall_sstar_from_CD(interval.C, interval.D_lo))
+    @test isapprox(interval.S_hi, PrefPol.Preferences.overall_sstar_from_CD(interval.C, interval.D_hi))
+    @test interval.S_old_lo == interval.S_old
+    @test interval.S_old == interval.S_old_hi
     @test isapprox(avg.Gsep, sqrt(max(avg.C * avg.Sep, 0.0)))
     @test isapprox(avg.G, sqrt(max(avg.C * avg.D, 0.0)))
     @test interval.G_lo <= interval.G <= interval.G_hi
@@ -299,10 +349,18 @@ end
     @test hash.O_smoothed == interval.O_smoothed
     @test avg.Sep == hash.Sep
     @test hash.Sep == interval.Sep
+    @test avg.S == hash.S
+    @test hash.S == interval.S
+    @test avg.S_old == hash.S_old
+    @test hash.S_old == interval.S_old
     @test avg.G == hash.G
     @test hash.G == interval.G
     @test avg.Gsep == hash.Gsep
     @test hash.Gsep == interval.Gsep
+    @test interval.S_lo == interval.S
+    @test interval.S == interval.S_hi
+    @test interval.S_old_lo == interval.S_old
+    @test interval.S_old == interval.S_old_hi
     @test interval.D_lo == interval.D
     @test interval.D == interval.D_hi
     @test interval.D_median_lo == interval.D_median
@@ -315,7 +373,39 @@ end
     @test interval.Gsep == interval.Gsep_hi
 end
 
-@testset "support-separation contrast S follows the sample definition" begin
+@testset "cleaned S is derived directly from grouped C and D" begin
+    abc = ranking_dict([:A, :B, :C])
+    cba = ranking_dict([:C, :B, :A])
+
+    identical_df = vcat(
+        DataFrame(grp = :A, profile = vcat(fill(abc, 50), fill(cba, 50))),
+        DataFrame(grp = :B, profile = vcat(fill(abc, 50), fill(cba, 50))),
+    )
+    metadata!(identical_df, "candidates", [:A, :B, :C])
+    metadata!(identical_df, "profile_kind", "linearized")
+    identical_bundle = PrefPol.dataframe_to_annotated_profile(identical_df)
+    identical_details = PrefPol.compute_group_measure_details(identical_bundle, :grp; tie_policy = :average)
+
+    @test isapprox(
+        identical_details.S,
+        PrefPol.Preferences.overall_sstar_from_CD(identical_details.C, identical_details.D);
+        atol = 1e-12,
+    )
+    @test isapprox(
+        identical_details.S_lo,
+        PrefPol.Preferences.overall_sstar_from_CD(identical_details.C, identical_details.D_lo);
+        atol = 1e-12,
+    )
+    @test isapprox(
+        identical_details.S_hi,
+        PrefPol.Preferences.overall_sstar_from_CD(identical_details.C, identical_details.D_hi);
+        atol = 1e-12,
+    )
+    @test isfinite(identical_details.S)
+    @test isapprox(identical_details.S_old, 0.0; atol = 0.01)
+end
+
+@testset "legacy support-separation S_old survives the rename" begin
     abc = ranking_dict([:A, :B, :C])
     acb = ranking_dict([:A, :C, :B])
     cba = ranking_dict([:C, :B, :A])
@@ -332,11 +422,11 @@ end
     positive_hash = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :hash)
     positive_interval = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :interval)
 
-    @test isapprox(positive_avg.S, 1.0; atol = 1e-12)
-    @test positive_avg.S == positive_hash.S
-    @test positive_hash.S == positive_interval.S
-    @test positive_avg.S_lo == positive_avg.S
-    @test positive_avg.S == positive_avg.S_hi
+    @test isapprox(positive_avg.S_old, 1.0; atol = 1e-12)
+    @test positive_avg.S_old == positive_hash.S_old
+    @test positive_hash.S_old == positive_interval.S_old
+    @test positive_avg.S_old_lo == positive_avg.S_old
+    @test positive_avg.S_old == positive_avg.S_old_hi
 
     identical_df = vcat(
         DataFrame(grp = :A, profile = vcat(fill(abc, 50), fill(cba, 50))),
@@ -347,7 +437,7 @@ end
     identical_bundle = PrefPol.dataframe_to_annotated_profile(identical_df)
     identical_details = PrefPol.compute_group_measure_details(identical_bundle, :grp; tie_policy = :average)
 
-    @test isapprox(identical_details.S, 0.0; atol = 0.01)
+    @test isapprox(identical_details.S_old, 0.0; atol = 0.01)
 
     negative_df = vcat(
         DataFrame(grp = :A, profile = [abc, cba]),
@@ -358,7 +448,8 @@ end
     negative_bundle = PrefPol.dataframe_to_annotated_profile(negative_df)
     negative_details = PrefPol.compute_group_measure_details(negative_bundle, :grp; tie_policy = :average)
 
-    @test negative_details.S < 0.0
+    @test negative_details.S_old < 0.0
+    @test !isapprox(negative_details.S, negative_details.S_old; atol = 1e-12)
 
     relabeled_df = vcat(
         DataFrame(grp = :Z, profile = [cba, cba]),
@@ -379,13 +470,13 @@ end
     original_bundle = PrefPol.dataframe_to_annotated_profile(original_df)
 
     @test isapprox(
-        PrefPol.compute_group_measure_details(original_bundle, :grp; tie_policy = :average).S,
-        PrefPol.compute_group_measure_details(relabeled_bundle, :grp; tie_policy = :average).S;
+        PrefPol.compute_group_measure_details(original_bundle, :grp; tie_policy = :average).S_old,
+        PrefPol.compute_group_measure_details(relabeled_bundle, :grp; tie_policy = :average).S_old;
         atol = 1e-12,
     )
 end
 
-@testset "support-separation contrast S handles singleton groups conservatively" begin
+@testset "legacy support-separation S_old handles singleton groups conservatively" begin
     abc = ranking_dict([:A, :B, :C])
     cba = ranking_dict([:C, :B, :A])
 
@@ -399,7 +490,7 @@ end
     surviving_pair_bundle = PrefPol.dataframe_to_annotated_profile(surviving_pair_df)
 
     @test isapprox(
-        PrefPol.compute_group_measure_details(surviving_pair_bundle, :grp; tie_policy = :average).S,
+        PrefPol.compute_group_measure_details(surviving_pair_bundle, :grp; tie_policy = :average).S_old,
         1.0;
         atol = 1e-12,
     )
@@ -412,7 +503,7 @@ end
     metadata!(no_valid_pair_df, "profile_kind", "linearized")
     no_valid_pair_bundle = PrefPol.dataframe_to_annotated_profile(no_valid_pair_df)
 
-    @test isnan(PrefPol.compute_group_measure_details(no_valid_pair_bundle, :grp; tie_policy = :average).S)
+    @test isnan(PrefPol.compute_group_measure_details(no_valid_pair_bundle, :grp; tie_policy = :average).S_old)
 end
 
 @testset "nested batch reporting tables preserve stored measure outputs" begin
@@ -812,7 +903,7 @@ end
                 wave;
                 active_candidates = active_candidates,
                 groupings = [:grp],
-                measures = [:Psi, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S],
+                measures = [:Psi, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old],
                 B = 3,
                 R = 2,
                 K = 1,
@@ -843,7 +934,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S],
+            measures = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old],
             groupings = [:grp],
             include_grouped = true,
         )
@@ -859,7 +950,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S],
+            measures = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old],
             groupings = [:grp],
             statistic = :median,
         )
@@ -873,6 +964,7 @@ end
         @test :Sep in Set(Symbol.(group_rows.measure))
         @test :Gsep in Set(Symbol.(group_rows.measure))
         @test :S in Set(Symbol.(group_rows.measure))
+        @test :S_old in Set(Symbol.(group_rows.measure))
         @test scenario_data.m_values == [2, 3]
         @test scenario_data.candidate_label == "Candidates: A, B, C"
 
@@ -890,6 +982,8 @@ end
         @test isapprox(heatmap_data.matrices[:Gsep][1, 1], gsep_row.q50)
         s_row = group_rows[(group_rows.measure .== :S) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:S][1, 1], s_row.q50)
+        sold_row = group_rows[(group_rows.measure .== :S_old) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:S_old][1, 1], sold_row.q50)
         @test_throws ArgumentError PrefPol.pipeline_group_heatmap_values(
             results;
             year = 2022,

@@ -92,6 +92,8 @@ overall_divergences_median(args...; kwargs...) = Preferences.overall_divergences
 overall_separation(args...; kwargs...) = Preferences.overall_separation(args...; kwargs...)
 overall_separations(args...; kwargs...) = Preferences.overall_separations(args...; kwargs...)
 grouped_gsep(args...; kwargs...) = Preferences.grouped_gsep(args...; kwargs...)
+S(args...; kwargs...) = Preferences.S(args...; kwargs...)
+S_old(args...; kwargs...) = Preferences.S_old(args...; kwargs...)
 
 function _measure_input(x)
     if x isa DataFrame

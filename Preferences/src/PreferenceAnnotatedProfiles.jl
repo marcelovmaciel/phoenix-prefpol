@@ -455,6 +455,8 @@ function _compute_group_metric_details(bundle::AnnotatedProfile, demo;
     group_coherence = Float64[]
     consensus_results = Any[]
     consensus_rankings = Any[]
+    group_profiles = OrderedDict{Any,Any}()
+    group_sizes = OrderedDict{Any,Float64}()
 
     for group in group_vals
         subprofile = _subset_profile(bundle.profile, grouped_indices[group])
@@ -470,6 +472,8 @@ function _compute_group_metric_details(bundle::AnnotatedProfile, demo;
         push!(group_coherence, 1.0 - result.avg_normalized_distance)
         push!(consensus_results, result)
         push!(consensus_rankings, result.consensus_ranking)
+        group_profiles[group] = subprofile
+        group_sizes[group] = Float64(length(grouped_indices[group]))
     end
 
     results_distance = DataFrame(
@@ -493,6 +497,8 @@ function _compute_group_metric_details(bundle::AnnotatedProfile, demo;
     O_smoothed = overall_overlaps_smoothed(consensus, bundle, demo)
     Sep = overall_separations(consensus, bundle, demo)
     Gsep = grouped_gsep(C, Sep)
+    cleaned_S = overall_sstar_from_CD(C, D)
+    support_separation_S_old = overall_support_separation_old(group_profiles, group_sizes)
     return (
         C = C,
         D = D,
@@ -501,6 +507,8 @@ function _compute_group_metric_details(bundle::AnnotatedProfile, demo;
         O_smoothed = O_smoothed,
         Sep = Sep,
         Gsep = Gsep,
+        S = cleaned_S,
+        S_old = support_separation_S_old,
     )
 end
 

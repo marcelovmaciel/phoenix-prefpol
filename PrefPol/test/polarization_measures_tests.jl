@@ -325,6 +325,20 @@ end
     @test PrefPol.overall_separations(grouped_consensus, whole_df, :group) == 1.0
 end
 
+@testset "cleaned S and legacy S_old wrappers" begin
+    @test isapprox(PrefPol.S(0.8, 0.6), 0.5; atol = 1e-12)
+
+    abc = ranking_dict([:a, :b, :c])
+    cba = ranking_dict([:c, :b, :a])
+    group_profiles = Dict(
+        :A => fill(abc, 3),
+        :B => fill(cba, 3),
+    )
+    group_sizes = Dict(:A => 3.0, :B => 3.0)
+
+    @test isapprox(PrefPol.S_old(group_profiles, group_sizes), 1.0; atol = 1e-12)
+end
+
 # ---------------------------------------------------------------------------
 # Tests for: apply_measure_to_bts, apply_all_measures_to_bts
 # ---------------------------------------------------------------------------
@@ -381,6 +395,7 @@ end
     C, D = PrefPol.compute_group_metrics(df, :group)
     @test isapprox(C, 1.0; atol=1e-12)   # within-group coherence
     @test isapprox(D, 1.0; atol=1e-12)   # strong between-group divergence
+    @test isapprox(PrefPol.S(C, D), 1.0; atol = 1e-12)
 
     # Bootstrap over two "replicates" per variant
     bt_profiles = Dict(
@@ -396,6 +411,8 @@ end
     @test res[:mice][:O_smoothed] == fill(0.0, 2)
     @test res[:mice][:Sep] == fill(1.0, 2)
     @test res[:mice][:Gsep] == fill(1.0, 2)
+    @test res[:mice][:S] == fill(1.0, 2)
+    @test res[:mice][:S_old] == fill(1.0, 2)
     @test res[:rand][:C] == fill(1.0, 1)
     @test res[:rand][:D] == fill(1.0, 1)
     @test res[:rand][:D_median] == fill(1.0, 1)
@@ -403,6 +420,8 @@ end
     @test res[:rand][:O_smoothed] == fill(0.0, 1)
     @test res[:rand][:Sep] == fill(1.0, 1)
     @test res[:rand][:Gsep] == fill(1.0, 1)
+    @test res[:rand][:S] == fill(1.0, 1)
+    @test res[:rand][:S_old] == fill(1.0, 1)
 end
 
 @testset "D_median is consensus-only and properly normalized" begin
