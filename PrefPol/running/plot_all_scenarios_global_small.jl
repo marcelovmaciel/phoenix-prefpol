@@ -22,7 +22,6 @@ ensure_prefpol_plotting_environment!()
 
 using CairoMakie
 using DataFrames
-using OrderedCollections: OrderedDict
 using PrefPol
 import PrefPol as pp
 
@@ -32,6 +31,7 @@ const SMALL_OUTPUT_ROOT = joinpath(pp.project_root, "running", "output", "all_sc
 const MANIFEST_PATH = joinpath(SMALL_OUTPUT_ROOT, "run_manifest.csv")
 const GLOBAL_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "global")
 const GLOBAL_MEASURES = [:Psi, :R, :HHI, :RHHI]
+const WRITE_GLOBAL_TABLES = lowercase(get(ENV, "PREFPOL_GLOBAL_SMALL_WRITE_TABLES", "true")) in ("1", "true", "yes")
 
 function csv_escape(value)
     raw = value === missing ? "" : string(value)
@@ -104,7 +104,7 @@ function read_csv_table(path::AbstractString)
         end
     end
 
-    return DataFrame((name => columns[name] for name in header))
+    return DataFrame([name => columns[name] for name in header])
 end
 
 function sanitize_path_component(value::AbstractString)
@@ -158,27 +158,28 @@ end
 
 function load_saved_small_results(manifest::DataFrame)
     items = pp.StudyBatchItem[]
-    results = OrderedDict{String,pp.PipelineResult}()
-    metadata_by_hash = Dict{String,NamedTuple}()
+    results = pp.PipelineResult[]
+    metadata = NamedTuple[]
+    has_manifest_spec_hash = :spec_hash in propertynames(manifest)
 
     for row in eachrow(manifest)
         result_path = String(row.result_path)
         isfile(result_path) || error("Saved PipelineResult file not found: $(result_path)")
 
         result = pp.load_pipeline_result(result_path)
-        spec_hash = String(row.spec_hash)
-        result.spec_hash == spec_hash || error(
-            "Manifest/result hash mismatch for $(result_path): manifest=$(spec_hash), result=$(result.spec_hash).",
+        spec_hash = basename(result.cache_dir)
+        has_manifest_spec_hash && String(row.spec_hash) != spec_hash && error(
+            "Manifest/result hash mismatch for $(result_path): manifest=$(row.spec_hash), result=$(spec_hash).",
         )
 
         meta = _batch_metadata(row)
         push!(items, pp.StudyBatchItem(result.spec; meta...))
-        results[spec_hash] = result
-        metadata_by_hash[spec_hash] = meta
+        push!(results, result)
+        push!(metadata, meta)
     end
 
     batch = pp.StudyBatchSpec(items)
-    return pp.BatchRunResult(batch, results, metadata_by_hash)
+    return pp.BatchRunResult(batch, results, metadata)
 end
 
 function scenario_targets(manifest::DataFrame)
@@ -204,7 +205,7 @@ end
 function _result_metadata(result::pp.PipelineResult, extra_meta::NamedTuple)
     spec = result.spec
     return merge((
-        spec_hash = result.spec_hash,
+        spec_hash = basename(result.cache_dir),
         wave_id = spec.wave_id,
         active_candidates_key = join(spec.active_candidates, "|"),
         n_candidates = length(spec.active_candidates),
@@ -237,8 +238,8 @@ end
 function combined_decomposition_table(results::pp.BatchRunResult)
     tables = DataFrame[]
 
-    for (spec_hash, result) in pairs(results.results)
-        meta = get(results.metadata_by_hash, spec_hash, (;))
+    for (idx, result) in enumerate(results.results)
+        meta = merge(results.metadata[idx], (batch_index = idx,))
         push!(tables, decorate_table(pp.decomposition_table(result.decomposition), result, meta))
     end
 
@@ -252,12 +253,12 @@ function subset_batch_results(results::pp.BatchRunResult;
                               imputer_backend = nothing,
                               linearizer_policy = nothing)
     items = pp.StudyBatchItem[]
-    subset_results = OrderedDict{String,pp.PipelineResult}()
-    subset_meta = Dict{String,NamedTuple}()
+    subset_results = pp.PipelineResult[]
+    subset_meta = NamedTuple[]
 
-    for item in results.batch.items
+    for (idx, item) in enumerate(results.batch.items)
         spec = item.spec
-        meta = get(results.metadata_by_hash, pp.pipeline_spec_hash(spec), (;))
+        meta = results.metadata[idx]
 
         wave_id !== nothing && spec.wave_id != String(wave_id) && continue
         scenario_name !== nothing &&
@@ -266,10 +267,9 @@ function subset_batch_results(results::pp.BatchRunResult;
         imputer_backend !== nothing && spec.imputer_backend != Symbol(imputer_backend) && continue
         linearizer_policy !== nothing && spec.linearizer_policy != Symbol(linearizer_policy) && continue
 
-        spec_hash = pp.pipeline_spec_hash(spec)
         push!(items, item)
-        subset_results[spec_hash] = results.results[spec_hash]
-        subset_meta[spec_hash] = meta
+        push!(subset_results, results.results[idx])
+        push!(subset_meta, meta)
     end
 
     isempty(items) && error("No saved results matched the requested plotting subset.")
@@ -309,9 +309,11 @@ function write_scenario_outputs!(results::pp.BatchRunResult,
     panel_table = filter_global_rows(pp.pipeline_panel_table(scenario_results))
     decomposition_table = filter_global_rows(combined_decomposition_table(scenario_results))
 
-    save_csv(joinpath(dir, "summary_table.csv"), sorted_table(summary_table))
-    save_csv(joinpath(dir, "panel_table.csv"), sorted_table(panel_table))
-    save_csv(joinpath(dir, "decomposition_table.csv"), sorted_table(decomposition_table))
+    if WRITE_GLOBAL_TABLES
+        save_csv(joinpath(dir, "summary_table.csv"), sorted_table(summary_table))
+        save_csv(joinpath(dir, "panel_table.csv"), sorted_table(panel_table))
+        save_csv(joinpath(dir, "decomposition_table.csv"), sorted_table(decomposition_table))
+    end
 
     for combo in backend_combinations(manifest, target)
         combo_results = subset_batch_results(
@@ -337,6 +339,9 @@ function write_scenario_outputs!(results::pp.BatchRunResult,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
             measures = GLOBAL_MEASURES,
+            plot_kind = :dotwhisker,
+            connect_lines = true,
+            ytick_step = 0.1,
         )
         stem = string(
             "global_",

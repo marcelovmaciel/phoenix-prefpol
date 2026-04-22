@@ -628,7 +628,8 @@ function plot_pipeline_scenario(result_or_results;
                                 palette = nothing,
                                 figsize = (700, 450),
                                 plot_kind::Symbol = :lines,
-                                connect_lines::Bool = false)
+                                connect_lines::Bool = false,
+                                ytick_step = nothing)
     palette === nothing && (palette = _wong_colors())
     data = PrefPol.pipeline_scenario_plot_data(
         result_or_results;
@@ -649,6 +650,10 @@ function plot_pipeline_scenario(result_or_results;
         ylabel = "value",
         xticks = (m_values, string.(Int.(m_values))),
     )
+    if ytick_step !== nothing
+        ticks = collect(0.0:Float64(ytick_step):1.0)
+        ax.yticks[] = (ticks, [@sprintf("%.1f", tick) for tick in ticks])
+    end
 
     titlegrid = GridLayout(tellwidth = true)
     fig[0, 1] = titlegrid

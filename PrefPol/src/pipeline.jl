@@ -1777,8 +1777,8 @@ end
 
 
 
-function describe_candidate_set(candidates::Vector{String})
-    pretty_names = [join([uppercasefirst(lowercase(w)) for w in split(name, "_")], " ")
+function describe_candidate_set(candidates::AbstractVector{<:AbstractString})
+    pretty_names = [join([uppercasefirst(lowercase(w)) for w in split(String(name), "_")], " ")
                     for name in candidates]
     return "Candidates: " * join(pretty_names, ", ")
 end
