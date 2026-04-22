@@ -1142,6 +1142,134 @@ function _measure_results_dataframe(results::Vector{MeasureResult})
     return DataFrame(rows)
 end
 
+function _grouped_s_measure_rows(measure_cube::AbstractDataFrame)
+    required_cols = [:b, :r, :k, :measure, :grouping, :value, :value_lo, :value_hi, :diagnostics]
+    missing_cols = setdiff(required_cols, propertynames(measure_cube))
+    isempty(missing_cols) || throw(ArgumentError(
+        "measure_cube is missing required columns for grouped S derivation: $(missing_cols).",
+    ))
+
+    grouped_cd = measure_cube[
+        ((measure_cube.measure .== :C) .| (measure_cube.measure .== :D)) .&
+        .!ismissing.(measure_cube.grouping),
+        required_cols,
+    ]
+    isempty(grouped_cd) && return DataFrame(measure_cube[1:0, :])
+
+    grouped_c = grouped_cd[grouped_cd.measure .== :C, :]
+    grouped_d = grouped_cd[grouped_cd.measure .== :D, :]
+    (isempty(grouped_c) || isempty(grouped_d)) && return DataFrame(measure_cube[1:0, :])
+
+    key_cols = [:b, :r, :k, :grouping]
+    counts = combine(groupby(grouped_cd, vcat(key_cols, :measure)), nrow => :nrows)
+    bad_counts = counts[counts.nrows .!= 1, :]
+    isempty(bad_counts) || throw(ArgumentError(
+        "Cannot derive grouped S because grouped C/D rows are not unique per (b, r, k, grouping, measure).",
+    ))
+
+    c_rows = select(grouped_c, :b, :r, :k, :grouping, :value, :value_lo, :value_hi, :diagnostics)
+    rename!(c_rows, :value => :c_value, :value_lo => :c_value_lo, :value_hi => :c_value_hi, :diagnostics => :c_diagnostics)
+    d_rows = select(grouped_d, :b, :r, :k, :grouping, :value, :value_lo, :value_hi, :diagnostics)
+    rename!(d_rows, :value => :d_value, :value_lo => :d_value_lo, :value_hi => :d_value_hi, :diagnostics => :d_diagnostics)
+
+    joined = innerjoin(c_rows, d_rows; on = key_cols)
+    nrow(joined) == nrow(grouped_c) == nrow(grouped_d) || throw(ArgumentError(
+        "Cannot derive grouped S because grouped C and D draw keys do not align exactly.",
+    ))
+
+    rows = NamedTuple[]
+    for row in eachrow(joined)
+        c_value = Float64(row.c_value)
+        d_value = Float64(row.d_value)
+        value_lo = ismissing(row.d_value_lo) ? missing :
+                   Preferences.overall_sstar_from_CD(c_value, Float64(row.d_value_lo))
+        value_hi = ismissing(row.d_value_hi) ? missing :
+                   Preferences.overall_sstar_from_CD(c_value, Float64(row.d_value_hi))
+
+        push!(rows, (
+            b = Int(row.b),
+            r = Int(row.r),
+            k = Int(row.k),
+            measure = :S,
+            grouping = row.grouping,
+            value = Preferences.overall_sstar_from_CD(c_value, d_value),
+            value_lo = value_lo,
+            value_hi = value_hi,
+            diagnostics = row.c_diagnostics,
+        ))
+    end
+
+    return DataFrame(rows)
+end
+
+function _with_grouped_s_measure_list(measures::AbstractVector{<:Symbol})
+    :S in measures && return collect(measures)
+    updated = collect(measures)
+    push!(updated, :S)
+    return updated
+end
+
+function augment_pipeline_result_with_grouped_s(result::PipelineResult;
+                                                audit_message::Union{Nothing,AbstractString} = nothing)
+    any(result.measure_cube.measure .== :S) && throw(ArgumentError(
+        "PipelineResult already contains grouped S rows.",
+    ))
+    :S in result.spec.measures && throw(ArgumentError(
+        "PipelineResult spec already lists :S even though the measure cube does not.",
+    ))
+
+    s_rows = _grouped_s_measure_rows(result.measure_cube)
+    isempty(s_rows) && throw(ArgumentError(
+        "PipelineResult does not contain grouped C and D rows required to derive grouped S.",
+    ))
+
+    augmented_cube = vcat(result.measure_cube, s_rows; cols = :setequal)
+    decomposition = compute_variance_decomposition(augmented_cube)
+    pooled_summaries = decomposition_table(decomposition)
+
+    spec = result.spec
+    updated_spec = PipelineSpec(
+        spec.wave_id,
+        copy(spec.active_candidates),
+        copy(spec.groupings),
+        _with_grouped_s_measure_list(spec.measures),
+        spec.B,
+        spec.R,
+        spec.K,
+        spec.resample_policy,
+        spec.imputer_backend,
+        spec.imputer_options,
+        spec.linearizer_policy,
+        spec.consensus_tie_policy,
+        spec.seed_namespace,
+        spec.schema_version,
+        spec.code_version,
+    )
+
+    message = something(
+        audit_message,
+        "Appended $(nrow(s_rows)) grouped S rows from cached grouped C and D, and recomputed pooled summaries and variance decomposition.",
+    )
+    audit_entry = DataFrame(
+        stage = Symbol[:result],
+        b = [0],
+        r = [0],
+        k = [0],
+        message = [message],
+    )
+    updated_audit = vcat(copy(result.audit_log), audit_entry; cols = :setequal)
+
+    return PipelineResult(
+        updated_spec,
+        result.cache_dir,
+        copy(result.stage_manifest),
+        augmented_cube,
+        pooled_summaries,
+        decomposition,
+        updated_audit,
+    )
+end
+
 function compute_variance_decomposition(measure_cube::DataFrame)
     summaries = VarianceComponentSummary[]
     summary_df = tree_variance_decomposition_table(
@@ -1224,7 +1352,7 @@ end
 
 function _save_artifact(path::AbstractString, artifact)
     mkpath(dirname(path))
-    JLD2.@save path artifact
+    _atomic_jldsave(path, "artifact" => artifact)
     return bytes2hex(SHA.sha256(read(path)))
 end
 
@@ -1268,6 +1396,16 @@ end
 
 function load_pipeline_result(path::AbstractString)
     return JLD2.load(path, "result")
+end
+
+function save_pipeline_result(path::AbstractString,
+                              result::PipelineResult;
+                              overwrite::Bool = false)
+    isfile(path) && !overwrite && throw(ArgumentError(
+        "Refusing to overwrite existing PipelineResult at `$path` without overwrite=true.",
+    ))
+    _atomic_jldsave(path, "result" => result)
+    return path
 end
 
 function load_pipeline_result(pipeline::NestedStochasticPipeline, spec::PipelineSpec)
@@ -1458,7 +1596,7 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
         audit_log,
     )
 
-    JLD2.@save result_path result
+    save_pipeline_result(result_path, result; overwrite = true)
     pm.finish!(leaf_progress)
     return result
 end

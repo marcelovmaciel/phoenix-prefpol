@@ -604,6 +604,143 @@ end
     end
 end
 
+@testset "cached grouped S can be backfilled from grouped C and D" begin
+    cfg = PrefPol.ElectionConfig(
+        2022,
+        "__nested_run_loader__",
+        "/tmp/unused",
+        3,
+        [3],
+        3,
+        3,
+        123,
+        ["A", "B", "C"],
+        ["grp"],
+        [PrefPol.Scenario("all", String[])],
+    )
+    wave = PrefPol.SurveyWaveConfig(cfg; wave_id = "augment-s-wave")
+
+    mktempdir() do dir
+        pipeline = PrefPol.NestedStochasticPipeline([wave]; cache_root = dir)
+        spec = PrefPol.build_pipeline_spec(
+            wave;
+            active_candidates = ["A", "B", "C"],
+            groupings = [:grp],
+            measures = [:Psi, :C, :D, :G],
+            B = 2,
+            R = 2,
+            K = 2,
+            imputer_backend = :zero,
+            consensus_tie_policy = :average,
+        )
+
+        result = PrefPol.run_pipeline(pipeline, spec; force = true)
+        updated = PrefPol.augment_pipeline_result_with_grouped_s(result)
+
+        @test !(:S in result.spec.measures)
+        @test :S in updated.spec.measures
+        @test count(==(:S), updated.measure_cube.measure) ==
+              spec.B * spec.R * spec.K * length(spec.groupings)
+        @test nrow(updated.measure_cube) ==
+              nrow(result.measure_cube) + spec.B * spec.R * spec.K * length(spec.groupings)
+
+        c_rows = select(
+            updated.measure_cube[updated.measure_cube.measure .== :C, :],
+            :b, :r, :k, :grouping, :value,
+        )
+        rename!(c_rows, :value => :c_value)
+        d_rows = select(
+            updated.measure_cube[updated.measure_cube.measure .== :D, :],
+            :b, :r, :k, :grouping, :value, :value_lo, :value_hi,
+        )
+        rename!(d_rows, :value => :d_value, :value_lo => :d_lo, :value_hi => :d_hi)
+        s_rows = select(
+            updated.measure_cube[updated.measure_cube.measure .== :S, :],
+            :b, :r, :k, :grouping, :value, :value_lo, :value_hi,
+        )
+        rename!(s_rows, :value => :s_value, :value_lo => :s_lo, :value_hi => :s_hi)
+
+        joined = innerjoin(c_rows, d_rows; on = [:b, :r, :k, :grouping])
+        joined = innerjoin(joined, s_rows; on = [:b, :r, :k, :grouping])
+        @test nrow(joined) == spec.B * spec.R * spec.K * length(spec.groupings)
+
+        for row in eachrow(joined)
+            @test isapprox(
+                row.s_value,
+                PrefPol.Preferences.overall_sstar_from_CD(row.c_value, row.d_value);
+                atol = 1e-12,
+            )
+            @test isapprox(
+                row.s_lo,
+                PrefPol.Preferences.overall_sstar_from_CD(row.c_value, row.d_lo);
+                atol = 1e-12,
+            )
+            @test isapprox(
+                row.s_hi,
+                PrefPol.Preferences.overall_sstar_from_CD(row.c_value, row.d_hi);
+                atol = 1e-12,
+            )
+        end
+
+        @test any(updated.pooled_summaries.measure .== :S)
+        @test any(summary.measure_id == :S for summary in updated.decomposition.summaries)
+
+        saved_path = joinpath(dir, "augmented_result.jld2")
+        PrefPol.save_pipeline_result(saved_path, updated)
+        loaded = PrefPol.load_pipeline_result(saved_path)
+        @test :S in loaded.spec.measures
+        @test isequal(loaded.measure_cube, updated.measure_cube)
+        @test isequal(loaded.pooled_summaries, updated.pooled_summaries)
+    end
+end
+
+@testset "cached grouped S augmentation fails on malformed grouped C/D keys" begin
+    cfg = PrefPol.ElectionConfig(
+        2022,
+        "__nested_run_loader__",
+        "/tmp/unused",
+        3,
+        [3],
+        3,
+        3,
+        123,
+        ["A", "B", "C"],
+        ["grp"],
+        [PrefPol.Scenario("all", String[])],
+    )
+    wave = PrefPol.SurveyWaveConfig(cfg; wave_id = "augment-s-bad-wave")
+
+    mktempdir() do dir
+        pipeline = PrefPol.NestedStochasticPipeline([wave]; cache_root = dir)
+        spec = PrefPol.build_pipeline_spec(
+            wave;
+            active_candidates = ["A", "B", "C"],
+            groupings = [:grp],
+            measures = [:C, :D, :G],
+            B = 1,
+            R = 1,
+            K = 1,
+            imputer_backend = :zero,
+            consensus_tie_policy = :average,
+        )
+
+        result = PrefPol.run_pipeline(pipeline, spec; force = true)
+        dup_c = result.measure_cube[result.measure_cube.measure .== :C, :][1:1, :]
+        bad_cube = vcat(result.measure_cube, dup_c; cols = :setequal)
+        bad_result = PrefPol.PipelineResult(
+            result.spec,
+            result.cache_dir,
+            copy(result.stage_manifest),
+            bad_cube,
+            result.pooled_summaries,
+            result.decomposition,
+            copy(result.audit_log),
+        )
+
+        @test_throws ArgumentError PrefPol.augment_pipeline_result_with_grouped_s(bad_result)
+    end
+end
+
 @testset "nested batch metadata decorates reporting tables" begin
     cfg = PrefPol.ElectionConfig(
         2022,

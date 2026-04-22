@@ -1564,14 +1564,20 @@ _perdf(dir, year, scen, m, dem, rep) =
 "Ensure the parent directory of `path` exists."
 _mkparent(path) = mkpath(dirname(path))
 
-function _atomic_save(path::AbstractString, res)
+function _atomic_jldsave(path::AbstractString, entries::Pair...)
     _mkparent(path)
     tmp = path * ".tmp"
     isfile(tmp) && rm(tmp; force = true)
     JLD2.jldopen(tmp, "w"; iotype = IOStream) do f
-        f["res"] = res
+        for (name, value) in entries
+            f[String(name)] = value
+        end
     end
     mv(tmp, path; force = true)
+end
+
+function _atomic_save(path::AbstractString, res)
+    return _atomic_jldsave(path, "res" => res)
 end
 
 function _safe_load_res(path::AbstractString)
