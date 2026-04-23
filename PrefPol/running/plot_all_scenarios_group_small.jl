@@ -22,17 +22,17 @@ include(joinpath(@__DIR__, "plot_all_scenarios_global_small.jl"))
 const GROUP_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "group")
 const M = CairoMakie.Makie
 
-# These match the current canonical grouped plotting workflow:
-# line plots use the exported defaults, while the heatmaps use the intended
-# 2x2 panel set `C / D / 1 - O / G`.
+# These match the current grouped plotting workflow:
+# line plots use the exported defaults, while the old compact grouped summary
+# heatmap slot is replaced here by the dedicated `C / 1 - O / S` triplet panel.
 const CANONICAL_GROUP_LINE_MEASURES = [:C, :D, :G]
-const CANONICAL_GROUP_HEATMAP_MEASURES = [:C, :D_median, :O, :Gsep]
-const CANONICAL_GROUP_HEATMAP_LABELS = Dict(
+const GROUP_TRIPLET_PANEL_MEASURES = [:C, :O, :S]
+const GROUP_TRIPLET_PANEL_LABELS = Dict(
     :C => "C",
-    :D_median => "D",
     :O => "1 - O",
-    :Gsep => "G",
+    :S => "S",
 )
+const GROUP_TRIPLET_PANEL_BASENAME = "group_triplet_panel_C_1mO_S"
 const O_SMOOTHED_MEASURES = [:O_smoothed]
 const O_SMOOTHED_LABELS = Dict(:O_smoothed => "1 - O_smoothed")
 const ALL_GROUP_MEASURES = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S]
@@ -55,12 +55,76 @@ function filter_group_rows(df::AbstractDataFrame; measures = ALL_GROUP_MEASURES)
     return DataFrame(df[mask, :])
 end
 
+function _complement_group_plot_columns!(out::DataFrame, complemented::Set{Symbol})
+    isempty(complemented) && return Set{Symbol}()
+
+    transformed = Set{Symbol}()
+    measure_mask = [Symbol(row.measure) in complemented for row in eachrow(out)]
+    any(measure_mask) || return transformed
+
+    direct_cols = (:estimate, :mean_value)
+    for col in direct_cols
+        col in propertynames(out) || continue
+        vals = Float64.(out[!, col])
+        vals[measure_mask] .= 1.0 .- vals[measure_mask]
+        out[!, col] = vals
+        push!(transformed, col)
+    end
+
+    quantile_cols = (:q05, :q25, :q50, :q75, :q95)
+    if all(col -> col in propertynames(out), quantile_cols)
+        q05 = Float64.(out.q05)
+        q25 = Float64.(out.q25)
+        q50 = Float64.(out.q50)
+        q75 = Float64.(out.q75)
+        q95 = Float64.(out.q95)
+
+        q05[measure_mask] .= 1.0 .- q95[measure_mask]
+        q25[measure_mask] .= 1.0 .- q75[measure_mask]
+        q50[measure_mask] .= 1.0 .- q50[measure_mask]
+        q75[measure_mask] .= 1.0 .- Float64.(out.q25)[measure_mask]
+        q95[measure_mask] .= 1.0 .- Float64.(out.q05)[measure_mask]
+
+        out[!, :q05] = q05
+        out[!, :q25] = q25
+        out[!, :q50] = q50
+        out[!, :q75] = q75
+        out[!, :q95] = q95
+        union!(transformed, quantile_cols)
+    end
+
+    if :min_value in propertynames(out) && :max_value in propertynames(out)
+        min_vals = Float64.(out.min_value)
+        max_vals = Float64.(out.max_value)
+        min_vals[measure_mask] .= 1.0 .- Float64.(out.max_value)[measure_mask]
+        max_vals[measure_mask] .= 1.0 .- Float64.(out.min_value)[measure_mask]
+        out[!, :min_value] = min_vals
+        out[!, :max_value] = max_vals
+        push!(transformed, :min_value)
+        push!(transformed, :max_value)
+    end
+
+    if :value_lo_min in propertynames(out) && :value_hi_max in propertynames(out)
+        lo_vals = Float64.(out.value_lo_min)
+        hi_vals = Float64.(out.value_hi_max)
+        lo_vals[measure_mask] .= 1.0 .- Float64.(out.value_hi_max)[measure_mask]
+        hi_vals[measure_mask] .= 1.0 .- Float64.(out.value_lo_min)[measure_mask]
+        out[!, :value_lo_min] = lo_vals
+        out[!, :value_hi_max] = hi_vals
+        push!(transformed, :value_lo_min)
+        push!(transformed, :value_hi_max)
+    end
+
+    return transformed
+end
+
 function prepare_group_plot_table(rows::AbstractDataFrame;
                                   value_column::Symbol = :estimate,
                                   complement_measures = Symbol[],
                                   measure_labels = nothing)
     out = DataFrame(rows)
     complemented = Set(Symbol.(collect(complement_measures)))
+    transformed_cols = _complement_group_plot_columns!(out, complemented)
 
     if !(:m in propertynames(out)) && (:n_candidates in propertynames(out))
         out[!, :m] = Int.(out.n_candidates)
@@ -68,10 +132,14 @@ function prepare_group_plot_table(rows::AbstractDataFrame;
 
     if value_column in propertynames(out)
         values = Float64.(out[!, value_column])
-        out[!, :value] = [
-            Symbol(row.measure) in complemented ? 1.0 - values[idx] : values[idx]
-            for (idx, row) in enumerate(eachrow(out))
-        ]
+        if value_column in transformed_cols
+            out[!, :value] = values
+        else
+            out[!, :value] = [
+                Symbol(row.measure) in complemented ? 1.0 - values[idx] : values[idx]
+                for (idx, row) in enumerate(eachrow(out))
+            ]
+        end
     elseif !(:value in propertynames(out)) && (:estimate in propertynames(out))
         out[!, :value] = Float64.(out.estimate)
     end
@@ -134,16 +202,16 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
             wave_id = target.wave_id,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
-            measures = CANONICAL_GROUP_HEATMAP_MEASURES,
+            measures = GROUP_TRIPLET_PANEL_MEASURES,
             statistic = :median,
         )
         save_csv(
-            joinpath(dir, "group_heatmap_table_" * stem * ".csv"),
+            joinpath(dir, GROUP_TRIPLET_PANEL_BASENAME * "_table_" * stem * ".csv"),
             prepare_group_plot_table(
                 heatmap_data.rows;
                 value_column = :q50,
                 complement_measures = [:O],
-                measure_labels = CANONICAL_GROUP_HEATMAP_LABELS,
+                measure_labels = GROUP_TRIPLET_PANEL_LABELS,
             ),
         )
 
@@ -179,20 +247,21 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
         )
         pp.save_pipeline_plot(fig_lines, "group_lines_" * stem; dir = dir)
 
-        fig_heatmap = pp.plot_pipeline_group_heatmap(
+        # Replace the old grouped summary heatmap output for this slot instead
+        # of emitting an additional grouped panel.
+        fig_heatmap = _PLOT_EXT.plot_pipeline_group_triplet_panel(
             combo_results;
             wave_id = target.wave_id,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
             statistic = :median,
             colormap = M.Reverse(:RdBu),
-            fixed_colorrange = true,
             show_values = true,
-            colorbar_label = "median grouped measure",
+            colorbar_label = "median grouped value",
             simplified_labels = true,
             clist_size = 60,
         )
-        pp.save_pipeline_plot(fig_heatmap, "group_heatmap_" * stem; dir = dir)
+        pp.save_pipeline_plot(fig_heatmap, GROUP_TRIPLET_PANEL_BASENAME * "_" * stem; dir = dir)
 
         fig_o_smoothed = pp.plot_pipeline_group_heatmap(
             combo_results;

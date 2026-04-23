@@ -19,7 +19,9 @@ const OPERATIONAL_R = parse(Int, get(ENV, "PREFPOL_NESTED_R", "2"))
 const OPERATIONAL_K = parse(Int, get(ENV, "PREFPOL_NESTED_K", "2"))
 const OPERATIONAL_FORCE = lowercase(get(ENV, "PREFPOL_NESTED_FORCE", "false")) in ("1", "true", "yes")
 const OPERATIONAL_TIE_POLICY = :average
-const FULL_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :G]
+# Include `:O` and cleaned `:S` because the replaced grouped summary slot is
+# now the shared-scale `C | 1 - O | S` triplet panel.
+const FULL_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :O, :S, :G]
 const SCENARIO_2006_CRISTOVAM = "lula_alckmin_heloisa_serra_cristovam"
 const SCENARIO_2006_AECIO = "lula_alckmin_heloisa_serra_aecio"
 const SCENARIO_2022_TARCISIO = "lula_bolsonaro_ciro_marina_tarcisio"
@@ -54,17 +56,17 @@ const GROUP_LINE_PLOTS = [
      groupings = nothing, stem = "2006_lula_alckmin_aecio_group_lines"),
 ]
 
-const GROUP_HEATMAP_PLOTS = [
+const GROUP_TRIPLET_PANEL_PLOTS = [
     (year = 2018, scenario_name = "main_four", imputer_backend = :mice,
-     measures = [:C, :D, :G], groupings = nothing, stem = "2018_main_four_group_heatmap"),
+     groupings = nothing, stem = "2018_main_four_group_triplet_panel_C_1mO_S"),
     (year = 2022, scenario_name = SCENARIO_2022_TEBET, imputer_backend = :mice,
-     measures = [:C, :D, :G], groupings = nothing, stem = "2022_lula_bolsonaro_tebet_group_heatmap"),
+     groupings = nothing, stem = "2022_lula_bolsonaro_tebet_group_triplet_panel_C_1mO_S"),
     (year = 2022, scenario_name = SCENARIO_2022_TARCISIO, imputer_backend = :mice,
-     measures = [:C, :D, :G], groupings = nothing, stem = "2022_lula_bolsonaro_tarcisio_group_heatmap"),
+     groupings = nothing, stem = "2022_lula_bolsonaro_tarcisio_group_triplet_panel_C_1mO_S"),
     (year = 2006, scenario_name = SCENARIO_2006_CRISTOVAM, imputer_backend = :mice,
-     measures = [:C, :D, :G], groupings = nothing, stem = "2006_lula_alckmin_cristovam_group_heatmap"),
+     groupings = nothing, stem = "2006_lula_alckmin_cristovam_group_triplet_panel_C_1mO_S"),
     (year = 2006, scenario_name = SCENARIO_2006_AECIO, imputer_backend = :mice,
-     measures = [:C, :D, :G], groupings = nothing, stem = "2006_lula_alckmin_aecio_group_heatmap"),
+     groupings = nothing, stem = "2006_lula_alckmin_aecio_group_triplet_panel_C_1mO_S"),
 ]
 
 function load_operational_configs(cfgdir::AbstractString = CONFIG_DIR)
@@ -94,7 +96,7 @@ function operational_targets()
         push!(targets, (entry.year, entry.scenario_name, entry.imputer_backend))
     end
 
-    for entry in GROUP_HEATMAP_PLOTS
+    for entry in GROUP_TRIPLET_PANEL_PLOTS
         push!(targets, (entry.year, entry.scenario_name, entry.imputer_backend))
     end
 
@@ -176,20 +178,20 @@ function render_group_line_plots(results)
     end
 end
 
-function render_group_heatmaps(results)
-    for entry in GROUP_HEATMAP_PLOTS
-        fig = pp.plot_pipeline_group_heatmap(
+function render_group_triplet_panels(results)
+    for entry in GROUP_TRIPLET_PANEL_PLOTS
+        # Replace the old grouped summary heatmap slot rather than adding a new
+        # grouped figure alongside the other heatmap outputs.
+        fig = _PLOT_EXT.plot_pipeline_group_triplet_panel(
             results;
             year = entry.year,
             scenario_name = entry.scenario_name,
             imputer_backend = entry.imputer_backend,
-            measures = entry.measures,
             groupings = entry.groupings,
             statistic = :median,
-            maxcols = 3,
             colormap = M.Reverse(:RdBu),
-            fixed_colorrange = true,
             show_values = true,
+            colorbar_label = "median grouped value",
             simplified_labels = true,
             clist_size = 60,
         )
@@ -208,4 +210,4 @@ summary_table = pp.pipeline_summary_table(results)
 
 render_scenario_plots(results)
 render_group_line_plots(results)
-render_group_heatmaps(results)
+render_group_triplet_panels(results)

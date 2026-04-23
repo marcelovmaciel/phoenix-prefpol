@@ -36,6 +36,14 @@ const _CANONICAL_GROUP_HEATMAP_LABELS = Dict(
     :O => "1 - O",
     :Gsep => "G",
 )
+const _GROUP_TRIPLET_PANEL_MEASURES = (:C, :O, :S)
+const _GROUP_TRIPLET_PANEL_COMPLEMENTS = (:O,)
+const _GROUP_TRIPLET_PANEL_LABELS = Dict(
+    :C => "C",
+    :O => "1 - O",
+    :S => "S",
+)
+const _GROUP_TRIPLET_PANEL_COLORRANGE = (0.0f0, 1.0f0)
 
 function _plot_measure_label(measure::Symbol, measure_labels)
     if measure_labels !== nothing && haskey(measure_labels, measure)
@@ -72,6 +80,27 @@ function _resolve_heatmap_colorrange(allvals;
 
     colorrange = fixed_colorrange ? (0.0f0, 1.0f0) : (data_min, data_max)
     return colorrange, data_min, data_max
+end
+
+function _overlay_heatmap_values!(ax, xs_m, n_groups::Int, z)
+    n_m = length(xs_m)
+    xs = repeat(xs_m, inner = n_groups)
+    ys = repeat(collect(1:n_groups), outer = n_m)
+    labels = [isnan(z[i, j]) ? "NA" : @sprintf("%.3f", z[i, j]) for i in 1:n_m for j in 1:n_groups]
+    text!(ax, xs, ys; text = labels, align = (:center, :center), color = :black, fontsize = 8)
+    return nothing
+end
+
+function _add_heatmap_colorbar!(parent_layout, row::Int, col::Int, hm_ref, data_min, data_max;
+                                label::AbstractString)
+    cbgrid = GridLayout()
+    parent_layout[row, col] = cbgrid
+    Label(cbgrid[1, 1]; text = "max found = $(round(data_max; digits = 3))", halign = :center)
+    Colorbar(cbgrid[2, 1], hm_ref; label = label)
+    Label(cbgrid[3, 1]; text = "min found = $(round(data_min; digits = 3))", halign = :center)
+    rowsize!(cbgrid, 1, Auto(0.15))
+    rowsize!(cbgrid, 3, Auto(0.15))
+    return cbgrid
 end
 
 function _plot_title(rows::AbstractDataFrame;
@@ -958,6 +987,109 @@ function plot_pipeline_group_heatmap(result_or_results;
         rowsize!(cbgrid, 3, Auto(0.15))
         colsize!(fig.layout, ncol + 1, Relative(0.25))
     end
+
+    resize_to_layout!(fig)
+    return fig
+end
+
+function plot_pipeline_group_triplet_panel(result_or_results;
+                                           year = nothing,
+                                           wave_id = nothing,
+                                           scenario_name = nothing,
+                                           imputer_backend = :mice,
+                                           statistic::Symbol = :median,
+                                           groupings = nothing,
+                                           colormap = Makie.Reverse(:RdBu),
+                                           show_values::Bool = false,
+                                           colorbar_label = nothing,
+                                           simplified_labels::Bool = false,
+                                           clist_size = 60)
+    data = PrefPol.pipeline_group_heatmap_values(
+        result_or_results;
+        year = year,
+        wave_id = wave_id,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+        measures = collect(_GROUP_TRIPLET_PANEL_MEASURES),
+        groupings = groupings,
+        statistic = statistic,
+    )
+    rows = data.rows
+    m_values_int = Int.(data.m_values)
+    xs_m = Float32.(m_values_int)
+    group_syms = data.grouping_values
+    group_labels = string.(group_syms)
+    complemented = _normalized_measure_set(_GROUP_TRIPLET_PANEL_COMPLEMENTS)
+
+    # Replacement for the old compact grouped summary slot: plot C | 1 - O | S
+    # on one shared [0, 1] scale so this specific panel is no longer split.
+    matrices = Dict{Symbol,Matrix{Float32}}()
+    allvals = Float32[]
+    for measure in _GROUP_TRIPLET_PANEL_MEASURES
+        z = clamp.(_heatmap_panel_matrix(data, measure, complemented), 0.0f0, 1.0f0)
+        matrices[measure] = z
+        append!(allvals, filter(!isnan, vec(z)))
+    end
+    data_min, data_max = isempty(allvals) ? _GROUP_TRIPLET_PANEL_COLORRANGE : extrema(allvals)
+
+    title_txt = _plot_title(
+        rows;
+        year = year,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+    )
+
+    fig_height = max(420, 160 + 55 * length(group_syms))
+    fig = Figure(size = (max(1180, 10 * length(title_txt) + 80), fig_height))
+    rowgap!(fig.layout, 24)
+    colgap!(fig.layout, 24)
+    fig[1, 1:4] = Label(fig, title_txt; fontsize = 20, halign = :left)
+    fig[2, 1:4] = Label(
+        fig,
+        join(TextWrap.wrap(data.candidate_label; width = clist_size));
+        fontsize = 14,
+        halign = :left,
+    )
+
+    body = GridLayout()
+    fig[3, 1:4] = body
+    colgap!(body, 24)
+
+    hm_ref = nothing
+    for (idx, measure) in enumerate(_GROUP_TRIPLET_PANEL_MEASURES)
+        xlabel_txt = simplified_labels ? (idx == 2 ? "number of alternatives" : "") : "number of alternatives"
+        ylabel_txt = simplified_labels ? (idx == 1 ? "grouping" : "") : "grouping"
+        ax = Axis(
+            body[1, idx];
+            title = _GROUP_TRIPLET_PANEL_LABELS[measure],
+            xlabel = xlabel_txt,
+            ylabel = ylabel_txt,
+            xticks = (xs_m, string.(m_values_int)),
+            yticks = (1:length(group_syms), group_labels),
+        )
+        hm = heatmap!(
+            ax,
+            xs_m,
+            1:length(group_syms),
+            matrices[measure];
+            colormap = colormap,
+            colorrange = _GROUP_TRIPLET_PANEL_COLORRANGE,
+        )
+        show_values && _overlay_heatmap_values!(ax, xs_m, length(group_syms), matrices[measure])
+        hm_ref === nothing && (hm_ref = hm)
+    end
+
+    _add_heatmap_colorbar!(
+        body,
+        1,
+        4,
+        hm_ref,
+        data_min,
+        data_max;
+        label = something(colorbar_label, "grouped value"),
+    )
+    rowsize!(body, 1, Relative(1))
+    colsize!(body, 4, Relative(0.24))
 
     resize_to_layout!(fig)
     return fig
