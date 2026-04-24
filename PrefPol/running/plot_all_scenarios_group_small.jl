@@ -2,14 +2,14 @@
     plot_all_scenarios_group_small.jl
 
 Load the saved nested-analysis outputs produced by
-`running/run_all_scenarios_small.jl`, then generate the canonical grouped
-plots and grouped heatmaps for every saved wave/scenario using the exported
-nested plotting/data helpers.
+`running/run_all_scenarios_small.jl`, then generate the paper-ready grouped
+heatmaps for every saved wave/scenario using the exported nested plotting/data
+helpers.
 
 This script does not rerun the analysis pipeline. It reads the saved manifest at
 `running/output/all_scenarios_small/run_manifest.csv`, loads the cached
 `PipelineResult`s referenced there, and writes plots/tables under
-`running/output/all_scenarios_small/group/`.
+`running/output/all_scenarios_small/paper_group/`.
 
 Run later with:
 
@@ -19,40 +19,43 @@ Run later with:
 
 include(joinpath(@__DIR__, "plot_all_scenarios_global_small.jl"))
 
-const GROUP_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "group")
+const PAPER_GROUP_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "paper_group")
 const M = CairoMakie.Makie
+const ANALYSIS_ROLE_O_SMOOTHED_EXTENSION = "o_smoothed_extension"
 
-# These match the current grouped plotting workflow:
-# line plots use the exported defaults, while the old compact grouped summary
-# heatmap slot is replaced here by the dedicated `C / 1 - O / S` triplet panel.
-const CANONICAL_GROUP_LINE_MEASURES = [:C, :D, :G]
-const GROUP_TRIPLET_PANEL_MEASURES = [:C, :O, :S]
-const GROUP_TRIPLET_PANEL_LABELS = Dict(
+const PAPER_GROUP_HEATMAP_MEASURES = [:C, :D, :O, :S]
+const PAPER_GROUP_HEATMAP_LABELS = Dict(
     :C => "C",
+    :D => "D",
     :O => "1 - O",
     :S => "S",
 )
-const GROUP_TRIPLET_PANEL_BASENAME = "group_triplet_panel_C_1mO_S"
-const O_SMOOTHED_MEASURES = [:O_smoothed]
-const O_SMOOTHED_LABELS = Dict(:O_smoothed => "1 - O_smoothed")
-const ALL_GROUP_MEASURES = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S]
+const PAPER_GROUP_HEATMAP_COMPLEMENTS = [:O]
+const PAPER_GROUP_HEATMAP_BASENAME = "paper_group_heatmap_panel_C_D_1mO_S"
 
-function group_output_dir(target)
+const PAPER_O_SMOOTHED_MEASURES = [:O_smoothed]
+const PAPER_O_SMOOTHED_LABELS = Dict(:O_smoothed => "1 - O_smoothed")
+const PAPER_O_SMOOTHED_COMPLEMENTS = [:O_smoothed]
+const PAPER_O_SMOOTHED_BASENAME = "paper_o_smoothed_heatmap"
+
+function paper_group_output_dir(target)
     return joinpath(
-        GROUP_OUTPUT_ROOT,
+        PAPER_GROUP_OUTPUT_ROOT,
         sanitize_path_component(target.wave_id),
         sanitize_path_component(target.scenario_name),
     )
 end
 
-function _measure_mask(df::AbstractDataFrame, measures)
-    wanted = Set(Symbol.(collect(measures)))
-    return [Symbol(row.measure) in wanted for row in eachrow(df)]
-end
+function cleanup_paper_group_dir!(dir::AbstractString)
+    isdir(dir) || return nothing
 
-function filter_group_rows(df::AbstractDataFrame; measures = ALL_GROUP_MEASURES)
-    mask = _measure_mask(df, measures) .& .!ismissing.(df.grouping)
-    return DataFrame(df[mask, :])
+    for path in readdir(dir; join = true)
+        isfile(path) || continue
+        (endswith(path, ".png") || endswith(path, ".csv")) || continue
+        rm(path; force = true)
+    end
+
+    return nothing
 end
 
 function _complement_group_plot_columns!(out::DataFrame, complemented::Set{Symbol})
@@ -154,6 +157,36 @@ function prepare_group_plot_table(rows::AbstractDataFrame;
     return sorted_table(out)
 end
 
+function prepare_paper_group_heatmap_table(rows::AbstractDataFrame;
+                                           complement_measures = Symbol[],
+                                           measure_labels)
+    out = prepare_group_plot_table(
+        rows;
+        value_column = :q50,
+        complement_measures = complement_measures,
+        measure_labels = measure_labels,
+    )
+
+    if :display_measure in propertynames(out)
+        out[!, :measure] = String.(out.display_measure)
+    end
+
+    keep_cols = [
+        col for col in (
+            :wave_id, :year, :scenario_name,
+            :imputer_backend, :linearizer_policy,
+            :B, :R, :K,
+            :m, :n_candidates, :grouping, :measure,
+            :n_draws,
+            :value, :estimate, :mean_value,
+            :q05, :q25, :q50, :q75, :q95,
+            :min_value, :max_value, :value_lo_min, :value_hi_max,
+        ) if col in propertynames(out)
+    ]
+
+    return sorted_table(select(out, keep_cols))
+end
+
 function combo_stem(combo)
     return string(
         sanitize_path_component(String(combo.imputer_backend)),
@@ -165,17 +198,22 @@ end
 function write_group_scenario_outputs!(results::pp.BatchRunResult,
                                        manifest::DataFrame,
                                        target)
-    dir = group_output_dir(target)
+    dir = paper_group_output_dir(target)
     mkpath(dir)
+    cleanup_paper_group_dir!(dir)
 
     scenario_results = subset_batch_results(
         results;
         wave_id = target.wave_id,
         scenario_name = target.scenario_name,
+        analysis_role = ANALYSIS_ROLE_MAIN,
     )
-
-    decomposition_table = filter_group_rows(combined_decomposition_table(scenario_results))
-    save_csv(joinpath(dir, "decomposition_table.csv"), sorted_table(decomposition_table))
+    o_smoothed_results = subset_batch_results(
+        results;
+        wave_id = target.wave_id,
+        scenario_name = target.scenario_name,
+        analysis_role = ANALYSIS_ROLE_O_SMOOTHED_EXTENSION,
+    )
 
     for combo in backend_combinations(manifest, target)
         combo_results = subset_batch_results(
@@ -185,108 +223,83 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
         )
         stem = combo_stem(combo)
 
-        line_data = pp.pipeline_group_plot_data(
-            combo_results;
-            wave_id = target.wave_id,
-            scenario_name = target.scenario_name,
-            imputer_backend = combo.imputer_backend,
-            measures = CANONICAL_GROUP_LINE_MEASURES,
-        )
-        save_csv(
-            joinpath(dir, "group_lines_table_" * stem * ".csv"),
-            prepare_group_plot_table(line_data.rows; value_column = :estimate),
-        )
-
         heatmap_data = pp.pipeline_group_heatmap_values(
             combo_results;
             wave_id = target.wave_id,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
-            measures = GROUP_TRIPLET_PANEL_MEASURES,
+            measures = PAPER_GROUP_HEATMAP_MEASURES,
             statistic = :median,
         )
         save_csv(
-            joinpath(dir, GROUP_TRIPLET_PANEL_BASENAME * "_table_" * stem * ".csv"),
-            prepare_group_plot_table(
+            joinpath(dir, PAPER_GROUP_HEATMAP_BASENAME * "_table_" * stem * ".csv"),
+            prepare_paper_group_heatmap_table(
                 heatmap_data.rows;
-                value_column = :q50,
-                complement_measures = [:O],
-                measure_labels = GROUP_TRIPLET_PANEL_LABELS,
+                complement_measures = PAPER_GROUP_HEATMAP_COMPLEMENTS,
+                measure_labels = PAPER_GROUP_HEATMAP_LABELS,
             ),
         )
 
+        o_smoothed_combo_results = subset_batch_results(
+            o_smoothed_results;
+            imputer_backend = combo.imputer_backend,
+            linearizer_policy = combo.linearizer_policy,
+        )
         o_smoothed_data = pp.pipeline_group_heatmap_values(
-            combo_results;
+            o_smoothed_combo_results;
             wave_id = target.wave_id,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
-            measures = O_SMOOTHED_MEASURES,
+            measures = PAPER_O_SMOOTHED_MEASURES,
             statistic = :median,
         )
         save_csv(
-            joinpath(dir, "o_smoothed_heatmap_table_" * stem * ".csv"),
-            prepare_group_plot_table(
+            joinpath(dir, PAPER_O_SMOOTHED_BASENAME * "_table_" * stem * ".csv"),
+            prepare_paper_group_heatmap_table(
                 o_smoothed_data.rows;
-                value_column = :q50,
-                complement_measures = [:O_smoothed],
-                measure_labels = O_SMOOTHED_LABELS,
+                complement_measures = PAPER_O_SMOOTHED_COMPLEMENTS,
+                measure_labels = PAPER_O_SMOOTHED_LABELS,
             ),
         )
 
-        # The exported grouped plotting helpers filter on imputer backend only,
-        # so we subset to one explicit linearizer branch here rather than
-        # reimplement the grouped figures.
-        fig_lines = pp.plot_pipeline_group_lines(
+        fig_heatmap = _PLOT_EXT.plot_pipeline_group_paper_heatmap(
             combo_results;
             wave_id = target.wave_id,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
-            measures = CANONICAL_GROUP_LINE_MEASURES,
-            maxcols = 3,
-            clist_size = 60,
-        )
-        pp.save_pipeline_plot(fig_lines, "group_lines_" * stem; dir = dir)
-
-        # Replace the old grouped summary heatmap output for this slot instead
-        # of emitting an additional grouped panel.
-        fig_heatmap = _PLOT_EXT.plot_pipeline_group_triplet_panel(
-            combo_results;
-            wave_id = target.wave_id,
-            scenario_name = target.scenario_name,
-            imputer_backend = combo.imputer_backend,
+            measures = PAPER_GROUP_HEATMAP_MEASURES,
             statistic = :median,
+            complement_measures = PAPER_GROUP_HEATMAP_COMPLEMENTS,
+            measure_labels = PAPER_GROUP_HEATMAP_LABELS,
             colormap = M.Reverse(:RdBu),
             show_values = true,
-            colorbar_label = "median grouped value",
-            simplified_labels = true,
+            colorbar_label = "median value",
             clist_size = 60,
         )
-        pp.save_pipeline_plot(fig_heatmap, GROUP_TRIPLET_PANEL_BASENAME * "_" * stem; dir = dir)
+        pp.save_pipeline_plot(fig_heatmap, PAPER_GROUP_HEATMAP_BASENAME * "_" * stem; dir = dir)
 
-        fig_o_smoothed = pp.plot_pipeline_group_heatmap(
-            combo_results;
+        fig_o_smoothed = _PLOT_EXT.plot_pipeline_group_paper_osmoothed_heatmap(
+            o_smoothed_combo_results;
             wave_id = target.wave_id,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
-            measures = O_SMOOTHED_MEASURES,
             statistic = :median,
-            complement_measures = [:O_smoothed],
-            measure_labels = O_SMOOTHED_LABELS,
-            maxcols = 1,
             colormap = M.Reverse(:RdBu),
-            fixed_colorrange = true,
             show_values = true,
             colorbar_label = "median 1 - O_smoothed",
-            simplified_labels = true,
             clist_size = 60,
         )
-        pp.save_pipeline_plot(fig_o_smoothed, "o_smoothed_heatmap_" * stem; dir = dir)
+        pp.save_pipeline_plot(fig_o_smoothed, PAPER_O_SMOOTHED_BASENAME * "_" * stem; dir = dir)
     end
 
     return nothing
 end
 
 function main_group()
+    isfile(MANIFEST_PATH) || error(
+        "Saved small-run manifest not found at $(MANIFEST_PATH). Run PrefPol/running/run_all_scenarios_small.jl first.",
+    )
+
     manifest = load_small_run_manifest()
     results = load_saved_small_results(manifest)
 

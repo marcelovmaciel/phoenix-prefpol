@@ -31,6 +31,7 @@ const SMALL_OUTPUT_ROOT = joinpath(pp.project_root, "running", "output", "all_sc
 const MANIFEST_PATH = joinpath(SMALL_OUTPUT_ROOT, "run_manifest.csv")
 const GLOBAL_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "global")
 const GLOBAL_MEASURES = [:Psi, :R, :HHI, :RHHI]
+const ANALYSIS_ROLE_MAIN = "main"
 const WRITE_GLOBAL_TABLES = lowercase(get(ENV, "PREFPOL_GLOBAL_SMALL_WRITE_TABLES", "true")) in ("1", "true", "yes")
 
 function csv_escape(value)
@@ -153,6 +154,9 @@ function _batch_metadata(row)
         year = Int(row.year),
         scenario_name = String(row.scenario_name),
         m = Int(row.m),
+        analysis_role = :analysis_role in propertynames(row) ? String(row.analysis_role) : ANALYSIS_ROLE_MAIN,
+        scenario_dir = :scenario_dir in propertynames(row) ? String(row.scenario_dir) : "",
+        base_scenario_dir = :base_scenario_dir in propertynames(row) ? String(row.base_scenario_dir) : "",
     )
 end
 
@@ -183,7 +187,10 @@ function load_saved_small_results(manifest::DataFrame)
 end
 
 function scenario_targets(manifest::DataFrame)
-    rows = unique(select(manifest, :wave_id, :year, :scenario_name))
+    manifest_rows = :analysis_role in propertynames(manifest) ?
+                    manifest[manifest.analysis_role .== ANALYSIS_ROLE_MAIN, :] :
+                    manifest
+    rows = unique(select(manifest_rows, :wave_id, :year, :scenario_name))
     return sort(
         [(
             wave_id = String(row.wave_id),
@@ -250,6 +257,7 @@ end
 function subset_batch_results(results::pp.BatchRunResult;
                               wave_id = nothing,
                               scenario_name = nothing,
+                              analysis_role = nothing,
                               imputer_backend = nothing,
                               linearizer_policy = nothing)
     items = pp.StudyBatchItem[]
@@ -264,6 +272,9 @@ function subset_batch_results(results::pp.BatchRunResult;
         scenario_name !== nothing &&
             (!hasproperty(meta, :scenario_name) || String(meta.scenario_name) != String(scenario_name)) &&
             continue
+        analysis_role !== nothing &&
+            (!hasproperty(meta, :analysis_role) || String(meta.analysis_role) != String(analysis_role)) &&
+            continue
         imputer_backend !== nothing && spec.imputer_backend != Symbol(imputer_backend) && continue
         linearizer_policy !== nothing && spec.linearizer_policy != Symbol(linearizer_policy) && continue
 
@@ -276,10 +287,11 @@ function subset_batch_results(results::pp.BatchRunResult;
     return pp.BatchRunResult(pp.StudyBatchSpec(items), subset_results, subset_meta)
 end
 
-function backend_combinations(manifest::DataFrame, target)
+function backend_combinations(manifest::DataFrame, target; analysis_role = ANALYSIS_ROLE_MAIN)
     rows = manifest[
         (manifest.wave_id .== target.wave_id) .&
-        (manifest.scenario_name .== target.scenario_name),
+        (manifest.scenario_name .== target.scenario_name) .&
+        (:analysis_role in propertynames(manifest) ? (manifest.analysis_role .== String(analysis_role)) : trues(nrow(manifest))),
         [:imputer_backend, :linearizer_policy],
     ]
     combos = unique(rows)
@@ -303,6 +315,7 @@ function write_scenario_outputs!(results::pp.BatchRunResult,
         results;
         wave_id = target.wave_id,
         scenario_name = target.scenario_name,
+        analysis_role = ANALYSIS_ROLE_MAIN,
     )
 
     summary_table = filter_global_rows(pp.pipeline_summary_table(scenario_results))

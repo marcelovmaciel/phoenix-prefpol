@@ -26,10 +26,16 @@ const K_SMALL = parse(Int, get(ENV, "PREFPOL_ALL_SCENARIOS_SMALL_K", "2"))
 const FORCE_RUN = lowercase(get(ENV, "PREFPOL_ALL_SCENARIOS_SMALL_FORCE", "false")) in ("1", "true", "yes")
 
 const CONSENSUS_TIE_POLICY = :average
-const FULL_MEASURES = [
+const MAIN_PAPER_MEASURES = [
     :Psi, :R, :HHI, :RHHI,
-    :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S,
+    :C, :D, :O, :S,
 ]
+const O_SMOOTHED_EXTENSION_MEASURES = [:O_smoothed]
+const RANKING_SUPPORT_DIAGNOSTIC_MEASURES = [:Psi]
+const MAIN_PAPER_M_VALUES = 2:5
+const ANALYSIS_ROLE_MAIN = "main"
+const ANALYSIS_ROLE_O_SMOOTHED_EXTENSION = "o_smoothed_extension"
+const ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC = "ranking_support_diagnostic"
 const BACKEND_COMBINATIONS = [
     (imputer_backend = :random, linearizer_policy = :random_ties),
     (imputer_backend = :random, linearizer_policy = :pattern_conditional),
@@ -112,6 +118,36 @@ function discover_supported_m_values(wcfg::pp.SurveyWaveConfig,
     return supported
 end
 
+function paper_main_m_values(wcfg::pp.SurveyWaveConfig,
+                             supported::AbstractVector{<:Integer})
+    supported_set = Set(Int.(supported))
+    values = [m for m in MAIN_PAPER_M_VALUES if m in supported_set && m <= wcfg.max_candidates]
+    isempty(values) && error("No main paper m values are supported for wave=$(wcfg.wave_id).")
+    return values
+end
+
+function o_smoothed_extension_m_values(wcfg::pp.SurveyWaveConfig,
+                                       supported::AbstractVector{<:Integer})
+    max_m = wcfg.max_candidates
+    max_m in Set(Int.(supported)) || error(
+        "The O_smoothed extension requires m=$(max_m) for wave=$(wcfg.wave_id), but it is not supported.",
+    )
+    max_m > maximum(MAIN_PAPER_M_VALUES) || return Int[]
+    return [max_m]
+end
+
+function ranking_support_diagnostic_m_values(wcfg::pp.SurveyWaveConfig,
+                                             supported::AbstractVector{<:Integer})
+    supported_set = Set(Int.(supported))
+    main_set = Set(paper_main_m_values(wcfg, supported))
+    extension_set = Set(o_smoothed_extension_m_values(wcfg, supported))
+
+    return [
+        m for m in 2:wcfg.max_candidates
+        if m in supported_set && !(m in main_set) && !(m in extension_set)
+    ]
+end
+
 function discover_all_targets(waves::Vector{pp.SurveyWaveConfig})
     targets = NamedTuple[]
 
@@ -120,11 +156,15 @@ function discover_all_targets(waves::Vector{pp.SurveyWaveConfig})
         isempty(scenario_names) && error("Wave $(wcfg.wave_id) has no configured scenarios.")
 
         for scenario_name in scenario_names
+            supported_m_values = discover_supported_m_values(wcfg, scenario_name)
             push!(targets, (
                 wave_id = wcfg.wave_id,
                 year = wcfg.year,
                 scenario_name = scenario_name,
-                m_values = discover_supported_m_values(wcfg, scenario_name),
+                supported_m_values = supported_m_values,
+                main_m_values = paper_main_m_values(wcfg, supported_m_values),
+                o_smoothed_extension_m_values = o_smoothed_extension_m_values(wcfg, supported_m_values),
+                ranking_support_diagnostic_m_values = ranking_support_diagnostic_m_values(wcfg, supported_m_values),
                 groupings = join(wcfg.demographic_cols, "|"),
                 scenario_dir = scenario_dir_rel(wcfg, scenario_name),
             ))
@@ -134,20 +174,60 @@ function discover_all_targets(waves::Vector{pp.SurveyWaveConfig})
     return targets
 end
 
+function analysis_role_dir_rel(role::AbstractString, scenario_dir::AbstractString)
+    return joinpath(sanitize_path_component(role), scenario_dir)
+end
+
+function role_spec_plan(target)
+    plans = NamedTuple[]
+
+    for m in target.main_m_values
+        push!(plans, (
+            analysis_role = ANALYSIS_ROLE_MAIN,
+            m = m,
+            measures = MAIN_PAPER_MEASURES,
+            groupings = :configured,
+            scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_MAIN, target.scenario_dir),
+        ))
+    end
+
+    for m in target.o_smoothed_extension_m_values
+        push!(plans, (
+            analysis_role = ANALYSIS_ROLE_O_SMOOTHED_EXTENSION,
+            m = m,
+            measures = O_SMOOTHED_EXTENSION_MEASURES,
+            groupings = :configured,
+            scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_O_SMOOTHED_EXTENSION, target.scenario_dir),
+        ))
+    end
+
+    for m in target.ranking_support_diagnostic_m_values
+        push!(plans, (
+            analysis_role = ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC,
+            m = m,
+            measures = RANKING_SUPPORT_DIAGNOSTIC_MEASURES,
+            groupings = :none,
+            scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC, target.scenario_dir),
+        ))
+    end
+
+    return plans
+end
+
 function build_batch(targets, wave_by_id)
     items = pp.StudyBatchItem[]
 
     for target in targets
         wcfg = wave_by_id[target.wave_id]
 
-        for m in target.m_values
+        for plan in role_spec_plan(target)
             for combo in BACKEND_COMBINATIONS
                 spec = pp.build_pipeline_spec(
                     wcfg;
                     scenario_name = target.scenario_name,
-                    m = m,
-                    groupings = Symbol.(wcfg.demographic_cols),
-                    measures = FULL_MEASURES,
+                    m = plan.m,
+                    groupings = plan.groupings === :none ? Symbol[] : Symbol.(wcfg.demographic_cols),
+                    measures = plan.measures,
                     B = B_SMALL,
                     R = R_SMALL,
                     K = K_SMALL,
@@ -160,10 +240,12 @@ function build_batch(targets, wave_by_id)
                     spec;
                     year = target.year,
                     scenario_name = target.scenario_name,
-                    m = m,
+                    m = plan.m,
+                    analysis_role = plan.analysis_role,
                     active_candidates = join(spec.active_candidates, "|"),
                     candidate_label = pp.describe_candidate_set(spec.active_candidates),
-                    scenario_dir = target.scenario_dir,
+                    scenario_dir = plan.scenario_dir,
+                    base_scenario_dir = target.scenario_dir,
                 ))
             end
         end
@@ -223,6 +305,7 @@ function manifest_row(result::pp.PipelineResult, extra_meta::NamedTuple)
 
     return (
         batch_index = getproperty(extra_meta, :batch_index),
+        analysis_role = getproperty(extra_meta, :analysis_role),
         wave_id = spec.wave_id,
         year = getproperty(extra_meta, :year),
         scenario_name = getproperty(extra_meta, :scenario_name),
@@ -233,7 +316,9 @@ function manifest_row(result::pp.PipelineResult, extra_meta::NamedTuple)
         B = spec.B,
         R = spec.R,
         K = spec.K,
+        scenario_dir = getproperty(extra_meta, :scenario_dir),
         output_dir = scenario_root,
+        base_scenario_dir = getproperty(extra_meta, :base_scenario_dir),
         cache_dir = result.cache_dir,
         result_path = result_path,
         decomposition_csv = joinpath(scenario_root, "specs", spec_stem * "_decomposition.csv"),
@@ -244,6 +329,7 @@ function sorted_table(df::DataFrame)
     sort_cols = [
         col for col in (
             :wave_id, :year, :scenario_name, :m,
+            :analysis_role,
             :imputer_backend, :linearizer_policy,
             :measure, :grouping, :b, :r, :k,
         ) if col in propertynames(df)
@@ -259,6 +345,12 @@ function write_scenario_tables!(root_measure::DataFrame,
                                 manifest::DataFrame,
                                 targets)
     for target in targets
+        target_dirs = unique([plan.scenario_dir for plan in role_spec_plan(target)])
+
+        for scenario_dir in target_dirs
+            mkpath(joinpath(OUTPUT_ROOT, scenario_dir, "specs"))
+        end
+
         dir = joinpath(OUTPUT_ROOT, target.scenario_dir)
         mkpath(joinpath(dir, "specs"))
 
@@ -268,18 +360,45 @@ function write_scenario_tables!(root_measure::DataFrame,
         save_csv(joinpath(dir, "scenario_manifest.csv"), scenario_manifest)
 
         measure_mask = (root_measure.wave_id .== target.wave_id) .&
-                       (root_measure.scenario_name .== target.scenario_name)
+                       (root_measure.scenario_name .== target.scenario_name) .&
+                       (root_measure.analysis_role .== ANALYSIS_ROLE_MAIN)
         summary_mask = (root_summary.wave_id .== target.wave_id) .&
-                       (root_summary.scenario_name .== target.scenario_name)
+                       (root_summary.scenario_name .== target.scenario_name) .&
+                       (root_summary.analysis_role .== ANALYSIS_ROLE_MAIN)
         panel_mask = (root_panel.wave_id .== target.wave_id) .&
-                     (root_panel.scenario_name .== target.scenario_name)
+                     (root_panel.scenario_name .== target.scenario_name) .&
+                     (root_panel.analysis_role .== ANALYSIS_ROLE_MAIN)
         decomp_mask = (root_decomp.wave_id .== target.wave_id) .&
-                      (root_decomp.scenario_name .== target.scenario_name)
+                      (root_decomp.scenario_name .== target.scenario_name) .&
+                      (root_decomp.analysis_role .== ANALYSIS_ROLE_MAIN)
 
         save_csv(joinpath(dir, "measure_table.csv"), sorted_table(root_measure[measure_mask, :]))
         save_csv(joinpath(dir, "summary_table.csv"), sorted_table(root_summary[summary_mask, :]))
         save_csv(joinpath(dir, "panel_table.csv"), sorted_table(root_panel[panel_mask, :]))
         save_csv(joinpath(dir, "decomposition_table.csv"), sorted_table(root_decomp[decomp_mask, :]))
+
+        for scenario_dir in target_dirs
+            role_dir = joinpath(OUTPUT_ROOT, scenario_dir)
+            role_manifest_mask = mask .& (manifest.scenario_dir .== scenario_dir)
+            role_measure_mask = (root_measure.wave_id .== target.wave_id) .&
+                                (root_measure.scenario_name .== target.scenario_name) .&
+                                (root_measure.scenario_dir .== scenario_dir)
+            role_summary_mask = (root_summary.wave_id .== target.wave_id) .&
+                                (root_summary.scenario_name .== target.scenario_name) .&
+                                (root_summary.scenario_dir .== scenario_dir)
+            role_panel_mask = (root_panel.wave_id .== target.wave_id) .&
+                              (root_panel.scenario_name .== target.scenario_name) .&
+                              (root_panel.scenario_dir .== scenario_dir)
+            role_decomp_mask = (root_decomp.wave_id .== target.wave_id) .&
+                               (root_decomp.scenario_name .== target.scenario_name) .&
+                               (root_decomp.scenario_dir .== scenario_dir)
+
+            save_csv(joinpath(role_dir, "scenario_manifest.csv"), sorted_table(manifest[role_manifest_mask, :]))
+            save_csv(joinpath(role_dir, "measure_table.csv"), sorted_table(root_measure[role_measure_mask, :]))
+            save_csv(joinpath(role_dir, "summary_table.csv"), sorted_table(root_summary[role_summary_mask, :]))
+            save_csv(joinpath(role_dir, "panel_table.csv"), sorted_table(root_panel[role_panel_mask, :]))
+            save_csv(joinpath(role_dir, "decomposition_table.csv"), sorted_table(root_decomp[role_decomp_mask, :]))
+        end
     end
 
     return nothing
@@ -305,7 +424,9 @@ function print_run_summary(targets, batch::pp.StudyBatchSpec)
         println(
             "  - wave=", target.wave_id,
             " scenario=", target.scenario_name,
-            " m=", join(target.m_values, ","),
+            " main_m=", join(target.main_m_values, ","),
+            " o_smoothed_extension_m=", join(target.o_smoothed_extension_m_values, ","),
+            " ranking_support_diagnostic_m=", join(target.ranking_support_diagnostic_m_values, ","),
             " groupings=", target.groupings,
         )
     end
@@ -326,9 +447,9 @@ function main()
     runner = pp.BatchRunner(pipeline)
     results = pp.run_batch(runner, batch; force = FORCE_RUN)
 
-    root_measure = sorted_table(pp.pipeline_measure_table(results))
-    root_summary = sorted_table(pp.pipeline_summary_table(results))
-    root_panel = sorted_table(pp.pipeline_panel_table(results))
+    all_measure = sorted_table(pp.pipeline_measure_table(results))
+    all_summary = sorted_table(pp.pipeline_summary_table(results))
+    all_panel = sorted_table(pp.pipeline_panel_table(results))
 
     manifest_rows = NamedTuple[]
     decomp_tables = DataFrame[]
@@ -348,7 +469,11 @@ function main()
     end
 
     root_manifest = sorted_table(DataFrame(manifest_rows))
-    root_decomp = isempty(decomp_tables) ? DataFrame() : sorted_table(vcat(decomp_tables...; cols = :union))
+    all_decomp = isempty(decomp_tables) ? DataFrame() : sorted_table(vcat(decomp_tables...; cols = :union))
+    root_measure = sorted_table(all_measure[all_measure.analysis_role .== ANALYSIS_ROLE_MAIN, :])
+    root_summary = sorted_table(all_summary[all_summary.analysis_role .== ANALYSIS_ROLE_MAIN, :])
+    root_panel = sorted_table(all_panel[all_panel.analysis_role .== ANALYSIS_ROLE_MAIN, :])
+    root_decomp = sorted_table(all_decomp[all_decomp.analysis_role .== ANALYSIS_ROLE_MAIN, :])
 
     save_csv(joinpath(OUTPUT_ROOT, "run_manifest.csv"), root_manifest)
     save_csv(joinpath(OUTPUT_ROOT, "measure_table.csv"), root_measure)
@@ -356,7 +481,7 @@ function main()
     save_csv(joinpath(OUTPUT_ROOT, "panel_table.csv"), root_panel)
     save_csv(joinpath(OUTPUT_ROOT, "decomposition_table.csv"), root_decomp)
 
-    write_scenario_tables!(root_measure, root_summary, root_panel, root_decomp, root_manifest, targets)
+    write_scenario_tables!(all_measure, all_summary, all_panel, all_decomp, root_manifest, targets)
 
     println("Saved run manifest: ", joinpath(OUTPUT_ROOT, "run_manifest.csv"))
     println("Saved measure table: ", joinpath(OUTPUT_ROOT, "measure_table.csv"))
@@ -370,7 +495,3 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     main()
 end
-
-
-main()
-

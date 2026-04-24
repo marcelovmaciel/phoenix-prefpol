@@ -60,8 +60,6 @@ struct ElectionConfig
     scenarios       :: Vector{Scenario}    # list of Scenario structs
 end
 
-const PREFPOL_ACTIVE_MAX_CANDIDATES = 5
-
 function _validate_candidate_count(m::Integer,
                                    max_candidates::Integer;
                                    context::AbstractString,
@@ -83,8 +81,8 @@ function _validate_candidate_count(m::Integer,
 end
 
 function _validate_election_cfg(cfg::ElectionConfig)
-    cfg.max_candidates == PREFPOL_ACTIVE_MAX_CANDIDATES || throw(ArgumentError(
-        "Election year $(cfg.year) must cap max_candidates at $(PREFPOL_ACTIVE_MAX_CANDIDATES); got $(cfg.max_candidates).",
+    cfg.max_candidates >= 2 || throw(ArgumentError(
+        "Election year $(cfg.year) must set max_candidates >= 2; got $(cfg.max_candidates).",
     ))
 
     cfg.n_alternatives == cfg.max_candidates || throw(ArgumentError(
@@ -92,9 +90,22 @@ function _validate_election_cfg(cfg::ElectionConfig)
         "got n_alternatives=$(cfg.n_alternatives), max_candidates=$(cfg.max_candidates).",
     ))
 
-    expected_m_values = collect(2:cfg.max_candidates)
-    cfg.m_values_range == expected_m_values || throw(ArgumentError(
-        "Election year $(cfg.year) must use m_values_range = $(expected_m_values); got $(cfg.m_values_range).",
+    !isempty(cfg.m_values_range) || throw(ArgumentError(
+        "Election year $(cfg.year) must provide a nonempty m_values_range.",
+    ))
+    cfg.m_values_range == sort(unique(cfg.m_values_range)) || throw(ArgumentError(
+        "Election year $(cfg.year) must provide a sorted, unique m_values_range; got $(cfg.m_values_range).",
+    ))
+    invalid_m_values = [m for m in cfg.m_values_range if m < 2 || m > cfg.max_candidates]
+    isempty(invalid_m_values) || throw(ArgumentError(
+        "Election year $(cfg.year) has m_values_range values outside 2:max_candidates ($(cfg.max_candidates)): $(invalid_m_values).",
+    ))
+
+    length(cfg.candidates) >= cfg.max_candidates || throw(ArgumentError(
+        "Election year $(cfg.year) declares max_candidates=$(cfg.max_candidates), but only $(length(cfg.candidates)) candidates are listed.",
+    ))
+    length(unique(cfg.candidates)) == length(cfg.candidates) || throw(ArgumentError(
+        "Election year $(cfg.year) contains duplicate candidate names.",
     ))
 
     scenario_names = [sc.name for sc in cfg.scenarios]

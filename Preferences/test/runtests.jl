@@ -300,6 +300,78 @@ end
     @test pp.can_polarization(eq) == 1.0
 end
 
+@testset "Effective reversal and ranking-support diagnostics" begin
+    pool3 = pp.CandidatePool([:A, :B, :C])
+    abc = pp.StrictRank(pool3, [:A, :B, :C])
+    acb = pp.StrictRank(pool3, [:A, :C, :B])
+    bac = pp.StrictRank(pool3, [:B, :A, :C])
+    bca = pp.StrictRank(pool3, [:B, :C, :A])
+    cab = pp.StrictRank(pool3, [:C, :A, :B])
+    cba = pp.StrictRank(pool3, [:C, :B, :A])
+
+    unanim = pp.Profile(pool3, [abc, abc, abc])
+    unanim_eff = pp.effective_reversal_ranking_diagnostics(unanim)
+    unanim_support = pp.ranking_support_diagnostics(unanim)
+    @test unanim_eff.EO ≈ 1.0
+    @test unanim_eff.ER ≈ 0.0
+    @test unanim_eff.reversal_to_ranking_effective_ratio ≈ 0.0
+    @test unanim_support.n_unique_rankings == 1
+    @test unanim_support.max_ranking_mass ≈ 1.0
+
+    uniform = pp.Profile(pool3, [abc, acb, bac, bca, cab, cba])
+    uniform_eff = pp.effective_reversal_ranking_diagnostics(uniform)
+    uniform_support = pp.ranking_support_diagnostics(uniform)
+    @test uniform_eff.EO ≈ 6.0
+    @test uniform_eff.ER ≈ 3.0
+    @test uniform_eff.reversal_to_ranking_effective_ratio ≈ 0.5
+    @test uniform_support.possible_rankings == 6
+    @test uniform_support.n_unique_rankings == 6
+    @test uniform_support.unique_share_of_possible ≈ 1.0
+
+    inversion = pp.Profile(pool3, [abc, abc, cba, cba])
+    inversion_eff = pp.effective_reversal_ranking_diagnostics(inversion)
+    inversion_support = pp.ranking_support_diagnostics(inversion)
+    @test inversion_eff.EO ≈ 2.0
+    @test inversion_eff.ER ≈ 1.0
+    @test inversion_eff.reversal_to_ranking_effective_ratio ≈ 0.5
+    @test inversion_support.n_unique_rankings == 2
+
+    nonuniform = pp.Profile(pool3, [abc, abc, abc, abc, cba, cba, acb, acb, acb, bca])
+    nonuniform_eff = pp.effective_reversal_ranking_diagnostics(nonuniform)
+    expected_EO = 1 / (0.4^2 + 0.2^2 + 0.3^2 + 0.1^2)
+    expected_ER = 1 / ((2 / 3)^2 + (1 / 3)^2)
+    @test nonuniform_eff.EO ≈ expected_EO
+    @test nonuniform_eff.ER ≈ expected_ER
+    @test nonuniform_eff.reversal_to_ranking_effective_ratio ≈ expected_ER / expected_EO
+    @test !(nonuniform_eff.ER ≈ 1 / pp.reversal_geometric(nonuniform))
+
+    for (m, expected_possible) in (2 => 2, 3 => 6, 4 => 24, 5 => 120, 6 => 720, 7 => 5040)
+        pool = pp.CandidatePool(Symbol.("C" .* string.(1:m)))
+        ranking = pp.StrictRank(pool, collect(1:m))
+        diag = pp.ranking_support_diagnostics(pp.Profile(pool, [ranking, ranking]))
+        @test diag.possible_rankings == expected_possible
+    end
+
+    for diag in (unanim_support, uniform_support, inversion_support, pp.ranking_support_diagnostics(nonuniform))
+        for value in (
+            diag.unique_share_of_possible,
+            diag.unique_share_of_observations,
+            diag.singleton_share_of_unique,
+            diag.singleton_share_of_observations,
+            diag.max_ranking_mass,
+            diag.effective_share_of_possible,
+            diag.support_saturation,
+        )
+            @test 0.0 <= value <= 1.0
+        end
+        @test diag.EO <= diag.n_unique_rankings + sqrt(eps(Float64))
+        @test diag.n_unique_rankings <= min(diag.n_observations, diag.possible_rankings)
+    end
+    @test uniform_eff.ER <= factorial(3) / 2
+    @test inversion_eff.ER <= factorial(3) / 2
+    @test nonuniform_eff.ER <= factorial(3) / 2
+end
+
 @testset "Incomplete-ballot linearization policy" begin
     pool = pp.CandidatePool([:A, :B, :C])
     incomplete = pp.WeakRank(pool, Dict(:A => 1, :B => 1))

@@ -44,6 +44,18 @@ const _GROUP_TRIPLET_PANEL_LABELS = Dict(
     :S => "S",
 )
 const _GROUP_TRIPLET_PANEL_COLORRANGE = (0.0f0, 1.0f0)
+const _PAPER_GROUP_HEATMAP_MEASURES = (:C, :D, :O, :S)
+const _PAPER_GROUP_HEATMAP_COMPLEMENTS = (:O,)
+const _PAPER_GROUP_HEATMAP_LABELS = Dict(
+    :C => "C",
+    :D => "D",
+    :O => "1 - O",
+    :S => "S",
+)
+const _PAPER_O_SMOOTHED_MEASURES = (:O_smoothed,)
+const _PAPER_O_SMOOTHED_COMPLEMENTS = (:O_smoothed,)
+const _PAPER_O_SMOOTHED_LABELS = Dict(:O_smoothed => "1 - O_smoothed")
+const _PAPER_GROUP_HEATMAP_COLORRANGE = (0.0f0, 1.0f0)
 
 function _plot_measure_label(measure::Symbol, measure_labels)
     if measure_labels !== nothing && haskey(measure_labels, measure)
@@ -131,6 +143,25 @@ function _plot_title(rows::AbstractDataFrame;
         rows[1, :K],
         " • draws = ",
         rows[1, :n_draws],
+    )
+end
+
+function _plot_paper_title(rows::AbstractDataFrame;
+                           year = nothing,
+                           wave_id = nothing)
+    year_label = year === nothing ?
+                 (hasproperty(rows, :year) ? string(rows[1, :year]) :
+                  wave_id === nothing ? string(rows[1, :wave_id]) : string(wave_id)) :
+                 string(year)
+    return string(
+        "Year ",
+        year_label,
+        " • B = ",
+        rows[1, :B],
+        ", R = ",
+        rows[1, :R],
+        ", K = ",
+        rows[1, :K],
     )
 end
 
@@ -1093,6 +1124,149 @@ function plot_pipeline_group_triplet_panel(result_or_results;
 
     resize_to_layout!(fig)
     return fig
+end
+
+function plot_pipeline_group_paper_heatmap(result_or_results;
+                                           year = nothing,
+                                           wave_id = nothing,
+                                           scenario_name = nothing,
+                                           imputer_backend = :mice,
+                                           measures = collect(_PAPER_GROUP_HEATMAP_MEASURES),
+                                           statistic::Symbol = :median,
+                                           groupings = nothing,
+                                           complement_measures = collect(_PAPER_GROUP_HEATMAP_COMPLEMENTS),
+                                           measure_labels = _PAPER_GROUP_HEATMAP_LABELS,
+                                           maxcols::Int = 2,
+                                           colormap = Makie.Reverse(:RdBu),
+                                           fixed_colorrange_limits = _PAPER_GROUP_HEATMAP_COLORRANGE,
+                                           show_values::Bool = true,
+                                           colorbar_label = nothing,
+                                           clist_size = 60)
+    data = PrefPol.pipeline_group_heatmap_values(
+        result_or_results;
+        year = year,
+        wave_id = wave_id,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+        measures = measures,
+        groupings = groupings,
+        statistic = statistic,
+    )
+    rows = data.rows
+    m_values_int = Int.(data.m_values)
+    xs_m = Float32.(m_values_int)
+    group_syms = data.grouping_values
+    group_labels = string.(group_syms)
+    wanted_measures = PrefPol._normalize_measure_list(measures)
+    complemented = _normalized_measure_set(complement_measures)
+
+    lo, hi = fixed_colorrange_limits
+    lo < hi || throw(ArgumentError("fixed_colorrange_limits must satisfy lo < hi."))
+    clamp_lo = Float32(lo)
+    clamp_hi = Float32(hi)
+
+    matrices = Dict{Symbol,Matrix{Float32}}()
+    allvals = Float32[]
+    for measure in wanted_measures
+        z = clamp.(_heatmap_panel_matrix(data, measure, complemented), clamp_lo, clamp_hi)
+        matrices[measure] = z
+        append!(allvals, filter(!isnan, vec(z)))
+    end
+
+    colorrange, _, _ = _resolve_heatmap_colorrange(
+        allvals;
+        fixed_colorrange_limits = fixed_colorrange_limits,
+    )
+
+    n_panels = length(wanted_measures)
+    n_panels >= 1 || error("plot_pipeline_group_paper_heatmap requires at least one measure.")
+    ncol = min(maxcols, n_panels)
+    nrow = ceil(Int, n_panels / ncol)
+    title_txt = _plot_paper_title(rows; year = year, wave_id = wave_id)
+
+    fig_width = max(980, 360 * ncol + 160)
+    fig_height = max(520, 190 + 210 * nrow + 30 * length(group_syms))
+    fig = Figure(size = (fig_width, fig_height))
+    rowgap!(fig.layout, 22)
+    colgap!(fig.layout, 22)
+    fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :left)
+    fig[2, 1:ncol] = Label(
+        fig,
+        join(TextWrap.wrap(data.candidate_label; width = clist_size));
+        fontsize = 14,
+        halign = :left,
+    )
+    header_rows = 2
+
+    hm_ref = nothing
+    for (panel_idx, measure) in enumerate(wanted_measures)
+        r, c = fldmod1(panel_idx, ncol)
+        show_xlabel = nrow == 1 || r == nrow
+        show_ylabel = ncol == 1 || c == 1
+
+        ax = Axis(
+            fig[r + header_rows, c];
+            title = _plot_measure_label(measure, measure_labels),
+            xlabel = show_xlabel ? "m" : "",
+            ylabel = show_ylabel ? "grouping" : "",
+            xticks = (xs_m, string.(m_values_int)),
+            yticks = (1:length(group_syms), group_labels),
+        )
+        hm = heatmap!(
+            ax,
+            xs_m,
+            1:length(group_syms),
+            matrices[measure];
+            colormap = colormap,
+            colorrange = colorrange,
+        )
+        show_values && _overlay_heatmap_values!(ax, xs_m, length(group_syms), matrices[measure])
+        hm_ref === nothing && (hm_ref = hm)
+    end
+
+    if hm_ref !== nothing
+        Colorbar(
+            fig[header_rows + 1:header_rows + nrow, ncol + 1],
+            hm_ref;
+            label = something(colorbar_label, String(data.statistic)),
+            ticks = 0.0:0.2:1.0,
+        )
+        colsize!(fig.layout, ncol + 1, Auto())
+    end
+
+    resize_to_layout!(fig)
+    return fig
+end
+
+function plot_pipeline_group_paper_osmoothed_heatmap(result_or_results;
+                                                     year = nothing,
+                                                     wave_id = nothing,
+                                                     scenario_name = nothing,
+                                                     imputer_backend = :mice,
+                                                     statistic::Symbol = :median,
+                                                     groupings = nothing,
+                                                     colormap = Makie.Reverse(:RdBu),
+                                                     show_values::Bool = true,
+                                                     colorbar_label = nothing,
+                                                     clist_size = 60)
+    return plot_pipeline_group_paper_heatmap(
+        result_or_results;
+        year = year,
+        wave_id = wave_id,
+        scenario_name = scenario_name,
+        imputer_backend = imputer_backend,
+        measures = collect(_PAPER_O_SMOOTHED_MEASURES),
+        statistic = statistic,
+        groupings = groupings,
+        complement_measures = collect(_PAPER_O_SMOOTHED_COMPLEMENTS),
+        measure_labels = _PAPER_O_SMOOTHED_LABELS,
+        maxcols = 1,
+        colormap = colormap,
+        fixed_colorrange_limits = _PAPER_GROUP_HEATMAP_COLORRANGE,
+        show_values = show_values,
+        colorbar_label = colorbar_label,
+        clist_size = clist_size,
+    )
 end
 
 function save_pipeline_plot(fig,

@@ -92,6 +92,8 @@ export pairwise_majority_counts, pairwise_majority_margins, pairwise_majority_wi
 export ranking_signature, ranking_proportions, reversal_pairs
 export kendall_tau_distance, average_normalized_distance
 export can_polarization, total_reversal_component, reversal_hhi, reversal_geometric
+export effective_observed_rankings, effective_reversal_rankings
+export effective_reversal_ranking_diagnostics, ranking_support_diagnostics
 export strict_profile, ConsensusResult
 export consensus_kendall, get_consensus_ranking, kendall_tau_dict
 export consensus_for_group, group_avg_distance, weighted_coherence
