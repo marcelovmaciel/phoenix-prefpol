@@ -37,6 +37,13 @@ const PAPER_O_SMOOTHED_MEASURES = [:O_smoothed]
 const PAPER_O_SMOOTHED_LABELS = Dict(:O_smoothed => "1 - O_smoothed")
 const PAPER_O_SMOOTHED_COMPLEMENTS = [:O_smoothed]
 const PAPER_O_SMOOTHED_BASENAME = "paper_o_smoothed_heatmap"
+const PAPER_GROUPINGS_BY_WAVE = Dict(
+    "2018" => [:Sex, :Religion, :Race, :Age, :Education, :Income, :Ideology, :LulaScoreGroup],
+)
+
+function paper_groupings(target)
+    return get(PAPER_GROUPINGS_BY_WAVE, String(target.wave_id), nothing)
+end
 
 function paper_group_output_dir(target)
     return joinpath(
@@ -222,6 +229,7 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
             linearizer_policy = combo.linearizer_policy,
         )
         stem = combo_stem(combo)
+        selected_groupings = paper_groupings(target)
 
         heatmap_data = pp.pipeline_group_heatmap_values(
             combo_results;
@@ -229,6 +237,7 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
             measures = PAPER_GROUP_HEATMAP_MEASURES,
+            groupings = selected_groupings,
             statistic = :median,
         )
         save_csv(
@@ -251,6 +260,7 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
             measures = PAPER_O_SMOOTHED_MEASURES,
+            groupings = selected_groupings,
             statistic = :median,
         )
         save_csv(
@@ -269,6 +279,7 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
             imputer_backend = combo.imputer_backend,
             measures = PAPER_GROUP_HEATMAP_MEASURES,
             statistic = :median,
+            groupings = selected_groupings,
             complement_measures = PAPER_GROUP_HEATMAP_COMPLEMENTS,
             measure_labels = PAPER_GROUP_HEATMAP_LABELS,
             colormap = M.Reverse(:RdBu),
@@ -284,6 +295,7 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
             scenario_name = target.scenario_name,
             imputer_backend = combo.imputer_backend,
             statistic = :median,
+            groupings = selected_groupings,
             colormap = M.Reverse(:RdBu),
             show_values = true,
             colorbar_label = "median 1 - O_smoothed",

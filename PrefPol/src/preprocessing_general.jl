@@ -175,7 +175,7 @@ function prepare_scores_for_imputation_int(df::DataFrame,
     end
 
     # (2) Work only on the numeric score columns
-    scores_int = mapcols(col -> Int.(col), df[:, numeric_cols])
+    scores_int = mapcols(col -> Union{Missing,Int}[ismissing(x) ? missing : Int(x) for x in col], df[:, numeric_cols])
     declared   = Impute.declaremissings(scores_int; values = (96, 97, 98, 99))
 
     # (3) Append any extra (demographic) columns, untouched

@@ -38,6 +38,15 @@ const MAIN_PAPER_M_VALUES = 2:5
 const ANALYSIS_ROLE_MAIN = "main"
 const ANALYSIS_ROLE_O_SMOOTHED_EXTENSION = "o_smoothed_extension"
 const ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC = "ranking_support_diagnostic"
+const PAPER_SCENARIO_TARGETS = [
+    (wave_id = "2006", scenario_name = "main_2006"),
+    (wave_id = "2018", scenario_name = "main_2018"),
+    (wave_id = "2022", scenario_name = "main_2022"),
+    (wave_id = "2022", scenario_name = "no_forcing"),
+]
+const DIAGNOSTIC_SCENARIOS = Set([
+    ("2022", "no_forcing"),
+])
 const BACKEND_COMBINATIONS = [
     (imputer_backend = :random, linearizer_policy = :random_ties),
     (imputer_backend = :random, linearizer_policy = :pattern_conditional),
@@ -134,7 +143,6 @@ function o_smoothed_extension_m_values(wcfg::pp.SurveyWaveConfig,
     max_m in Set(Int.(supported)) || error(
         "The O_smoothed extension requires m=$(max_m) for wave=$(wcfg.wave_id), but it is not supported.",
     )
-    max_m > maximum(MAIN_PAPER_M_VALUES) || return Int[]
     return [max_m]
 end
 
@@ -152,25 +160,32 @@ end
 
 function discover_all_targets(waves::Vector{pp.SurveyWaveConfig})
     targets = NamedTuple[]
+    wave_by_id = Dict(wcfg.wave_id => wcfg for wcfg in waves)
 
-    for wcfg in sort(waves; by = wave -> (wave.year, wave.wave_id))
-        scenario_names = sort!(collect(keys(wcfg.scenario_candidates)))
-        isempty(scenario_names) && error("Wave $(wcfg.wave_id) has no configured scenarios.")
+    for target_id in PAPER_SCENARIO_TARGETS
+        haskey(wave_by_id, target_id.wave_id) || error(
+            "Paper target wave $(target_id.wave_id) is not configured under $(CONFIG_DIR).",
+        )
+        wcfg = wave_by_id[target_id.wave_id]
+        haskey(wcfg.scenario_candidates, target_id.scenario_name) || error(
+            "Paper target scenario $(target_id.scenario_name) is not configured for wave $(target_id.wave_id). " *
+            "Configured scenarios: $(sort(collect(keys(wcfg.scenario_candidates)))).",
+        )
 
-        for scenario_name in scenario_names
-            supported_m_values = discover_supported_m_values(wcfg, scenario_name)
-            push!(targets, (
-                wave_id = wcfg.wave_id,
-                year = wcfg.year,
-                scenario_name = scenario_name,
-                supported_m_values = supported_m_values,
-                main_m_values = paper_main_m_values(wcfg, supported_m_values),
-                o_smoothed_extension_m_values = o_smoothed_extension_m_values(wcfg, supported_m_values),
-                ranking_support_diagnostic_m_values = ranking_support_diagnostic_m_values(wcfg, supported_m_values),
-                groupings = join(wcfg.demographic_cols, "|"),
-                scenario_dir = scenario_dir_rel(wcfg, scenario_name),
-            ))
-        end
+        scenario_name = target_id.scenario_name
+        supported_m_values = discover_supported_m_values(wcfg, scenario_name)
+        push!(targets, (
+            wave_id = wcfg.wave_id,
+            year = wcfg.year,
+            scenario_name = scenario_name,
+            supported_m_values = supported_m_values,
+            main_m_values = paper_main_m_values(wcfg, supported_m_values),
+            o_smoothed_extension_m_values = o_smoothed_extension_m_values(wcfg, supported_m_values),
+            ranking_support_diagnostic_m_values = ranking_support_diagnostic_m_values(wcfg, supported_m_values),
+            groupings = join(wcfg.demographic_cols, "|"),
+            scenario_dir = scenario_dir_rel(wcfg, scenario_name),
+            is_diagnostic = (wcfg.wave_id, scenario_name) in DIAGNOSTIC_SCENARIOS,
+        ))
     end
 
     return targets
@@ -248,6 +263,7 @@ function build_batch(targets, wave_by_id)
                     candidate_label = pp.describe_candidate_set(spec.active_candidates),
                     scenario_dir = plan.scenario_dir,
                     base_scenario_dir = target.scenario_dir,
+                    is_diagnostic = target.is_diagnostic,
                 ))
             end
         end
@@ -473,6 +489,7 @@ function manifest_row(result::pp.PipelineResult, extra_meta::NamedTuple)
         scenario_dir = getproperty(extra_meta, :scenario_dir),
         output_dir = scenario_root,
         base_scenario_dir = getproperty(extra_meta, :base_scenario_dir),
+        is_diagnostic = getproperty(extra_meta, :is_diagnostic),
         cache_dir = result.cache_dir,
         result_path = result_path,
         decomposition_csv = joinpath(scenario_root, "specs", spec_stem * "_decomposition.csv"),

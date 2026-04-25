@@ -944,7 +944,8 @@ function plot_pipeline_group_heatmap(result_or_results;
     m_values_int = Int.(data.m_values)
     xs_m = Float32.(m_values_int)
     group_syms = data.grouping_values
-    group_labels = string.(group_syms)
+    group_label_map = Dict(:LulaScoreGroup => "Lula score")
+    group_labels = [get(group_label_map, group, String(group)) for group in group_syms]
     wanted_measures = PrefPol._normalize_measure_list(measures)
     canonical_group_heatmap = _is_canonical_group_heatmap(wanted_measures)
     complement_measures === nothing && canonical_group_heatmap &&

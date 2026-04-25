@@ -178,6 +178,48 @@ function load_and_prepare_e2018(df_path; candidates = candidates2018)
         replace!(df_e18[!, col], pairs...)
     end
 
+    if !("Lula" in names(df_e18))
+        throw(ArgumentError(
+            "2018 preprocessing needs source column `Lula` to construct `LulaScoreGroup`, " *
+            "but `Lula` is absent after candidate-column renaming.",
+        ))
+    end
+
+    function lula_score_group(x)
+        if ismissing(x)
+            return missing
+        elseif x isa Real
+            xf = Float64(x)
+            if !isfinite(xf)
+                return missing
+            end
+            xi = round(Int, xf)
+            if isapprox(xf, xi; atol = 1e-8) && xi in (96, 97, 98, 99)
+                return missing
+            elseif 0 <= xf <= 3
+                return "low_lula"
+            elseif 4 <= xf <= 6
+                return "medium_lula"
+            elseif 7 <= xf <= 10
+                return "high_lula"
+            end
+        end
+        return missing
+    end
+
+    lula_groups = Vector{Union{Missing,String}}(lula_score_group.(df_e18[!, :Lula]))
+    df_e18.LulaScoreGroup = categorical(
+        lula_groups;
+        ordered = true,
+        levels = ["low_lula", "medium_lula", "high_lula"],
+    )
+    valid_lula_groups = collect(skipmissing(df_e18.LulaScoreGroup))
+    isempty(valid_lula_groups) && @warn "LulaScoreGroup has no valid rows after excluding missing and 96/97/98/99 Lula scores."
+    for level in levels(df_e18.LulaScoreGroup)
+        count(group -> String(group) == String(level), valid_lula_groups) == 0 &&
+            @warn "LulaScoreGroup level $(level) has no valid rows."
+    end
+
     ##  religion =====================================================================================================================
     replace!(x -> x in (97.) ? 96.0 : x, df_e18.D10)
     replace!(x -> x in (98.) ? 99.0 : x, df_e18.D10)
@@ -213,7 +255,7 @@ function load_and_prepare_e2018(df_path; candidates = candidates2018)
             end
     end
 
-    df_e18.Ideology .= recodeQ18.(df_e18.Q18)   # broadcast + in-place assign
+    df_e18.Ideology = recodeQ18.(df_e18.Q18)
 
 
 

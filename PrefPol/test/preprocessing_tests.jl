@@ -121,11 +121,14 @@ end
 
 @testset "prepare_scores_for_imputation_int/_categorical" begin
     df = toy_scores_df()
+    df[1, :A] = missing
     ints = prepare_scores_for_imputation_int(df, CANDS; extra_cols=DEMOS)
     @test all(eltype(ints[!, c]) <: Union{Missing,Int} for c in CANDS)
+    @test ismissing(ints[1, :A])
     @test all(in(names(ints)).(DEMOS))
     cats = prepare_scores_for_imputation_categorical(df, CANDS; extra_cols=DEMOS)
     @test all(eltype(cats[!, c]) <: Union{Missing,CategoricalValue{Int,UInt32}} for c in CANDS)
+    @test ismissing(cats[1, :A])
 end
 
 @testset "get_most_known_candidates" begin

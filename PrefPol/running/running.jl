@@ -22,51 +22,36 @@ const OPERATIONAL_TIE_POLICY = :average
 # Include `:O` and cleaned `:S` because the replaced grouped summary slot is
 # now the shared-scale `C | 1 - O | S` triplet panel.
 const FULL_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :O, :S, :G]
-const SCENARIO_2006_CRISTOVAM = "lula_alckmin_heloisa_serra_cristovam"
-const SCENARIO_2006_AECIO = "lula_alckmin_heloisa_serra_aecio"
-const SCENARIO_2022_TARCISIO = "lula_bolsonaro_ciro_marina_tarcisio"
-const SCENARIO_2022_TEBET = "lula_bolsonaro_ciro_marina_tebet"
+const SCENARIO_2006_MAIN = "main_2006"
+const SCENARIO_2018_MAIN = "main_2018"
+const SCENARIO_2022_MAIN = "main_2022"
+const SCENARIO_2022_DIAGNOSTIC = "no_forcing"
 
 const SCENARIO_PLOTS = [
-    (year = 2006, scenario_name = SCENARIO_2006_CRISTOVAM, backends = [:mice, :zero]),
-    (year = 2006, scenario_name = SCENARIO_2006_AECIO, backends = [:mice, :zero]),
-    (year = 2018, scenario_name = "main_four", backends = [:mice]),
-    (year = 2018, scenario_name = "no_forcing", backends = [:mice]),
-    (year = 2018, scenario_name = "lula_bolsonaro", backends = [:mice]),
-    (year = 2022, scenario_name = SCENARIO_2022_TEBET, backends = [:mice, :zero]),
-    (year = 2022, scenario_name = SCENARIO_2022_TARCISIO, backends = [:mice, :zero]),
+    (year = 2006, scenario_name = SCENARIO_2006_MAIN, backends = [:mice, :zero]),
+    (year = 2018, scenario_name = SCENARIO_2018_MAIN, backends = [:mice]),
+    (year = 2022, scenario_name = SCENARIO_2022_MAIN, backends = [:mice, :zero]),
+    (year = 2022, scenario_name = SCENARIO_2022_DIAGNOSTIC, backends = [:mice]),
 ]
 
 const GROUP_LINE_PLOTS = [
-    (year = 2018, scenario_name = "main_four", imputer_backend = :mice,
-     groupings = ["Income", "Ideology"], stem = "2018_main_four_group_main"),
-    (year = 2018, scenario_name = "main_four", imputer_backend = :mice,
-     groupings = ["Sex", "Religion", "Race", "Age", "Education"], stem = "2018_main_four_group_other"),
-    (year = 2022, scenario_name = SCENARIO_2022_TEBET, imputer_backend = :mice,
-     groupings = ["Ideology", "PT", "Abortion", "Religion", "Sex", "Income"], stem = "2022_lula_bolsonaro_tebet_group_main"),
-    (year = 2022, scenario_name = SCENARIO_2022_TEBET, imputer_backend = :mice,
-     groupings = ["Race", "Age", "Education"], stem = "2022_lula_bolsonaro_tebet_group_other"),
-    (year = 2022, scenario_name = SCENARIO_2022_TARCISIO, imputer_backend = :mice,
-     groupings = ["Ideology", "PT", "Abortion", "Religion", "Sex", "Income"], stem = "2022_lula_bolsonaro_tarcisio_group_main"),
-    (year = 2022, scenario_name = SCENARIO_2022_TARCISIO, imputer_backend = :mice,
-     groupings = ["Race", "Age", "Education"], stem = "2022_lula_bolsonaro_tarcisio_group_other"),
-    (year = 2006, scenario_name = SCENARIO_2006_CRISTOVAM, imputer_backend = :mice,
-     groupings = nothing, stem = "2006_lula_alckmin_cristovam_group_lines"),
-    (year = 2006, scenario_name = SCENARIO_2006_AECIO, imputer_backend = :mice,
-     groupings = nothing, stem = "2006_lula_alckmin_aecio_group_lines"),
+    (year = 2018, scenario_name = SCENARIO_2018_MAIN, imputer_backend = :mice,
+     groupings = ["Sex", "Religion", "Race", "Age", "Education", "Income", "Ideology", "LulaScoreGroup"], stem = "2018_main_group_lines"),
+    (year = 2022, scenario_name = SCENARIO_2022_MAIN, imputer_backend = :mice,
+     groupings = ["Ideology", "PT", "Abortion", "Religion", "Sex", "Income"], stem = "2022_main_group_main"),
+    (year = 2022, scenario_name = SCENARIO_2022_MAIN, imputer_backend = :mice,
+     groupings = ["Race", "Age", "Education"], stem = "2022_main_group_other"),
+    (year = 2006, scenario_name = SCENARIO_2006_MAIN, imputer_backend = :mice,
+     groupings = nothing, stem = "2006_main_group_lines"),
 ]
 
 const GROUP_TRIPLET_PANEL_PLOTS = [
-    (year = 2018, scenario_name = "main_four", imputer_backend = :mice,
-     groupings = nothing, stem = "2018_main_four_group_triplet_panel_C_1mO_S"),
-    (year = 2022, scenario_name = SCENARIO_2022_TEBET, imputer_backend = :mice,
-     groupings = nothing, stem = "2022_lula_bolsonaro_tebet_group_triplet_panel_C_1mO_S"),
-    (year = 2022, scenario_name = SCENARIO_2022_TARCISIO, imputer_backend = :mice,
-     groupings = nothing, stem = "2022_lula_bolsonaro_tarcisio_group_triplet_panel_C_1mO_S"),
-    (year = 2006, scenario_name = SCENARIO_2006_CRISTOVAM, imputer_backend = :mice,
-     groupings = nothing, stem = "2006_lula_alckmin_cristovam_group_triplet_panel_C_1mO_S"),
-    (year = 2006, scenario_name = SCENARIO_2006_AECIO, imputer_backend = :mice,
-     groupings = nothing, stem = "2006_lula_alckmin_aecio_group_triplet_panel_C_1mO_S"),
+    (year = 2018, scenario_name = SCENARIO_2018_MAIN, imputer_backend = :mice,
+     groupings = ["Sex", "Religion", "Race", "Age", "Education", "Income", "Ideology", "LulaScoreGroup"], stem = "2018_main_group_triplet_panel_C_1mO_S"),
+    (year = 2022, scenario_name = SCENARIO_2022_MAIN, imputer_backend = :mice,
+     groupings = nothing, stem = "2022_main_group_triplet_panel_C_1mO_S"),
+    (year = 2006, scenario_name = SCENARIO_2006_MAIN, imputer_backend = :mice,
+     groupings = nothing, stem = "2006_main_group_triplet_panel_C_1mO_S"),
 ]
 
 function load_operational_configs(cfgdir::AbstractString = CONFIG_DIR)

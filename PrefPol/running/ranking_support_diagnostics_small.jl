@@ -252,7 +252,7 @@ function summarize_draws(draws::DataFrame)
 end
 
 function validate_coverage(draws::DataFrame)
-    required_by_year = Dict(2006 => Set(2:6), 2018 => Set(2:7), 2022 => Set(2:7))
+    required_by_year = Dict(2006 => Set(2:5), 2018 => Set(2:5), 2022 => Set(2:5))
 
     for subdf in groupby(draws, [:wave_id, :year, :scenario_name, :imputer_backend, :linearizer_policy])
         year = Int(subdf[1, :year])

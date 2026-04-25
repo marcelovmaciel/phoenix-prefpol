@@ -126,6 +126,13 @@ function _validate_election_cfg(cfg::ElectionConfig)
         isempty(missing_candidates) || throw(ArgumentError(
             "Scenario `$(sc.name)` for year $(cfg.year) references unknown candidates $(missing_candidates).",
         ))
+
+        if cfg.year == 2018 && sc.name == "main_2018" && "Lula" in sc.candidates
+            throw(ArgumentError(
+                "Scenario `main_2018` must not include `Lula` as an active candidate; " *
+                "use `LulaScoreGroup` as the respondent partition instead.",
+            ))
+        end
     end
 
     return cfg

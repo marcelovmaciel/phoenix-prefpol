@@ -71,18 +71,20 @@ using RCall
     end
 
     @testset "prepare_scores_for_imputation_int" begin
-        df = DataFrame(C1=[1.0,2.0,96.0], C2=[3.0,97.0,4.0])
+        df = DataFrame(C1=Union{Missing,Float64}[1.0,missing,96.0], C2=[3.0,97.0,4.0])
         res = prepare_scores_for_imputation_int(df, ["C1","C2"])
         @test eltype(res.C1) <: Union{Missing,Int}
+        @test res.C1[2] === missing
         @test res.C1[3] === missing
         @test res.C2[2] === missing
     end
 
     @testset "prepare_scores_for_imputation_categorical" begin
-        df = DataFrame(C1=[1.0,2.0,96.0], C2=[3.0,97.0,4.0])
+        df = DataFrame(C1=Union{Missing,Float64}[1.0,missing,96.0], C2=[3.0,97.0,4.0])
         res = prepare_scores_for_imputation_categorical(df, ["C1","C2"])
         println(res)
         @test CategoricalArrays.isordered(res.C1)
+        @test ismissing(res.C1[2])
     end
 
     @testset "get_most_known_candidates" begin

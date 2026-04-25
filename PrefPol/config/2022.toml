@@ -2,11 +2,11 @@
 year            = 2022
 data_loader     = "load_and_prepare_scores_df"
 data_file       = "data/04810/04810.sav"
-max_candidates  = 7
-m_values_range  = [2, 3, 4, 5, 6, 7]
+max_candidates  = 5
+m_values_range  = [2, 3, 4, 5]
 
 n_bootstrap     = 3            # ← how many bootstrap replicates to draw
-n_alternatives  = 7              # ← analyse up to this many alternatives
+n_alternatives  = 5              # ← analyse up to this many alternatives
 force_include   = []             # ← global forcing outside scenarios (none)
 rng_seed        = 42             # ← reproducible randomness
 
@@ -21,6 +21,5 @@ demographics = ["Sex", "Religion", "Race", "Ideology", "PT", "Abortion", "Age", 
 # ── forced scenarios (vector of inline tables) ──
 forced_scenarios = [
   { name = "no_forcing", candidates = [] },
-  { name = "lula_bolsonaro_ciro_marina_tarcisio", candidates = ["LULA", "BOLSONARO", "CIRO_GOMES", "MARINA_SILVA", "TARCISIO_DE_FREITAS"] },
-  { name = "lula_bolsonaro_ciro_marina_tebet", candidates = ["LULA", "BOLSONARO", "CIRO_GOMES", "MARINA_SILVA", "SIMONE_TEBET"] }
+  { name = "main_2022", candidates = ["LULA", "BOLSONARO", "CIRO_GOMES", "SIMONE_TEBET", "MARINA_SILVA"] }
 ]

@@ -1,6 +1,7 @@
 using Test
 using PrefPol
 using DataFrames
+using CategoricalArrays
 using JLD2
 using OrderedCollections: OrderedDict
 using Random
@@ -142,6 +143,41 @@ end
         imputer_backend = :zero,
     )
     @test spec.active_candidates == ["D", "A", "B"]
+end
+
+@testset "LulaScoreGroup uses auxiliary imputed score without active Lula candidate" begin
+    active = ["Fernando_Haddad", "Jair_Bolsonaro", "Ciro_Gomes", "Geraldo_Alckmin", "Marina_Silva"]
+    spec = PrefPol.PipelineSpec(
+        "2018",
+        active;
+        groupings = [:LulaScoreGroup],
+        measures = [:C],
+        B = 1,
+        R = 1,
+        K = 1,
+        imputer_backend = :zero,
+    )
+    groups = categorical(
+        Vector{Union{Missing,String}}([missing, missing, missing]);
+        ordered = true,
+        levels = ["low_lula", "medium_lula", "high_lula"],
+    )
+    table = DataFrame(
+        Fernando_Haddad = [1, 2, 3],
+        Jair_Bolsonaro = [4, 5, 6],
+        Ciro_Gomes = [7, 8, 9],
+        Geraldo_Alckmin = Union{Missing,Int}[1, missing, 3],
+        Marina_Silva = Union{Missing,Int}[4, 5, missing],
+        Lula = Union{Missing,Int}[missing, 5, 9],
+        LulaScoreGroup = groups,
+    )
+    resample = PrefPol.Resample(1, [1, 2, 3], [1, 1, 1], table, UInt64(1))
+
+    imputed = PrefPol._impute_resample(resample, spec, 1)
+
+    @test names(imputed.table) == vcat(active, ["LulaScoreGroup"])
+    @test !("Lula" in names(imputed.table))
+    @test String.(imputed.table.LulaScoreGroup) == ["low_lula", "medium_lula", "high_lula"]
 end
 
 @testset "nested grouped measure normalization accepts S and S_old" begin

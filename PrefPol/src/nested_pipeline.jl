@@ -524,8 +524,15 @@ function load_observed_data(pipeline::NestedStochasticPipeline, spec::PipelineSp
         "Observed data for wave $(spec.wave_id) is missing grouping columns $(missing_groupings).",
     ))
 
+    auxiliary_score_cols = _auxiliary_score_cols(spec)
+    missing_auxiliary_scores = setdiff(auxiliary_score_cols, names(raw))
+    isempty(missing_auxiliary_scores) || throw(ArgumentError(
+        "Observed data for wave $(spec.wave_id) is missing auxiliary score columns $(missing_auxiliary_scores), " *
+        "needed to derive requested grouping columns after imputation.",
+    ))
+
     weight_col = _candidate_weight_col(raw)
-    requested_cols = vcat(spec.active_candidates, String.(spec.groupings))
+    requested_cols = unique(vcat(spec.active_candidates, auxiliary_score_cols, String.(spec.groupings)))
     scores = select(raw, requested_cols)
     weights = _normalize_weight_vector(raw[!, weight_col])
 
@@ -583,25 +590,27 @@ function _impute_resample(resample::Resample,
                           spec::PipelineSpec,
                           r::Int)
     seed = _stage_seed(spec, :imputation; b = resample.b, r = r)
+    auxiliary_score_cols = _auxiliary_score_cols(spec)
+    imputed_score_cols = unique(vcat(spec.active_candidates, auxiliary_score_cols))
     scores, groups = _score_and_group_tables(
         resample.table,
-        spec.active_candidates,
+        imputed_score_cols,
         spec.groupings,
     )
 
     if spec.imputer_backend === :zero
-        prepared = prepare_scores_for_imputation_int(scores, spec.active_candidates)
+        prepared = prepare_scores_for_imputation_int(scores, imputed_score_cols)
         completed_scores = Impute.replace(prepared, values = 0)
         report = (backend = :zero, deterministic = true)
     elseif spec.imputer_backend === :random
-        prepared = prepare_scores_for_imputation_categorical(scores, spec.active_candidates)
+        prepared = prepare_scores_for_imputation_categorical(scores, imputed_score_cols)
         completed_scores = Impute.impute(
             prepared,
             Impute.SRS(; rng = _rng_from_seed(seed)),
         )
         report = (backend = :random, deterministic = false)
     elseif spec.imputer_backend === :mice
-        prepared = prepare_scores_for_imputation_categorical(scores, spec.active_candidates)
+        prepared = prepare_scores_for_imputation_categorical(scores, imputed_score_cols)
         mice_report = r_impute_mice_report(prepared; seed = _seed_int(seed))
         completed_scores = mice_report.completed
         report = (
@@ -614,7 +623,15 @@ function _impute_resample(resample::Resample,
         error("Unhandled imputer backend $(spec.imputer_backend).")
     end
 
-    table = isempty(spec.groupings) ? completed_scores : hcat(completed_scores, groups)
+    if _uses_lula_score_group(spec)
+        "Lula" in names(completed_scores) || throw(ArgumentError(
+            "Cannot derive LulaScoreGroup after imputation because completed auxiliary score column `Lula` is absent.",
+        ))
+        groups[!, :LulaScoreGroup] = _lula_score_group_from_completed_scores(completed_scores[!, :Lula])
+    end
+
+    active_completed_scores = select(completed_scores, spec.active_candidates)
+    table = isempty(spec.groupings) ? active_completed_scores : hcat(active_completed_scores, groups)
 
     return ImputedData(
         resample.b,
@@ -714,6 +731,43 @@ function _group_row_indices(values)
     end
 
     return grouped
+end
+
+@inline _uses_lula_score_group(spec::PipelineSpec) = :LulaScoreGroup in spec.groupings
+
+function _lula_score_group_from_completed_score(x)
+    if ismissing(x)
+        return missing
+    elseif x isa Real
+        xf = Float64(x)
+        if !isfinite(xf)
+            return missing
+        elseif 0 <= xf <= 3
+            return "low_lula"
+        elseif 4 <= xf <= 6
+            return "medium_lula"
+        elseif 7 <= xf <= 10
+            return "high_lula"
+        end
+    end
+
+    return missing
+end
+
+function _lula_score_group_from_completed_scores(scores)
+    categorical(
+        Vector{Union{Missing,String}}(_lula_score_group_from_completed_score.(scores));
+        ordered = true,
+        levels = ["low_lula", "medium_lula", "high_lula"],
+    )
+end
+
+function _auxiliary_score_cols(spec::PipelineSpec)
+    aux = String[]
+    if _uses_lula_score_group(spec) && !("Lula" in spec.active_candidates)
+        push!(aux, "Lula")
+    end
+    return aux
 end
 
 function _merge_tie_break_context(base_key, extension::NamedTuple)
@@ -2112,7 +2166,10 @@ function pipeline_group_plot_data(result_or_results;
     return (
         rows = rows,
         m_values = collect(unique(rows[!, _panel_m_column(rows)])),
-        grouping_values = collect(unique(Symbol.(skipmissing(rows.grouping)))),
+        grouping_values = groupings === nothing ?
+                          collect(unique(Symbol.(skipmissing(rows.grouping)))) :
+                          [group for group in Symbol.(collect(groupings))
+                           if group in Set(Symbol.(skipmissing(rows.grouping)))],
         candidate_label = pipeline_candidate_label(rows),
     )
 end

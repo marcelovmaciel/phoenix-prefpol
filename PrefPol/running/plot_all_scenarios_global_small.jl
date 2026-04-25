@@ -32,6 +32,11 @@ const MANIFEST_PATH = joinpath(SMALL_OUTPUT_ROOT, "run_manifest.csv")
 const GLOBAL_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "global")
 const GLOBAL_MEASURES = [:Psi, :R, :HHI, :RHHI]
 const ANALYSIS_ROLE_MAIN = "main"
+const PAPER_MAIN_SCENARIO_TARGETS = Set([
+    ("2006", "main_2006"),
+    ("2018", "main_2018"),
+    ("2022", "main_2022"),
+])
 const WRITE_GLOBAL_TABLES = lowercase(get(ENV, "PREFPOL_GLOBAL_SMALL_WRITE_TABLES", "true")) in ("1", "true", "yes")
 
 function csv_escape(value)
@@ -157,6 +162,7 @@ function _batch_metadata(row)
         analysis_role = :analysis_role in propertynames(row) ? String(row.analysis_role) : ANALYSIS_ROLE_MAIN,
         scenario_dir = :scenario_dir in propertynames(row) ? String(row.scenario_dir) : "",
         base_scenario_dir = :base_scenario_dir in propertynames(row) ? String(row.base_scenario_dir) : "",
+        is_diagnostic = :is_diagnostic in propertynames(row) ? lowercase(String(row.is_diagnostic)) in ("1", "true", "yes") : false,
     )
 end
 
@@ -191,12 +197,16 @@ function scenario_targets(manifest::DataFrame)
                     manifest[manifest.analysis_role .== ANALYSIS_ROLE_MAIN, :] :
                     manifest
     rows = unique(select(manifest_rows, :wave_id, :year, :scenario_name))
-    return sort(
-        [(
+    targets = [
+        (
             wave_id = String(row.wave_id),
             year = Int(row.year),
             scenario_name = String(row.scenario_name),
-        ) for row in eachrow(rows)];
+        ) for row in eachrow(rows)
+        if (String(row.wave_id), String(row.scenario_name)) in PAPER_MAIN_SCENARIO_TARGETS
+    ]
+    return sort(
+        targets;
         by = target -> (target.year, target.wave_id, target.scenario_name),
     )
 end
