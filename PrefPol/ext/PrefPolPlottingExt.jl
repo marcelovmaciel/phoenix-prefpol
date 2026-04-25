@@ -56,6 +56,19 @@ const _PAPER_O_SMOOTHED_MEASURES = (:O_smoothed,)
 const _PAPER_O_SMOOTHED_COMPLEMENTS = (:O_smoothed,)
 const _PAPER_O_SMOOTHED_LABELS = Dict(:O_smoothed => "1 - O_smoothed")
 const _PAPER_GROUP_HEATMAP_COLORRANGE = (0.0f0, 1.0f0)
+const _VARIANCE_DOTWHISKER_COMPONENTS = (:bootstrap, :imputation, :linearization, :total)
+const _VARIANCE_DOTWHISKER_COMPONENT_LABELS = Dict(
+    :bootstrap => "Bootstrap",
+    :imputation => "Imputation",
+    :linearization => "Linearization",
+    :total => "Total",
+)
+const _VARIANCE_COMPONENT_OFFSETS = Dict(
+    1 => [0.0],
+    2 => [-0.16, 0.16],
+    3 => [-0.24, 0.0, 0.24],
+    4 => [-0.30, -0.10, 0.10, 0.30],
+)
 
 function _plot_measure_label(measure::Symbol, measure_labels)
     if measure_labels !== nothing && haskey(measure_labels, measure)
@@ -1267,6 +1280,243 @@ function plot_pipeline_group_paper_osmoothed_heatmap(result_or_results;
         colorbar_label = colorbar_label,
         clist_size = clist_size,
     )
+end
+
+function _variance_plot_rows(pooled_table::AbstractDataFrame, measures, components, caller::AbstractString)
+    required = [:measure, :component, :q25, :median, :q75]
+    missing_cols = setdiff(required, Symbol.(names(pooled_table)))
+    isempty(missing_cols) || throw(ArgumentError(
+        "$caller requires columns $(required); missing $(missing_cols).",
+    ))
+
+    rows = DataFrame(pooled_table)
+    wanted_measures = [PrefPol.normalize_variance_measure(measure) for measure in collect(measures)]
+    wanted_components = Symbol.(collect(components))
+    measure_order = Dict(measure => idx for (idx, measure) in enumerate(wanted_measures))
+    component_order = Dict(component => idx for (idx, component) in enumerate(wanted_components))
+
+    rows[!, :measure] = [PrefPol.normalize_variance_measure(measure) for measure in rows.measure]
+    rows[!, :component] = Symbol.(rows.component)
+    filter!(:measure => measure -> haskey(measure_order, measure), rows)
+    filter!(:component => component -> haskey(component_order, component), rows)
+    sort!(rows, [
+        order(:measure, by = measure -> measure_order[measure]),
+        order(:component, by = component -> component_order[component]),
+    ])
+
+    return rows, wanted_measures, wanted_components, measure_order, component_order
+end
+
+function _variance_component_offsets(n_components::Int)
+    haskey(_VARIANCE_COMPONENT_OFFSETS, n_components) && return _VARIANCE_COMPONENT_OFFSETS[n_components]
+    return collect(range(-0.34, 0.34; length = n_components))
+end
+
+function _summarize_variance_plot_rows(rows::AbstractDataFrame)
+    summaries = NamedTuple[]
+
+    for sub in groupby(rows, [:measure, :component])
+        if nrow(sub) == 1
+            q25 = Float64(sub[1, :q25])
+            q50 = Float64(sub[1, :median])
+            q75 = Float64(sub[1, :q75])
+            values = Float64[q50]
+        else
+            values = Float64.(sub.median)
+            q25 = quantile(values, 0.25)
+            q50 = median(values)
+            q75 = quantile(values, 0.75)
+        end
+
+        push!(summaries, (
+            measure = Symbol(sub[1, :measure]),
+            component = Symbol(sub[1, :component]),
+            q25 = q25,
+            median = q50,
+            q75 = q75,
+            values = values,
+        ))
+    end
+
+    return DataFrame(summaries)
+end
+
+function plot_variance_decomposition_dotwhisker(pooled_table::AbstractDataFrame;
+                                                measures = PrefPol.DEFAULT_PAPER_VARIANCE_MEASURES,
+                                                components = _VARIANCE_DOTWHISKER_COMPONENTS,
+                                                figsize = (900, 520),
+                                                title = "Variance decomposition",
+                                                xlabel = "absolute variance component",
+                                                outfile = nothing,
+                                                palette = nothing)
+    palette === nothing && (palette = _wong_colors())
+    rows, wanted_measures, wanted_components, measure_order, _ = _variance_plot_rows(
+        pooled_table,
+        measures,
+        components,
+        "plot_variance_decomposition_dotwhisker",
+    )
+    summary = _summarize_variance_plot_rows(rows)
+
+    fig = Figure(size = figsize)
+    ax = Axis(
+        fig[1, 1];
+        title = title,
+        xlabel = xlabel,
+        yticks = (
+            1:length(wanted_measures),
+            [get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS, measure, String(measure))
+             for measure in wanted_measures],
+        ),
+    )
+
+    n_components = max(length(wanted_components), 1)
+    offsets = _variance_component_offsets(n_components)
+    handles = Makie.LineElement[]
+    labels = String[]
+
+    for (component_idx, component) in enumerate(wanted_components)
+        sub = summary[summary.component .== component, :]
+        isempty(sub) && continue
+        color = palette[(component_idx - 1) % length(palette) + 1]
+        y = [measure_order[measure] + offsets[component_idx] for measure in sub.measure]
+        x = Float64.(sub.median)
+        lo = Float64.(sub.q25)
+        hi = Float64.(sub.q75)
+
+        for i in eachindex(x)
+            lines!(ax, [lo[i], hi[i]], [y[i], y[i]]; color = color, linewidth = 2)
+        end
+        scatter!(ax, x, y; color = color, markersize = 10)
+
+        push!(handles, Makie.LineElement(; color = color, linewidth = 3))
+        push!(labels, get(_VARIANCE_DOTWHISKER_COMPONENT_LABELS, component, string(component)))
+    end
+
+    ylims!(ax, 0.5, length(wanted_measures) + 0.5)
+    Legend(fig[1, 2], handles, labels)
+    resize_to_layout!(fig)
+
+    outfile !== nothing && save(outfile, fig; px_per_unit = 4)
+    return fig
+end
+
+function _boxplot_stats(values::AbstractVector{<:Real})
+    vals = sort(Float64.(values))
+    isempty(vals) && return nothing
+
+    q25 = quantile(vals, 0.25)
+    q50 = median(vals)
+    q75 = quantile(vals, 0.75)
+    iqr = q75 - q25
+    lo_fence = q25 - 1.5 * iqr
+    hi_fence = q75 + 1.5 * iqr
+    inside = [value for value in vals if lo_fence <= value <= hi_fence]
+    outliers = [value for value in vals if value < lo_fence || value > hi_fence]
+    whisker_lo = isempty(inside) ? minimum(vals) : minimum(inside)
+    whisker_hi = isempty(inside) ? maximum(vals) : maximum(inside)
+
+    return (
+        q25 = q25,
+        median = q50,
+        q75 = q75,
+        whisker_lo = whisker_lo,
+        whisker_hi = whisker_hi,
+        outliers = outliers,
+    )
+end
+
+function plot_variance_decomposition_boxplot(pooled_table::AbstractDataFrame;
+                                             measures = PrefPol.DEFAULT_PAPER_VARIANCE_MEASURES,
+                                             components = _VARIANCE_DOTWHISKER_COMPONENTS,
+                                             figsize = (900, 560),
+                                             title = "Variance decomposition boxplot",
+                                             xlabel = "absolute variance component",
+                                             outfile = nothing,
+                                             palette = nothing)
+    palette === nothing && (palette = _wong_colors())
+    rows, wanted_measures, wanted_components, measure_order, _ = _variance_plot_rows(
+        pooled_table,
+        measures,
+        components,
+        "plot_variance_decomposition_boxplot",
+    )
+
+    fig = Figure(size = figsize)
+    ax = Axis(
+        fig[1, 1];
+        title = title,
+        xlabel = xlabel,
+        yticks = (
+            1:length(wanted_measures),
+            [get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS, measure, String(measure))
+             for measure in wanted_measures],
+        ),
+    )
+
+    n_components = max(length(wanted_components), 1)
+    offsets = _variance_component_offsets(n_components)
+    box_half_height = min(0.075, 0.26 / n_components)
+    handles = Makie.LineElement[]
+    labels = String[]
+
+    for (component_idx, component) in enumerate(wanted_components)
+        sub = rows[rows.component .== component, :]
+        isempty(sub) && continue
+        color = palette[(component_idx - 1) % length(palette) + 1]
+
+        for measure in wanted_measures
+            measure_rows = sub[sub.measure .== measure, :]
+            isempty(measure_rows) && continue
+            values = nrow(measure_rows) == 1 ?
+                     Float64[measure_rows[1, :q25], measure_rows[1, :median], measure_rows[1, :q75]] :
+                     Float64.(measure_rows.median)
+            stats = _boxplot_stats(values)
+            stats === nothing && continue
+
+            y = measure_order[measure] + offsets[component_idx]
+            poly!(
+                ax,
+                Makie.Point2f[
+                    (stats.q25, y - box_half_height),
+                    (stats.q75, y - box_half_height),
+                    (stats.q75, y + box_half_height),
+                    (stats.q25, y + box_half_height),
+                ];
+                color = (color, 0.18),
+                strokecolor = color,
+                strokewidth = 1.5,
+            )
+            lines!(ax, [stats.whisker_lo, stats.q25], [y, y]; color = color, linewidth = 1.7)
+            lines!(ax, [stats.q75, stats.whisker_hi], [y, y]; color = color, linewidth = 1.7)
+            lines!(ax, [stats.whisker_lo, stats.whisker_lo], [y - box_half_height / 2, y + box_half_height / 2];
+                   color = color, linewidth = 1.7)
+            lines!(ax, [stats.whisker_hi, stats.whisker_hi], [y - box_half_height / 2, y + box_half_height / 2];
+                   color = color, linewidth = 1.7)
+            lines!(ax, [stats.median, stats.median], [y - box_half_height, y + box_half_height];
+                   color = color, linewidth = 2.4)
+
+            if !isempty(stats.outliers)
+                scatter!(
+                    ax,
+                    stats.outliers,
+                    fill(y, length(stats.outliers));
+                    color = (color, 0.28),
+                    markersize = 6,
+                )
+            end
+        end
+
+        push!(handles, Makie.LineElement(; color = color, linewidth = 3))
+        push!(labels, get(_VARIANCE_DOTWHISKER_COMPONENT_LABELS, component, string(component)))
+    end
+
+    ylims!(ax, 0.5, length(wanted_measures) + 0.5)
+    Legend(fig[1, 2], handles, labels)
+    resize_to_layout!(fig)
+
+    outfile !== nothing && save(outfile, fig; px_per_unit = 4)
+    return fig
 end
 
 function save_pipeline_plot(fig,

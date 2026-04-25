@@ -13,7 +13,9 @@ Run with the manifest-matched Julia for this repo, for example:
 """
 
 using DataFrames
+using JLD2
 using PrefPol
+using Statistics
 import PrefPol as pp
 
 const CONFIG_DIR = joinpath(pp.project_root, "config")
@@ -292,6 +294,158 @@ function spec_decomposition_table(result::pp.PipelineResult,
     return decorate_table(pp.decomposition_table(result.decomposition), result, extra_meta)
 end
 
+function ranking_masses(profile)
+    prefs = pp.Preferences
+    masses = Dict{Tuple,Float64}()
+    order = Tuple[]
+
+    weights = hasproperty(profile, :weights) ? Float64.(profile.weights) :
+              ones(Float64, prefs.nballots(profile))
+
+    for (ballot, weight) in zip(profile.ballots, weights)
+        sig = prefs.ranking_signature(ballot, profile.pool)
+        if !haskey(masses, sig)
+            push!(order, sig)
+        end
+        masses[sig] = get(masses, sig, 0.0) + weight
+    end
+
+    return masses, order, sum(weights)
+end
+
+function effective_numbers_for_artifact(path::AbstractString)
+    isfile(path) || error("Cached linearized profile artifact not found: $(path)")
+    artifact = JLD2.load(path, "artifact")
+    artifact isa AbstractDataFrame || error(
+        "Expected cached linearized artifact $(path) to be a DataFrame; got $(typeof(artifact)).",
+    )
+
+    profile = pp.dataframe_to_annotated_profile(artifact; ballot_kind = :strict).profile
+    masses, order, total = ranking_masses(profile)
+    total > 0 || error("Linearized profile artifact $(path) has zero ranking mass.")
+
+    ranking_probs = [mass / total for mass in values(masses)]
+    HHI_rankings = sum(p^2 for p in ranking_probs)
+    EO = 1.0 / HHI_rankings
+
+    paired, _ = pp.Preferences.reversal_pairs(order)
+    reversal_values = Float64[
+        2.0 * min(masses[pair[1]], masses[pair[3]]) / total
+        for pair in paired
+    ]
+    reversal_total = sum(reversal_values)
+    HHI_reversal = if reversal_total == 0.0
+        missing
+    else
+        sum((value / reversal_total)^2 for value in reversal_values)
+    end
+    ER = HHI_reversal === missing ? missing : 1.0 / HHI_reversal
+    m = length(profile.pool)
+
+    return (
+        ER = ER,
+        EO = EO,
+        HHI_reversal = HHI_reversal,
+        HHI_rankings = HHI_rankings,
+        n_rankings_observed = length(masses),
+        n_reversal_pairs_observed = count(>(0.0), reversal_values),
+        max_rankings_possible = factorial(m),
+        max_reversal_pairs_possible = div(factorial(m), 2),
+    )
+end
+
+function effective_numbers_table(result::pp.PipelineResult,
+                                 extra_meta::NamedTuple)
+    rows = NamedTuple[]
+    linearized_rows = result.stage_manifest[result.stage_manifest.stage .== :linearized, :]
+    isempty(linearized_rows) && error(
+        "PipelineResult at $(result.cache_dir) has no cached linearized profile artifacts.",
+    )
+
+    spec = result.spec
+    for stage in eachrow(linearized_rows)
+        stats = effective_numbers_for_artifact(String(stage.path))
+        push!(rows, merge((
+            wave_id = spec.wave_id,
+            year = getproperty(extra_meta, :year),
+            scenario_name = getproperty(extra_meta, :scenario_name),
+            m = getproperty(extra_meta, :m),
+            active_candidates = join(spec.active_candidates, "|"),
+            imputer_backend = String(spec.imputer_backend),
+            linearizer_policy = String(spec.linearizer_policy),
+            B = spec.B,
+            R = spec.R,
+            K = spec.K,
+            b = Int(stage.b),
+            r = Int(stage.r),
+            k = Int(stage.k),
+            analysis_role = getproperty(extra_meta, :analysis_role),
+            scenario_dir = getproperty(extra_meta, :scenario_dir),
+            base_scenario_dir = getproperty(extra_meta, :base_scenario_dir),
+        ), stats))
+    end
+
+    return DataFrame(rows)
+end
+
+function effective_numbers_summary_table(draws::DataFrame)
+    group_cols = [
+        :wave_id,
+        :year,
+        :scenario_name,
+        :m,
+        :active_candidates,
+        :imputer_backend,
+        :linearizer_policy,
+        :B,
+        :R,
+        :K,
+        :analysis_role,
+        :scenario_dir,
+        :base_scenario_dir,
+    ]
+    metric_cols = [:ER, :EO, :HHI_reversal, :HHI_rankings]
+    rows = NamedTuple[]
+
+    for subdf in groupby(draws, group_cols)
+        base = NamedTuple(name => subdf[1, name] for name in group_cols)
+        stats = (
+            n_draws = nrow(subdf),
+            n_rankings_observed_mean = mean(Float64.(subdf.n_rankings_observed)),
+            n_reversal_pairs_observed_mean = mean(Float64.(subdf.n_reversal_pairs_observed)),
+            max_rankings_possible = subdf.max_rankings_possible[1],
+            max_reversal_pairs_possible = subdf.max_reversal_pairs_possible[1],
+        )
+
+        for metric in metric_cols
+            values = collect(skipmissing(subdf[!, metric]))
+            stats = merge(stats, NamedTuple{(
+                Symbol(metric, "_mean"),
+                Symbol(metric, "_median"),
+                Symbol(metric, "_q25"),
+                Symbol(metric, "_q75"),
+                Symbol(metric, "_missing"),
+            )}(isempty(values) ? (
+                missing,
+                missing,
+                missing,
+                missing,
+                nrow(subdf),
+            ) : (
+                mean(Float64.(values)),
+                median(Float64.(values)),
+                quantile(Float64.(values), 0.25),
+                quantile(Float64.(values), 0.75),
+                nrow(subdf) - length(values),
+            )))
+        end
+
+        push!(rows, merge(base, stats))
+    end
+
+    return sorted_table(DataFrame(rows))
+end
+
 function manifest_row(result::pp.PipelineResult, extra_meta::NamedTuple)
     spec = result.spec
     result_path = joinpath(result.cache_dir, "result.jld2")
@@ -342,6 +496,8 @@ function write_scenario_tables!(root_measure::DataFrame,
                                 root_summary::DataFrame,
                                 root_panel::DataFrame,
                                 root_decomp::DataFrame,
+                                root_effective::DataFrame,
+                                effective_summary::DataFrame,
                                 manifest::DataFrame,
                                 targets)
     for target in targets
@@ -376,6 +532,14 @@ function write_scenario_tables!(root_measure::DataFrame,
         save_csv(joinpath(dir, "summary_table.csv"), sorted_table(root_summary[summary_mask, :]))
         save_csv(joinpath(dir, "panel_table.csv"), sorted_table(root_panel[panel_mask, :]))
         save_csv(joinpath(dir, "decomposition_table.csv"), sorted_table(root_decomp[decomp_mask, :]))
+        effective_mask = (root_effective.wave_id .== target.wave_id) .&
+                         (root_effective.scenario_name .== target.scenario_name) .&
+                         (root_effective.analysis_role .== ANALYSIS_ROLE_MAIN)
+        effective_summary_mask = (effective_summary.wave_id .== target.wave_id) .&
+                                 (effective_summary.scenario_name .== target.scenario_name) .&
+                                 (effective_summary.analysis_role .== ANALYSIS_ROLE_MAIN)
+        save_csv(joinpath(dir, "effective_numbers_table.csv"), sorted_table(root_effective[effective_mask, :]))
+        save_csv(joinpath(dir, "effective_numbers_summary_table.csv"), sorted_table(effective_summary[effective_summary_mask, :]))
 
         for scenario_dir in target_dirs
             role_dir = joinpath(OUTPUT_ROOT, scenario_dir)
@@ -398,6 +562,14 @@ function write_scenario_tables!(root_measure::DataFrame,
             save_csv(joinpath(role_dir, "summary_table.csv"), sorted_table(root_summary[role_summary_mask, :]))
             save_csv(joinpath(role_dir, "panel_table.csv"), sorted_table(root_panel[role_panel_mask, :]))
             save_csv(joinpath(role_dir, "decomposition_table.csv"), sorted_table(root_decomp[role_decomp_mask, :]))
+            role_effective_mask = (root_effective.wave_id .== target.wave_id) .&
+                                  (root_effective.scenario_name .== target.scenario_name) .&
+                                  (root_effective.scenario_dir .== scenario_dir)
+            role_effective_summary_mask = (effective_summary.wave_id .== target.wave_id) .&
+                                          (effective_summary.scenario_name .== target.scenario_name) .&
+                                          (effective_summary.scenario_dir .== scenario_dir)
+            save_csv(joinpath(role_dir, "effective_numbers_table.csv"), sorted_table(root_effective[role_effective_mask, :]))
+            save_csv(joinpath(role_dir, "effective_numbers_summary_table.csv"), sorted_table(effective_summary[role_effective_summary_mask, :]))
         end
     end
 
@@ -453,6 +625,7 @@ function main()
 
     manifest_rows = NamedTuple[]
     decomp_tables = DataFrame[]
+    effective_tables = DataFrame[]
 
     for (batch_index, result) in enumerate(results.results)
         item = results.batch.items[batch_index]
@@ -462,6 +635,7 @@ function main()
 
         decomp = sorted_table(spec_decomposition_table(result, meta))
         push!(decomp_tables, decomp)
+        push!(effective_tables, sorted_table(effective_numbers_table(result, meta)))
 
         row = manifest_row(result, meta)
         push!(manifest_rows, row)
@@ -470,24 +644,41 @@ function main()
 
     root_manifest = sorted_table(DataFrame(manifest_rows))
     all_decomp = isempty(decomp_tables) ? DataFrame() : sorted_table(vcat(decomp_tables...; cols = :union))
+    all_effective = isempty(effective_tables) ? DataFrame() : sorted_table(vcat(effective_tables...; cols = :union))
+    all_effective_summary = effective_numbers_summary_table(all_effective)
     root_measure = sorted_table(all_measure[all_measure.analysis_role .== ANALYSIS_ROLE_MAIN, :])
     root_summary = sorted_table(all_summary[all_summary.analysis_role .== ANALYSIS_ROLE_MAIN, :])
     root_panel = sorted_table(all_panel[all_panel.analysis_role .== ANALYSIS_ROLE_MAIN, :])
     root_decomp = sorted_table(all_decomp[all_decomp.analysis_role .== ANALYSIS_ROLE_MAIN, :])
+    root_effective = sorted_table(all_effective[all_effective.analysis_role .== ANALYSIS_ROLE_MAIN, :])
+    root_effective_summary = sorted_table(all_effective_summary[all_effective_summary.analysis_role .== ANALYSIS_ROLE_MAIN, :])
 
     save_csv(joinpath(OUTPUT_ROOT, "run_manifest.csv"), root_manifest)
     save_csv(joinpath(OUTPUT_ROOT, "measure_table.csv"), root_measure)
     save_csv(joinpath(OUTPUT_ROOT, "summary_table.csv"), root_summary)
     save_csv(joinpath(OUTPUT_ROOT, "panel_table.csv"), root_panel)
     save_csv(joinpath(OUTPUT_ROOT, "decomposition_table.csv"), root_decomp)
+    save_csv(joinpath(OUTPUT_ROOT, "effective_numbers_table.csv"), root_effective)
+    save_csv(joinpath(OUTPUT_ROOT, "effective_numbers_summary_table.csv"), root_effective_summary)
 
-    write_scenario_tables!(all_measure, all_summary, all_panel, all_decomp, root_manifest, targets)
+    write_scenario_tables!(
+        all_measure,
+        all_summary,
+        all_panel,
+        all_decomp,
+        all_effective,
+        all_effective_summary,
+        root_manifest,
+        targets,
+    )
 
     println("Saved run manifest: ", joinpath(OUTPUT_ROOT, "run_manifest.csv"))
     println("Saved measure table: ", joinpath(OUTPUT_ROOT, "measure_table.csv"))
     println("Saved summary table: ", joinpath(OUTPUT_ROOT, "summary_table.csv"))
     println("Saved panel table: ", joinpath(OUTPUT_ROOT, "panel_table.csv"))
     println("Saved decomposition table: ", joinpath(OUTPUT_ROOT, "decomposition_table.csv"))
+    println("Saved effective numbers table: ", joinpath(OUTPUT_ROOT, "effective_numbers_table.csv"))
+    println("Saved effective numbers summary table: ", joinpath(OUTPUT_ROOT, "effective_numbers_summary_table.csv"))
     println("Cache-backed results live under: ", CACHE_ROOT)
     return nothing
 end

@@ -95,6 +95,7 @@ include("pipeline.jl")
 include("raw_profiles.jl")
 include("variance_decomposition.jl")
 include("nested_pipeline.jl")
+include("variance_decomposition_report.jl")
 
 #include("newplotting.jl")
 
@@ -139,6 +140,15 @@ export SurveyWaveConfig,
        pipeline_measure_table,
        pipeline_summary_table,
        pipeline_variance_decomposition_table,
+       VarianceDecompositionReportSpec,
+       DEFAULT_PAPER_VARIANCE_MEASURES,
+       DEFAULT_PAPER_VARIANCE_MEASURE_LABELS,
+       normalize_variance_measure,
+       variance_decomposition_report,
+       variance_decomposition_fine_table,
+       variance_decomposition_pooled_table,
+       plot_variance_decomposition_dotwhisker,
+       plot_variance_decomposition_boxplot,
        pipeline_panel_table,
        select_pipeline_panel_rows,
        pipeline_candidate_label,
