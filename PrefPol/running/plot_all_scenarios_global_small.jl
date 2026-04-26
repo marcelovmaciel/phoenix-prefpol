@@ -3,8 +3,8 @@
 
 Load the saved exploratory nested-analysis outputs produced by
 `running/run_all_scenarios_small.jl`, then generate canonical global scenario
-plots and compact CSV tables for every saved wave/scenario using the exported
-nested plotting/table helpers.
+plots and compact CSV tables for the configured target wave/scenario pairs
+using the exported nested plotting/table helpers.
 
 This script does not rerun the analysis pipeline. It reads the saved manifest at
 `running/output/all_scenarios_small/run_manifest.csv`, loads the cached
@@ -32,11 +32,17 @@ const MANIFEST_PATH = joinpath(SMALL_OUTPUT_ROOT, "run_manifest.csv")
 const GLOBAL_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "global")
 const GLOBAL_MEASURES = [:Psi, :R, :HHI, :RHHI]
 const ANALYSIS_ROLE_MAIN = "main"
-const PAPER_MAIN_SCENARIO_TARGETS = Set([
-    ("2006", "main_2006"),
-    ("2018", "main_2018"),
-    ("2022", "main_2022"),
-])
+# Top-level plot targets. When this file is included by the group plot script,
+# that script's constants take precedence.
+if !isdefined(@__MODULE__, :TARGETS)
+    const TARGETS = [(wave_id = "2018", scenario_name = "main_2018")]
+end
+if !isdefined(@__MODULE__, :TARGET_GROUPINGS_BY_WAVE)
+    const TARGET_GROUPINGS_BY_WAVE = Dict("2018" => nothing)
+end
+if !isdefined(@__MODULE__, :TARGET_ANALYSIS_ROLES)
+    const TARGET_ANALYSIS_ROLES = ["main", "o_smoothed_extension"]
+end
 const WRITE_GLOBAL_TABLES = lowercase(get(ENV, "PREFPOL_GLOBAL_SMALL_WRITE_TABLES", "true")) in ("1", "true", "yes")
 
 function csv_escape(value)
@@ -193,6 +199,7 @@ function load_saved_small_results(manifest::DataFrame)
 end
 
 function scenario_targets(manifest::DataFrame)
+    target_keys = Set((String(target.wave_id), String(target.scenario_name)) for target in TARGETS)
     manifest_rows = :analysis_role in propertynames(manifest) ?
                     manifest[manifest.analysis_role .== ANALYSIS_ROLE_MAIN, :] :
                     manifest
@@ -203,7 +210,7 @@ function scenario_targets(manifest::DataFrame)
             year = Int(row.year),
             scenario_name = String(row.scenario_name),
         ) for row in eachrow(rows)
-        if (String(row.wave_id), String(row.scenario_name)) in PAPER_MAIN_SCENARIO_TARGETS
+        if (String(row.wave_id), String(row.scenario_name)) in target_keys
     ]
     return sort(
         targets;
@@ -217,6 +224,18 @@ function scenario_output_dir(target)
         sanitize_path_component(target.wave_id),
         sanitize_path_component(target.scenario_name),
     )
+end
+
+function cleanup_global_dir!(dir::AbstractString)
+    isdir(dir) || return nothing
+
+    for path in readdir(dir; join = true)
+        isfile(path) || continue
+        (endswith(path, ".png") || endswith(path, ".csv")) || continue
+        rm(path; force = true)
+    end
+
+    return nothing
 end
 
 function _result_metadata(result::pp.PipelineResult, extra_meta::NamedTuple)
@@ -320,6 +339,7 @@ function write_scenario_outputs!(results::pp.BatchRunResult,
                                  target)
     dir = scenario_output_dir(target)
     mkpath(dir)
+    cleanup_global_dir!(dir)
 
     scenario_results = subset_batch_results(
         results;

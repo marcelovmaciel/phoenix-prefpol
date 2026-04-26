@@ -736,19 +736,30 @@ end
 @inline _uses_lula_score_group(spec::PipelineSpec) = :LulaScoreGroup in spec.groupings
 
 function _lula_score_group_from_completed_score(x)
-    if ismissing(x)
+    raw = x isa CategoricalValue ? unwrap(x) : x
+
+    if ismissing(raw)
         return missing
-    elseif x isa Real
-        xf = Float64(x)
-        if !isfinite(xf)
-            return missing
-        elseif 0 <= xf <= 3
-            return "low_lula"
-        elseif 4 <= xf <= 6
-            return "medium_lula"
-        elseif 7 <= xf <= 10
-            return "high_lula"
-        end
+    end
+
+    xf = if raw isa Real
+        Float64(raw)
+    elseif raw isa AbstractString
+        parsed = tryparse(Float64, strip(raw))
+        parsed === nothing && return missing
+        parsed
+    else
+        return missing
+    end
+
+    if !isfinite(xf)
+        return missing
+    elseif 0 <= xf <= 3
+        return "low_lula"
+    elseif 4 <= xf <= 6
+        return "medium_lula"
+    elseif 7 <= xf <= 10
+        return "high_lula"
     end
 
     return missing

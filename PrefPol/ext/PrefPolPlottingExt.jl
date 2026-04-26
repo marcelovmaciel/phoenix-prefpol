@@ -28,6 +28,9 @@ end
     measure === :D_median ? "D" :
     String(measure)
 
+@inline _grouping_label(group::Symbol) =
+    group === :LulaScoreGroup ? "Lula's score" : String(group)
+
 const _CANONICAL_GROUP_HEATMAP_MEASURES = (:C, :D_median, :O, :Gsep)
 const _CANONICAL_GROUP_HEATMAP_COMPLEMENTS = (:O,)
 const _CANONICAL_GROUP_HEATMAP_LABELS = Dict(
@@ -575,7 +578,7 @@ function plot_group_demographics_heatmap(all_gm,
 
     groupings_vec = collect(groupings)
     group_syms = Symbol.(groupings_vec)
-    group_labels = string.(groupings_vec)
+    group_labels = _grouping_label.(group_syms)
     n_groups = length(groupings_vec)
 
     scenobj = PrefPol._lookup_scenario(f3[year].cfg, scenario)
@@ -944,8 +947,7 @@ function plot_pipeline_group_heatmap(result_or_results;
     m_values_int = Int.(data.m_values)
     xs_m = Float32.(m_values_int)
     group_syms = data.grouping_values
-    group_label_map = Dict(:LulaScoreGroup => "Lula score")
-    group_labels = [get(group_label_map, group, String(group)) for group in group_syms]
+    group_labels = _grouping_label.(group_syms)
     wanted_measures = PrefPol._normalize_measure_list(measures)
     canonical_group_heatmap = _is_canonical_group_heatmap(wanted_measures)
     complement_measures === nothing && canonical_group_heatmap &&
@@ -1063,7 +1065,7 @@ function plot_pipeline_group_triplet_panel(result_or_results;
     m_values_int = Int.(data.m_values)
     xs_m = Float32.(m_values_int)
     group_syms = data.grouping_values
-    group_labels = string.(group_syms)
+    group_labels = _grouping_label.(group_syms)
     complemented = _normalized_measure_set(_GROUP_TRIPLET_PANEL_COMPLEMENTS)
 
     # Replacement for the old compact grouped summary slot: plot C | 1 - O | S
@@ -1170,7 +1172,7 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
     m_values_int = Int.(data.m_values)
     xs_m = Float32.(m_values_int)
     group_syms = data.grouping_values
-    group_labels = string.(group_syms)
+    group_labels = _grouping_label.(group_syms)
     wanted_measures = PrefPol._normalize_measure_list(measures)
     complemented = _normalized_measure_set(complement_measures)
 

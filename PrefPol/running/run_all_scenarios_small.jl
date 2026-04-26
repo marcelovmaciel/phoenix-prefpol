@@ -1,11 +1,12 @@
 """
     run_all_scenarios_small.jl
 
-Lightweight exploratory entry point for the full exported nested analysis.
-This script discovers every configured wave/scenario pair from `config/*.toml`,
-runs the existing nested `bootstrap -> imputation -> linearization -> measures`
-workflow with small BRK counts, and saves cache-backed `PipelineResult`s plus
-CSV manifests/tables under `running/output/all_scenarios_small/`.
+Lightweight exploratory entry point for a targeted exported nested analysis.
+By default this reruns the 2018 `main_2018` paper-facing analysis roles and
+preserves existing non-target manifest rows/results. The existing nested
+`bootstrap -> imputation -> linearization -> measures` workflow runs with small
+BRK counts and saves cache-backed `PipelineResult`s plus CSV manifests/tables
+under `running/output/all_scenarios_small/`.
 
 Run with the manifest-matched Julia for this repo, for example:
 
@@ -27,6 +28,12 @@ const R_SMALL = parse(Int, get(ENV, "PREFPOL_ALL_SCENARIOS_SMALL_R", "2"))
 const K_SMALL = parse(Int, get(ENV, "PREFPOL_ALL_SCENARIOS_SMALL_K", "2"))
 const FORCE_RUN = lowercase(get(ENV, "PREFPOL_ALL_SCENARIOS_SMALL_FORCE", "false")) in ("1", "true", "yes")
 
+# Top-level rerun controls. `nothing` for a wave's groupings means all
+# groupings configured in that wave TOML.
+const TARGETS = [(wave_id = "2018", scenario_name = "main_2018")]
+const TARGET_GROUPINGS_BY_WAVE = Dict("2018" => nothing)
+const TARGET_ANALYSIS_ROLES = ["main", "o_smoothed_extension"]
+
 const CONSENSUS_TIE_POLICY = :average
 const MAIN_PAPER_MEASURES = [
     :Psi, :R, :HHI, :RHHI,
@@ -38,12 +45,6 @@ const MAIN_PAPER_M_VALUES = 2:5
 const ANALYSIS_ROLE_MAIN = "main"
 const ANALYSIS_ROLE_O_SMOOTHED_EXTENSION = "o_smoothed_extension"
 const ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC = "ranking_support_diagnostic"
-const PAPER_SCENARIO_TARGETS = [
-    (wave_id = "2006", scenario_name = "main_2006"),
-    (wave_id = "2018", scenario_name = "main_2018"),
-    (wave_id = "2022", scenario_name = "main_2022"),
-    (wave_id = "2022", scenario_name = "no_forcing"),
-]
 const DIAGNOSTIC_SCENARIOS = Set([
     ("2022", "no_forcing"),
 ])
@@ -70,6 +71,64 @@ function save_csv(path::AbstractString, df::AbstractDataFrame)
     return path
 end
 
+function _parse_csv_line(line::AbstractString)
+    fields = String[]
+    buf = IOBuffer()
+    in_quotes = false
+    i = firstindex(line)
+    last = lastindex(line)
+
+    while i <= last
+        ch = line[i]
+
+        if ch == '"'
+            if in_quotes
+                next_i = nextind(line, i)
+                if next_i <= last && line[next_i] == '"'
+                    write(buf, '"')
+                    i = next_i
+                else
+                    in_quotes = false
+                end
+            else
+                in_quotes = true
+            end
+        elseif ch == ',' && !in_quotes
+            push!(fields, String(take!(buf)))
+        else
+            write(buf, ch)
+        end
+
+        i = nextind(line, i)
+    end
+
+    push!(fields, String(take!(buf)))
+    return fields
+end
+
+function read_csv_table(path::AbstractString)
+    isfile(path) || error("CSV file not found: $(path)")
+    lines = readlines(path)
+    isempty(lines) && return DataFrame()
+
+    header = Symbol.(_parse_csv_line(first(lines)))
+    columns = Dict(name => String[] for name in header)
+
+    for line in Iterators.drop(lines, 1)
+        isempty(line) && continue
+        fields = _parse_csv_line(line)
+        length(fields) == length(header) || error(
+            "Malformed CSV row in $(path): expected $(length(header)) fields, found $(length(fields)).",
+        )
+
+        for (name, value) in zip(header, fields)
+            push!(columns[name], value)
+        end
+    end
+
+    return DataFrame([name => columns[name] for name in header])
+end
+
 function sanitize_path_component(value::AbstractString)
     return replace(String(value), r"[^A-Za-z0-9._-]+" => "_")
 end
@@ -94,6 +153,27 @@ function load_all_wave_configs(cfgdir::AbstractString = CONFIG_DIR)
     registry = pp.build_source_registry(waves)
     wave_by_id = Dict(wave.wave_id => wave for wave in waves)
     return waves, registry, wave_by_id
+end
+
+function target_groupings(wcfg::pp.SurveyWaveConfig)
+    requested = get(TARGET_GROUPINGS_BY_WAVE, String(wcfg.wave_id), nothing)
+    requested === nothing && return Symbol.(wcfg.demographic_cols)
+
+    configured = Set(Symbol.(wcfg.demographic_cols))
+    selected = Symbol.(collect(requested))
+    missing_groupings = [grouping for grouping in selected if !(grouping in configured)]
+    isempty(missing_groupings) || error(
+        "Target groupings $(missing_groupings) are not configured for wave $(wcfg.wave_id). " *
+        "Configured groupings: $(Symbol.(wcfg.demographic_cols)).",
+    )
+
+    return selected
+end
+
+function target_groupings_label(wcfg::pp.SurveyWaveConfig)
+    requested = get(TARGET_GROUPINGS_BY_WAVE, String(wcfg.wave_id), nothing)
+    requested === nothing && return join(wcfg.demographic_cols, "|")
+    return join(String.(Symbol.(collect(requested))), "|")
 end
 
 function discover_supported_m_values(wcfg::pp.SurveyWaveConfig,
@@ -162,7 +242,7 @@ function discover_all_targets(waves::Vector{pp.SurveyWaveConfig})
     targets = NamedTuple[]
     wave_by_id = Dict(wcfg.wave_id => wcfg for wcfg in waves)
 
-    for target_id in PAPER_SCENARIO_TARGETS
+    for target_id in TARGETS
         haskey(wave_by_id, target_id.wave_id) || error(
             "Paper target wave $(target_id.wave_id) is not configured under $(CONFIG_DIR).",
         )
@@ -182,7 +262,7 @@ function discover_all_targets(waves::Vector{pp.SurveyWaveConfig})
             main_m_values = paper_main_m_values(wcfg, supported_m_values),
             o_smoothed_extension_m_values = o_smoothed_extension_m_values(wcfg, supported_m_values),
             ranking_support_diagnostic_m_values = ranking_support_diagnostic_m_values(wcfg, supported_m_values),
-            groupings = join(wcfg.demographic_cols, "|"),
+            groupings = target_groupings_label(wcfg),
             scenario_dir = scenario_dir_rel(wcfg, scenario_name),
             is_diagnostic = (wcfg.wave_id, scenario_name) in DIAGNOSTIC_SCENARIOS,
         ))
@@ -198,34 +278,40 @@ end
 function role_spec_plan(target)
     plans = NamedTuple[]
 
-    for m in target.main_m_values
-        push!(plans, (
-            analysis_role = ANALYSIS_ROLE_MAIN,
-            m = m,
-            measures = MAIN_PAPER_MEASURES,
-            groupings = :configured,
-            scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_MAIN, target.scenario_dir),
-        ))
+    if ANALYSIS_ROLE_MAIN in TARGET_ANALYSIS_ROLES
+        for m in target.main_m_values
+            push!(plans, (
+                analysis_role = ANALYSIS_ROLE_MAIN,
+                m = m,
+                measures = MAIN_PAPER_MEASURES,
+                groupings = :target,
+                scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_MAIN, target.scenario_dir),
+            ))
+        end
     end
 
-    for m in target.o_smoothed_extension_m_values
-        push!(plans, (
-            analysis_role = ANALYSIS_ROLE_O_SMOOTHED_EXTENSION,
-            m = m,
-            measures = O_SMOOTHED_EXTENSION_MEASURES,
-            groupings = :configured,
-            scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_O_SMOOTHED_EXTENSION, target.scenario_dir),
-        ))
+    if ANALYSIS_ROLE_O_SMOOTHED_EXTENSION in TARGET_ANALYSIS_ROLES
+        for m in target.o_smoothed_extension_m_values
+            push!(plans, (
+                analysis_role = ANALYSIS_ROLE_O_SMOOTHED_EXTENSION,
+                m = m,
+                measures = O_SMOOTHED_EXTENSION_MEASURES,
+                groupings = :target,
+                scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_O_SMOOTHED_EXTENSION, target.scenario_dir),
+            ))
+        end
     end
 
-    for m in target.ranking_support_diagnostic_m_values
-        push!(plans, (
-            analysis_role = ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC,
-            m = m,
-            measures = RANKING_SUPPORT_DIAGNOSTIC_MEASURES,
-            groupings = :none,
-            scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC, target.scenario_dir),
-        ))
+    if ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC in TARGET_ANALYSIS_ROLES
+        for m in target.ranking_support_diagnostic_m_values
+            push!(plans, (
+                analysis_role = ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC,
+                m = m,
+                measures = RANKING_SUPPORT_DIAGNOSTIC_MEASURES,
+                groupings = :none,
+                scenario_dir = analysis_role_dir_rel(ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC, target.scenario_dir),
+            ))
+        end
     end
 
     return plans
@@ -243,7 +329,7 @@ function build_batch(targets, wave_by_id)
                     wcfg;
                     scenario_name = target.scenario_name,
                     m = plan.m,
-                    groupings = plan.groupings === :none ? Symbol[] : Symbol.(wcfg.demographic_cols),
+                    groupings = plan.groupings === :none ? Symbol[] : target_groupings(wcfg),
                     measures = plan.measures,
                     B = B_SMALL,
                     R = R_SMALL,
@@ -462,6 +548,68 @@ function effective_numbers_summary_table(draws::DataFrame)
     return sorted_table(DataFrame(rows))
 end
 
+function _manifest_metadata(row)
+    return (
+        year = parse(Int, String(row.year)),
+        scenario_name = String(row.scenario_name),
+        m = parse(Int, String(row.m)),
+        analysis_role = String(row.analysis_role),
+        active_candidates = String(row.active_candidates),
+        scenario_dir = String(row.scenario_dir),
+        base_scenario_dir = String(row.base_scenario_dir),
+        is_diagnostic = lowercase(String(row.is_diagnostic)) in ("1", "true", "yes"),
+    )
+end
+
+function manifest_row_is_target(row)
+    target_keys = Set((String(target.wave_id), String(target.scenario_name)) for target in TARGETS)
+    target_roles = Set(String.(TARGET_ANALYSIS_ROLES))
+
+    return (String(row.wave_id), String(row.scenario_name)) in target_keys &&
+           String(row.analysis_role) in target_roles
+end
+
+function load_existing_manifest_results(path::AbstractString)
+    isfile(path) || return pp.PipelineResult[], NamedTuple[]
+
+    manifest = read_csv_table(path)
+    isempty(manifest) && return pp.PipelineResult[], NamedTuple[]
+
+    results = pp.PipelineResult[]
+    metadata = NamedTuple[]
+
+    for row in eachrow(manifest)
+        manifest_row_is_target(row) && continue
+
+        result_path = String(row.result_path)
+        isfile(result_path) || error("Existing manifest references missing PipelineResult: $(result_path)")
+        push!(results, pp.load_pipeline_result(result_path))
+        push!(metadata, _manifest_metadata(row))
+    end
+
+    return results, metadata
+end
+
+function combine_previous_and_fresh(fresh_results::pp.BatchRunResult)
+    existing_results, existing_metadata = load_existing_manifest_results(joinpath(OUTPUT_ROOT, "run_manifest.csv"))
+    items = pp.StudyBatchItem[]
+    results = pp.PipelineResult[]
+    metadata = NamedTuple[]
+
+    for (idx, result) in enumerate(existing_results)
+        meta = existing_metadata[idx]
+        push!(items, pp.StudyBatchItem(result.spec; meta...))
+        push!(results, result)
+        push!(metadata, meta)
+    end
+
+    append!(items, fresh_results.batch.items)
+    append!(results, fresh_results.results)
+    append!(metadata, fresh_results.metadata)
+
+    return pp.BatchRunResult(pp.StudyBatchSpec(items), results, metadata)
+end
+
 function manifest_row(result::pp.PipelineResult, extra_meta::NamedTuple)
     spec = result.spec
     result_path = joinpath(result.cache_dir, "result.jld2")
@@ -602,6 +750,7 @@ function print_run_summary(targets, batch::pp.StudyBatchSpec)
     println("Cache root:             ", CACHE_ROOT)
     println("B/R/K:                  ", B_SMALL, "/", R_SMALL, "/", K_SMALL)
     println("Force run:              ", FORCE_RUN)
+    println("Target analysis roles:  ", join(TARGET_ANALYSIS_ROLES, ", "))
     println("Backend combinations:   ", join([
         string(combo.imputer_backend, "+", combo.linearizer_policy)
         for combo in BACKEND_COMBINATIONS
@@ -615,7 +764,9 @@ function print_run_summary(targets, batch::pp.StudyBatchSpec)
             " scenario=", target.scenario_name,
             " main_m=", join(target.main_m_values, ","),
             " o_smoothed_extension_m=", join(target.o_smoothed_extension_m_values, ","),
-            " ranking_support_diagnostic_m=", join(target.ranking_support_diagnostic_m_values, ","),
+            ANALYSIS_ROLE_RANKING_SUPPORT_DIAGNOSTIC in TARGET_ANALYSIS_ROLES ?
+                string(" ranking_support_diagnostic_m=", join(target.ranking_support_diagnostic_m_values, ",")) :
+                " ranking_support_diagnostic_m=(disabled)",
             " groupings=", target.groupings,
         )
     end
@@ -634,7 +785,8 @@ function main()
 
     pipeline = pp.NestedStochasticPipeline(registry; cache_root = CACHE_ROOT)
     runner = pp.BatchRunner(pipeline)
-    results = pp.run_batch(runner, batch; force = FORCE_RUN)
+    fresh_results = pp.run_batch(runner, batch; force = FORCE_RUN)
+    results = combine_previous_and_fresh(fresh_results)
 
     all_measure = sorted_table(pp.pipeline_measure_table(results))
     all_summary = sorted_table(pp.pipeline_summary_table(results))

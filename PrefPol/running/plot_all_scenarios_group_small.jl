@@ -3,8 +3,8 @@
 
 Load the saved nested-analysis outputs produced by
 `running/run_all_scenarios_small.jl`, then generate the paper-ready grouped
-heatmaps for every saved wave/scenario using the exported nested plotting/data
-helpers.
+heatmaps for the configured target wave/scenario pairs using the exported
+nested plotting/data helpers.
 
 This script does not rerun the analysis pipeline. It reads the saved manifest at
 `running/output/all_scenarios_small/run_manifest.csv`, loads the cached
@@ -16,6 +16,12 @@ Run later with:
     julia +1.11.9 --startup-file=no --project=PrefPol/running/plotting_env -e 'using Pkg; Pkg.instantiate()'
     julia +1.11.9 --startup-file=no --project=PrefPol/running/plotting_env PrefPol/running/plot_all_scenarios_group_small.jl
 """
+
+# Top-level plot targets. `nothing` for a wave's groupings means all groupings
+# present in the saved 2018 pipeline results.
+const TARGETS = [(wave_id = "2018", scenario_name = "main_2018")]
+const TARGET_GROUPINGS_BY_WAVE = Dict("2018" => nothing)
+const TARGET_ANALYSIS_ROLES = ["main", "o_smoothed_extension"]
 
 include(joinpath(@__DIR__, "plot_all_scenarios_global_small.jl"))
 
@@ -37,12 +43,8 @@ const PAPER_O_SMOOTHED_MEASURES = [:O_smoothed]
 const PAPER_O_SMOOTHED_LABELS = Dict(:O_smoothed => "1 - O_smoothed")
 const PAPER_O_SMOOTHED_COMPLEMENTS = [:O_smoothed]
 const PAPER_O_SMOOTHED_BASENAME = "paper_o_smoothed_heatmap"
-const PAPER_GROUPINGS_BY_WAVE = Dict(
-    "2018" => [:Sex, :Religion, :Race, :Age, :Education, :Income, :Ideology, :LulaScoreGroup],
-)
-
 function paper_groupings(target)
-    return get(PAPER_GROUPINGS_BY_WAVE, String(target.wave_id), nothing)
+    return get(TARGET_GROUPINGS_BY_WAVE, String(target.wave_id), nothing)
 end
 
 function paper_group_output_dir(target)
