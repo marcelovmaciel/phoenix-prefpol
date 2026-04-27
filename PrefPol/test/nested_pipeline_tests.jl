@@ -193,8 +193,9 @@ end
     end
 end
 
-@testset "nested grouped measure normalization accepts S and S_old" begin
-    @test PrefPol._normalize_measure_list([:S, :S_old, :S, "Psi"]) == [:S, :S_old, :Psi]
+@testset "nested grouped measure normalization accepts S, W, lambda_sep, and S_old" begin
+    @test PrefPol._normalize_measure_list([:S, :W, :lambda_sep, :S_old, :S, "Psi"]) ==
+          [:S, :W, :lambda_sep, :S_old, :Psi]
 
     cfg = PrefPol.ElectionConfig(
         2022,
@@ -215,13 +216,13 @@ end
         wave;
         active_candidates = ["A", "B", "C"],
         groupings = [:grp],
-        measures = [:S, :S_old],
+        measures = [:S, :W, :lambda_sep, :S_old],
         B = 1,
         R = 1,
         K = 1,
         imputer_backend = :zero,
     )
-    @test spec.measures == [:S, :S_old]
+    @test spec.measures == [:S, :W, :lambda_sep, :S_old]
 
     @test_throws ArgumentError PrefPol.build_pipeline_spec(
         wave;
@@ -307,6 +308,52 @@ end
     end
 end
 
+@testset "lambda_sep derived identities and boundary cases" begin
+    @test isnan(PrefPol._separation_ratio(0.0, 0.0))
+    @test isinf(PrefPol._separation_ratio(0.2, 0.0))
+    @test PrefPol._separation_ratio(0.3, 0.3) == 1.0
+    @test PrefPol._separation_ratio(0.6, 0.3) == 2.0
+
+    components = DataFrame(
+        group = [:A, :B],
+        n = [1.0, 3.0],
+        W = [0.1, 0.4],
+        D = [0.2, 0.6],
+    )
+    total_n = sum(components.n)
+    components[!, :pi] = components.n ./ total_n
+    components[!, :S] = components.D .- components.W
+    components[!, :lambda_sep] = components.D ./ components.W
+
+    W = sum(components.pi .* components.W)
+    D = sum(components.pi .* components.D)
+    S = sum(components.pi .* components.S)
+    lambda = D / W
+    weighted_mean_ratio = sum(components.pi .* components.lambda_sep)
+
+    @test isapprox(S, D - W; atol = 1e-12)
+    @test isapprox(lambda, D / W; atol = 1e-12)
+    @test isapprox(lambda, 1 + S / W; atol = 1e-12)
+    @test !isapprox(lambda, weighted_mean_ratio; atol = 1e-12)
+
+    cube = DataFrame(
+        b = [1, 1],
+        r = [1, 1],
+        k = [1, 1],
+        measure = [:C, :D],
+        grouping = [:grp, :grp],
+        value = [1 - 2W, D],
+        value_lo = [1 - 2W, D],
+        value_hi = [1 - 2W, D],
+        diagnostics = [(measure_class = :grouped,), (measure_class = :grouped,)],
+    )
+    w_rows = PrefPol._grouped_w_measure_rows(cube)
+    lambda_rows = PrefPol._grouped_lambda_sep_measure_rows(cube)
+
+    @test only(w_rows.value) == W
+    @test only(lambda_rows.value) == lambda
+end
+
 @testset "nested pipeline exposes consensus tie policy for group measures" begin
     df = DataFrame(
         profile = [
@@ -333,6 +380,7 @@ end
     @test isapprox(hash.C, avg.C)
     @test isapprox(interval.C, avg.C)
     @test 0.0 <= avg.C <= 1.0
+    @test isapprox(avg.W, (1 - avg.C) / 2; atol = 1e-12)
     @test interval.D_lo <= interval.D <= interval.D_hi
     @test avg.D_median == hash.D_median
     @test hash.D_median == interval.D_median
@@ -347,6 +395,13 @@ end
     @test interval.O_smoothed == interval.O_smoothed_hi
     @test 0.0 <= avg.Sep <= 1.0
     @test isapprox(avg.S, PrefPol.Preferences.overall_sstar_from_CD(avg.C, avg.D))
+    @test isapprox(avg.S, avg.D - avg.W; atol = 1e-12)
+    @test isapprox(avg.lambda_sep, avg.D / avg.W; atol = 1e-12)
+    @test isapprox(avg.lambda_sep, 1 + avg.S / avg.W; atol = 1e-12)
+    @test all(row -> isapprox(row.S, row.D - row.W; atol = 1e-12), avg.diagnostics.group_components)
+    @test all(row -> row.W == 0.0 ? (isnan(row.lambda_sep) || isinf(row.lambda_sep)) :
+                            isapprox(row.lambda_sep, row.D / row.W; atol = 1e-12),
+              avg.diagnostics.group_components)
     @test avg.S_old == hash.S_old
     @test hash.S_old == interval.S_old
     @test interval.S_lo <= interval.S <= interval.S_hi
@@ -1089,7 +1144,7 @@ end
                 wave;
                 active_candidates = active_candidates,
                 groupings = [:grp],
-                measures = [:Psi, :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old],
+                measures = [:Psi, :C, :W, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old, :lambda_sep],
                 B = 3,
                 R = 2,
                 K = 1,
@@ -1120,7 +1175,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old],
+            measures = [:C, :W, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old, :lambda_sep],
             groupings = [:grp],
             include_grouped = true,
         )
@@ -1136,7 +1191,7 @@ end
             year = 2022,
             scenario_name = "all",
             imputer_backend = :zero,
-            measures = [:C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old],
+            measures = [:C, :W, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old, :lambda_sep],
             groupings = [:grp],
             statistic = :median,
         )
@@ -1149,8 +1204,10 @@ end
         @test :O_smoothed in Set(Symbol.(group_rows.measure))
         @test :Sep in Set(Symbol.(group_rows.measure))
         @test :Gsep in Set(Symbol.(group_rows.measure))
+        @test :W in Set(Symbol.(group_rows.measure))
         @test :S in Set(Symbol.(group_rows.measure))
         @test :S_old in Set(Symbol.(group_rows.measure))
+        @test :lambda_sep in Set(Symbol.(group_rows.measure))
         @test scenario_data.m_values == [2, 3]
         @test scenario_data.candidate_label == "Candidates: A, B, C"
 
@@ -1168,6 +1225,10 @@ end
         @test isapprox(heatmap_data.matrices[:Gsep][1, 1], gsep_row.q50)
         s_row = group_rows[(group_rows.measure .== :S) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:S][1, 1], s_row.q50)
+        w_row = group_rows[(group_rows.measure .== :W) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:W][1, 1], w_row.q50)
+        lambda_row = group_rows[(group_rows.measure .== :lambda_sep) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
+        @test isapprox(heatmap_data.matrices[:lambda_sep][1, 1], lambda_row.q50)
         sold_row = group_rows[(group_rows.measure .== :S_old) .& coalesce.(group_rows.grouping .== :grp, false), :][1, :]
         @test isapprox(heatmap_data.matrices[:S_old][1, 1], sold_row.q50)
         @test_throws ArgumentError PrefPol.pipeline_group_heatmap_values(

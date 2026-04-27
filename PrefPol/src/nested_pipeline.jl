@@ -10,7 +10,8 @@ const SUPPORTED_LINEARIZER_POLICIES = (:random_ties, :pattern_conditional)
 const SUPPORTED_CONSENSUS_TIE_POLICIES = (:average, :hash, :interval)
 const SUPPORTED_GLOBAL_NESTED_MEASURES = (:Psi, :R, :HHI, :RHHI)
 const SUPPORTED_GROUPED_NESTED_MEASURES = (
-    :C, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old,
+    :C, :W, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old,
+    :lambda_sep,
 )
 
 struct SurveyWaveConfig
@@ -803,8 +804,21 @@ function _consensus_ballots_for_result(result, pool::Preferences.CandidatePool, 
 end
 
 @inline _normalize_group_coherence(raw_C::Real) = (2.0 * Float64(raw_C)) - 1.0
+@inline _within_dispersion_from_normalized_C(C::Real) = (1.0 - Float64(C)) / 2.0
+@inline _separation_ratio(D::Real, W::Real) = Float64(D) / Float64(W)
 @inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
     Preferences.kendall_tau_distance(ballot_i, ballot_j) / norm_factor
+
+"""
+    _separation_ratio(D, W)
+
+Λ is a derived interpretive companion to grouped `S`, not an independent
+primitive measure. It must use the same within-group dispersion `W` and
+outgroup-consensus distance `D` components as `S`, so grouped aggregation is
+`Λ = D / W` from group-size-weighted `D` and `W`, never a naive average of
+group-level ratios.
+"""
+_separation_ratio
 
 function _pairwise_consensus_distance_stats(result_i,
                                             pool_i::Preferences.CandidatePool,
@@ -847,6 +861,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     group_sizes = OrderedDict{Any,Float64}()
     group_profiles = OrderedDict{Any,Any}()
     consensus_results = OrderedDict{Any,Any}()
+    group_W = OrderedDict{Any,Float64}()
     C_raw = 0.0
 
     for (group, idxs) in grouped
@@ -865,6 +880,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         props[group] = group_sizes[group] / total_n
         group_profiles[group] = profile
         consensus_results[group] = result
+        group_W[group] = result.avg_normalized_distance
         C_raw += (1.0 - result.avg_normalized_distance) * props[group]
     end
 
@@ -879,24 +895,35 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         D = 0.0
         D_lo = 0.0
         D_hi = 0.0
+        group_D = OrderedDict(group => 0.0 for group in keys(group_profiles))
+        group_D_lo = OrderedDict(group => 0.0 for group in keys(group_profiles))
+        group_D_hi = OrderedDict(group => 0.0 for group in keys(group_profiles))
     else
         point_sum = 0.0
         lo_sum = 0.0
         hi_sum = 0.0
+        group_D_sum = OrderedDict(group => 0.0 for group in keys(group_profiles))
+        group_D_lo_sum = OrderedDict(group => 0.0 for group in keys(group_profiles))
+        group_D_hi_sum = OrderedDict(group => 0.0 for group in keys(group_profiles))
 
         for target in keys(consensus_results)
             result = consensus_results[target]
             ballots = _consensus_ballots_for_result(result, group_profiles[target].pool, tie_policy)
             contributions = Float64[]
+            source_contributions = OrderedDict{Any,Vector{Float64}}(
+                source => Float64[] for source in keys(group_profiles) if source != target
+            )
 
             for ballot in ballots
                 contribution = 0.0
                 for source in keys(group_profiles)
                     source == target && continue
-                    contribution += props[source] * Preferences.average_normalized_distance(
+                    source_distance = Preferences.average_normalized_distance(
                         group_profiles[source],
                         ballot,
                     )
+                    push!(source_contributions[source], source_distance)
+                    contribution += props[source] * source_distance
                 end
                 push!(contributions, contribution)
             end
@@ -904,12 +931,21 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
             point_sum += tie_policy === :hash ? only(contributions) : mean(contributions)
             lo_sum += minimum(contributions)
             hi_sum += maximum(contributions)
+
+            for (source, source_values) in source_contributions
+                group_D_sum[source] += tie_policy === :hash ? only(source_values) : mean(source_values)
+                group_D_lo_sum[source] += minimum(source_values)
+                group_D_hi_sum[source] += maximum(source_values)
+            end
         end
 
         denom = length(grouped) - 1
         D = point_sum / denom
         D_lo = lo_sum / denom
         D_hi = hi_sum / denom
+        group_D = OrderedDict(group => group_D_sum[group] / denom for group in keys(group_profiles))
+        group_D_lo = OrderedDict(group => group_D_lo_sum[group] / denom for group in keys(group_profiles))
+        group_D_hi = OrderedDict(group => group_D_hi_sum[group] / denom for group in keys(group_profiles))
     end
 
     D_median = Preferences.overall_divergence_median(group_profiles, consensus_results)
@@ -926,9 +962,13 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     Sep_hi = Sep
 
     C = _normalize_group_coherence(C_raw)
+    W = _within_dispersion_from_normalized_C(C)
     cleaned_S = Preferences.overall_sstar_from_CD(C, D)
     cleaned_S_lo = Preferences.overall_sstar_from_CD(C, D_lo)
     cleaned_S_hi = Preferences.overall_sstar_from_CD(C, D_hi)
+    lambda_sep = _separation_ratio(D, W)
+    lambda_sep_lo = _separation_ratio(D_lo, W)
+    lambda_sep_hi = _separation_ratio(D_hi, W)
     G = sqrt(max(C * D, 0.0))
     G_lo = sqrt(max(C * D_lo, 0.0))
     G_hi = sqrt(max(C * D_hi, 0.0))
@@ -940,6 +980,25 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     max_minimizers = isempty(consensus_results) ? 0 :
                      maximum(result.n_minimizers for result in values(consensus_results))
 
+    group_component_rows = [
+        (
+            group = string(group),
+            n = group_sizes[group],
+            pi = props[group],
+            W = group_W[group],
+            D = group_D[group],
+            D_lo = group_D_lo[group],
+            D_hi = group_D_hi[group],
+            S = group_D[group] - group_W[group],
+            S_lo = group_D_lo[group] - group_W[group],
+            S_hi = group_D_hi[group] - group_W[group],
+            lambda_sep = _separation_ratio(group_D[group], group_W[group]),
+            lambda_sep_lo = _separation_ratio(group_D_lo[group], group_W[group]),
+            lambda_sep_hi = _separation_ratio(group_D_hi[group], group_W[group]),
+        )
+        for group in keys(group_profiles)
+    ]
+
     diagnostics = (
         tie_policy = tie_policy,
         n_groups = length(grouped),
@@ -949,10 +1008,12 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
             string(group) => result.n_minimizers
             for (group, result) in consensus_results
         ),
+        group_components = group_component_rows,
     )
 
     return (
         C = C,
+        W = W,
         D = D,
         D_lo = D_lo,
         D_hi = D_hi,
@@ -977,6 +1038,9 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         S = cleaned_S,
         S_lo = cleaned_S_lo,
         S_hi = cleaned_S_hi,
+        lambda_sep = lambda_sep,
+        lambda_sep_lo = lambda_sep_lo,
+        lambda_sep_hi = lambda_sep_hi,
         S_old = support_separation_S_old,
         S_old_lo = support_separation_S_old_lo,
         S_old_hi = support_separation_S_old_hi,
@@ -1052,6 +1116,20 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                     details.C,
                     details.C,
                     details.C,
+                    details.diagnostics,
+                ))
+            end
+
+            if :W in spec.measures
+                push!(results, MeasureResult(
+                    profile.b,
+                    profile.r,
+                    profile.k,
+                    :W,
+                    grouping,
+                    details.W,
+                    details.W,
+                    details.W,
                     details.diagnostics,
                 ))
             end
@@ -1136,6 +1214,20 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                     details.S,
                     details.S_lo,
                     details.S_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :lambda_sep in spec.measures
+                push!(results, MeasureResult(
+                    profile.b,
+                    profile.r,
+                    profile.k,
+                    :lambda_sep,
+                    grouping,
+                    details.lambda_sep,
+                    details.lambda_sep_lo,
+                    details.lambda_sep_hi,
                     details.diagnostics,
                 ))
             end
@@ -1267,10 +1359,121 @@ function _grouped_s_measure_rows(measure_cube::AbstractDataFrame)
     return DataFrame(rows)
 end
 
+function _grouped_w_measure_rows(measure_cube::AbstractDataFrame)
+    required_cols = [:b, :r, :k, :measure, :grouping, :value, :value_lo, :value_hi, :diagnostics]
+    missing_cols = setdiff(required_cols, propertynames(measure_cube))
+    isempty(missing_cols) || throw(ArgumentError(
+        "measure_cube is missing required columns for grouped W derivation: $(missing_cols).",
+    ))
+
+    grouped_c = measure_cube[
+        (measure_cube.measure .== :C) .& .!ismissing.(measure_cube.grouping),
+        required_cols,
+    ]
+    isempty(grouped_c) && return DataFrame(measure_cube[1:0, :])
+
+    key_cols = [:b, :r, :k, :grouping]
+    counts = combine(groupby(grouped_c, key_cols), nrow => :nrows)
+    bad_counts = counts[counts.nrows .!= 1, :]
+    isempty(bad_counts) || throw(ArgumentError(
+        "Cannot derive grouped W because grouped C rows are not unique per (b, r, k, grouping).",
+    ))
+
+    rows = NamedTuple[]
+    for row in eachrow(grouped_c)
+        W = _within_dispersion_from_normalized_C(Float64(row.value))
+        push!(rows, (
+            b = Int(row.b),
+            r = Int(row.r),
+            k = Int(row.k),
+            measure = :W,
+            grouping = row.grouping,
+            value = W,
+            value_lo = W,
+            value_hi = W,
+            diagnostics = row.diagnostics,
+        ))
+    end
+
+    return DataFrame(rows)
+end
+
+function _grouped_lambda_sep_measure_rows(measure_cube::AbstractDataFrame)
+    required_cols = [:b, :r, :k, :measure, :grouping, :value, :value_lo, :value_hi, :diagnostics]
+    missing_cols = setdiff(required_cols, propertynames(measure_cube))
+    isempty(missing_cols) || throw(ArgumentError(
+        "measure_cube is missing required columns for grouped lambda_sep derivation: $(missing_cols).",
+    ))
+
+    grouped = measure_cube[
+        ((measure_cube.measure .== :W) .| (measure_cube.measure .== :C) .| (measure_cube.measure .== :D)) .&
+        .!ismissing.(measure_cube.grouping),
+        required_cols,
+    ]
+    isempty(grouped) && return DataFrame(measure_cube[1:0, :])
+
+    grouped_d = grouped[grouped.measure .== :D, :]
+    isempty(grouped_d) && return DataFrame(measure_cube[1:0, :])
+
+    grouped_w = grouped[grouped.measure .== :W, :]
+    if isempty(grouped_w)
+        grouped_w = _grouped_w_measure_rows(measure_cube)
+    end
+    isempty(grouped_w) && return DataFrame(measure_cube[1:0, :])
+
+    key_cols = [:b, :r, :k, :grouping]
+    counts = combine(groupby(vcat(grouped_w, grouped_d; cols = :setequal), vcat(key_cols, :measure)), nrow => :nrows)
+    bad_counts = counts[counts.nrows .!= 1, :]
+    isempty(bad_counts) || throw(ArgumentError(
+        "Cannot derive grouped lambda_sep because grouped W/D rows are not unique per (b, r, k, grouping, measure).",
+    ))
+
+    w_rows = select(grouped_w, :b, :r, :k, :grouping, :value, :diagnostics)
+    rename!(w_rows, :value => :w_value, :diagnostics => :w_diagnostics)
+    d_rows = select(grouped_d, :b, :r, :k, :grouping, :value, :value_lo, :value_hi, :diagnostics)
+    rename!(d_rows, :value => :d_value, :value_lo => :d_value_lo, :value_hi => :d_value_hi, :diagnostics => :d_diagnostics)
+
+    joined = innerjoin(w_rows, d_rows; on = key_cols)
+    nrow(joined) == nrow(grouped_w) == nrow(grouped_d) || throw(ArgumentError(
+        "Cannot derive grouped lambda_sep because grouped W and D draw keys do not align exactly.",
+    ))
+
+    rows = NamedTuple[]
+    for row in eachrow(joined)
+        W = Float64(row.w_value)
+        value_lo = ismissing(row.d_value_lo) ? missing :
+                   _separation_ratio(Float64(row.d_value_lo), W)
+        value_hi = ismissing(row.d_value_hi) ? missing :
+                   _separation_ratio(Float64(row.d_value_hi), W)
+
+        push!(rows, (
+            b = Int(row.b),
+            r = Int(row.r),
+            k = Int(row.k),
+            measure = :lambda_sep,
+            grouping = row.grouping,
+            value = _separation_ratio(Float64(row.d_value), W),
+            value_lo = value_lo,
+            value_hi = value_hi,
+            diagnostics = row.w_diagnostics,
+        ))
+    end
+
+    return DataFrame(rows)
+end
+
 function _with_grouped_s_measure_list(measures::AbstractVector{<:Symbol})
     :S in measures && return collect(measures)
     updated = collect(measures)
     push!(updated, :S)
+    return updated
+end
+
+function _with_grouped_lambda_measure_list(measures::AbstractVector{<:Symbol};
+                                           include_w::Bool = true)
+    updated = collect(measures)
+    include_w && !(:W in updated) && push!(updated, :W)
+    !(:lambda_sep in updated) && push!(updated, :lambda_sep)
     return updated
 end
 
@@ -1335,29 +1538,119 @@ function augment_pipeline_result_with_grouped_s(result::PipelineResult;
     )
 end
 
-function compute_variance_decomposition(measure_cube::DataFrame)
-    summaries = VarianceComponentSummary[]
-    summary_df = tree_variance_decomposition_table(
-        measure_cube;
-        id_cols = [:measure, :grouping],
-        bootstrap_col = :b,
-        imputation_col = :r,
-        linearization_col = :k,
-        value_col = :value,
+function augment_pipeline_result_with_lambda_sep(result::PipelineResult;
+                                                 include_w::Bool = true,
+                                                 audit_message::Union{Nothing,AbstractString} = nothing)
+    cube = result.measure_cube
+    any(cube.measure .== :lambda_sep) && throw(ArgumentError(
+        "PipelineResult already contains grouped lambda_sep rows.",
+    ))
+    :lambda_sep in result.spec.measures && throw(ArgumentError(
+        "PipelineResult spec already lists :lambda_sep even though the measure cube does not.",
+    ))
+
+    rows_to_add = DataFrame[]
+    if include_w && !any(cube.measure .== :W)
+        w_rows = _grouped_w_measure_rows(cube)
+        isempty(w_rows) && throw(ArgumentError(
+            "PipelineResult does not contain grouped C rows required to derive grouped W.",
+        ))
+        push!(rows_to_add, w_rows)
+    end
+
+    lambda_input = isempty(rows_to_add) ? cube : vcat(cube, rows_to_add...; cols = :setequal)
+    lambda_rows = _grouped_lambda_sep_measure_rows(lambda_input)
+    isempty(lambda_rows) && throw(ArgumentError(
+        "PipelineResult does not contain grouped C/W and D rows required to derive grouped lambda_sep.",
+    ))
+    push!(rows_to_add, lambda_rows)
+
+    augmented_cube = vcat(cube, rows_to_add...; cols = :setequal)
+    decomposition = compute_variance_decomposition(augmented_cube)
+    pooled_summaries = decomposition_table(decomposition)
+
+    spec = result.spec
+    updated_spec = PipelineSpec(
+        spec.wave_id,
+        copy(spec.active_candidates),
+        copy(spec.groupings),
+        _with_grouped_lambda_measure_list(spec.measures; include_w = include_w),
+        spec.B,
+        spec.R,
+        spec.K,
+        spec.resample_policy,
+        spec.imputer_backend,
+        spec.imputer_options,
+        spec.linearizer_policy,
+        spec.consensus_tie_policy,
+        spec.seed_namespace,
+        spec.schema_version,
+        spec.code_version,
     )
 
-    for row in eachrow(summary_df)
-        grouping_value = row.grouping
-        push!(summaries, VarianceComponentSummary(
-            Symbol(row.measure),
-            ismissing(grouping_value) ? nothing : Symbol(grouping_value),
-            Float64(row.estimate),
-            Float64(row.bootstrap_variance),
-            Float64(row.imputation_variance),
-            Float64(row.linearization_variance),
-            Float64(row.total_variance),
-            Float64(row.empirical_variance),
-        ))
+    message = something(
+        audit_message,
+        "Appended grouped W/lambda_sep rows from cached grouped C and D, and recomputed pooled summaries and variance decomposition.",
+    )
+    audit_entry = DataFrame(
+        stage = Symbol[:result],
+        b = [0],
+        r = [0],
+        k = [0],
+        message = [message],
+    )
+    updated_audit = vcat(copy(result.audit_log), audit_entry; cols = :setequal)
+
+    return PipelineResult(
+        updated_spec,
+        result.cache_dir,
+        copy(result.stage_manifest),
+        augmented_cube,
+        pooled_summaries,
+        decomposition,
+        updated_audit,
+    )
+end
+
+function compute_variance_decomposition(measure_cube::DataFrame)
+    summaries = VarianceComponentSummary[]
+
+    for subdf in groupby(measure_cube, [:measure, :grouping])
+        values = Float64.(subdf.value)
+        grouping_value = subdf[1, :grouping]
+
+        if all(isfinite, values)
+            summary_df = tree_variance_decomposition_table(
+                DataFrame(subdf);
+                id_cols = [:measure, :grouping],
+                bootstrap_col = :b,
+                imputation_col = :r,
+                linearization_col = :k,
+                value_col = :value,
+            )
+            row = only(eachrow(summary_df))
+            push!(summaries, VarianceComponentSummary(
+                Symbol(row.measure),
+                ismissing(grouping_value) ? nothing : Symbol(grouping_value),
+                Float64(row.estimate),
+                Float64(row.bootstrap_variance),
+                Float64(row.imputation_variance),
+                Float64(row.linearization_variance),
+                Float64(row.total_variance),
+                Float64(row.empirical_variance),
+            ))
+        else
+            push!(summaries, VarianceComponentSummary(
+                Symbol(subdf[1, :measure]),
+                ismissing(grouping_value) ? nothing : Symbol(grouping_value),
+                mean(values),
+                NaN,
+                NaN,
+                NaN,
+                NaN,
+                NaN,
+            ))
+        end
     end
 
     return VarianceDecomposition(summaries)
@@ -1391,6 +1684,12 @@ function decomposition_table(decomposition::VarianceDecomposition)
     end
 
     return DataFrame(rows)
+end
+
+function _nan_tolerant_quantile(values, p::Real)
+    vals = [Float64(value) for value in values if !isnan(Float64(value))]
+    isempty(vals) && return NaN
+    return quantile(vals, p)
 end
 
 function _stage_path(cache_dir::AbstractString,
@@ -1894,11 +2193,11 @@ function pipeline_panel_table(result::PipelineResult)
             grouping = grouping,
             n_draws = length(values),
             mean_value = mean(values),
-            q05 = quantile(values, 0.05),
-            q25 = quantile(values, 0.25),
-            q50 = quantile(values, 0.50),
-            q75 = quantile(values, 0.75),
-            q95 = quantile(values, 0.95),
+            q05 = _nan_tolerant_quantile(values, 0.05),
+            q25 = _nan_tolerant_quantile(values, 0.25),
+            q50 = _nan_tolerant_quantile(values, 0.50),
+            q75 = _nan_tolerant_quantile(values, 0.75),
+            q95 = _nan_tolerant_quantile(values, 0.95),
             min_value = minimum(values),
             max_value = maximum(values),
             value_lo_min = isempty(los) ? missing : minimum(Float64.(los)),
@@ -1959,11 +2258,11 @@ function pipeline_panel_table(result::PipelineResult, extra_meta::NamedTuple)
             grouping = grouping,
             n_draws = length(values),
             mean_value = mean(values),
-            q05 = quantile(values, 0.05),
-            q25 = quantile(values, 0.25),
-            q50 = quantile(values, 0.50),
-            q75 = quantile(values, 0.75),
-            q95 = quantile(values, 0.95),
+            q05 = _nan_tolerant_quantile(values, 0.05),
+            q25 = _nan_tolerant_quantile(values, 0.25),
+            q50 = _nan_tolerant_quantile(values, 0.50),
+            q75 = _nan_tolerant_quantile(values, 0.75),
+            q95 = _nan_tolerant_quantile(values, 0.95),
             min_value = minimum(values),
             max_value = maximum(values),
             value_lo_min = isempty(los) ? missing : minimum(Float64.(los)),
