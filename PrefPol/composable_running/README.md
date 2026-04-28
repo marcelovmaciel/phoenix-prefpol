@@ -7,10 +7,11 @@ Phase 1 created the directory structure. Phase 2 identified the existing
 `PrefPol/src/` utilities that later stage scripts should reuse; see
 `UTILITY_INVENTORY.md`.
 
-The runnable stage scripts and configuration-driven orchestration are
-intentionally not implemented yet. Later phases should keep orchestration
-scripts thin and put reusable Julia logic in `PrefPol/src/` or
-`PrefPol/ext/PrefPolPlottingExt.jl`.
+Phase 4 adds the first runnable stage entrypoints. `stages/04_measures.jl`
+wraps the existing nested pipeline end to end and writes measure tables plus
+manifests. `stages/01_bootstrap.jl`, `stages/02_impute.jl`, and
+`stages/03_linearize.jl` are explicit wrappers that document the Phase 4
+limitation: those stages become independently executable in Phase 5.
 
 ## Layout
 
@@ -28,12 +29,15 @@ PrefPol/composable_running/
 The `output/` tree is reserved for generated artifacts and manifests. Treat it
 as generated state, not source.
 
-## Planned Commands
+## Commands
 
-These entrypoints are placeholders until later phases implement the individual
-stages:
+Phase 4 supports config-driven runs when an orchestration TOML exists, but can
+also run a small default plan for local smoke checks:
 
 ```bash
+julia --project=PrefPol PrefPol/composable_running/stages/00_validate_configs.jl
+julia --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --smoke-test --dry-run
+julia --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --config PrefPol/config/orchestration.toml
 julia --project=PrefPol PrefPol/composable_running/run_all_smoke.jl --config PrefPol/config/smoke_test.toml
 julia --project=PrefPol PrefPol/composable_running/run_all_paper.jl --config PrefPol/config/orchestration.toml
 ```
