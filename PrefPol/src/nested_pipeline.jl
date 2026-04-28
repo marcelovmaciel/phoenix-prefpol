@@ -1720,6 +1720,8 @@ function _save_artifact(path::AbstractString, artifact)
     return bytes2hex(SHA.sha256(read(path)))
 end
 
+_artifact_hash(path::AbstractString) = bytes2hex(SHA.sha256(read(path)))
+
 function _save_stage_artifact(cache_dir::AbstractString,
                               stage::Symbol,
                               artifact;
@@ -1754,8 +1756,457 @@ function _audit_dataframe(rows)
     ) : DataFrame(rows)
 end
 
+function _manifest_row(stage::Symbol,
+                       b::Int,
+                       r::Int,
+                       k::Int,
+                       seed::UInt64,
+                       path::AbstractString,
+                       artifact_kind::AbstractString)
+    return (
+        stage = stage,
+        b = b,
+        r = r,
+        k = k,
+        seed = seed,
+        path = String(path),
+        artifact_hash = _artifact_hash(path),
+        artifact_kind = String(artifact_kind),
+    )
+end
+
+"""
+    pipeline_cache_dir(pipeline, spec) -> String
+
+Return the cache directory used by `NestedStochasticPipeline` for `spec`.
+This is the public equivalent of the stable internal cache-key lookup used by
+the nested pipeline.
+"""
+function pipeline_cache_dir(pipeline::NestedStochasticPipeline, spec::PipelineSpec)
+    cache_dir = joinpath(pipeline.cache_root, _pipeline_cache_key(spec))
+    mkpath(cache_dir)
+    return cache_dir
+end
+
+function _stage_path(pipeline::NestedStochasticPipeline,
+                     spec::PipelineSpec,
+                     stage::Symbol;
+                     b::Int = 0,
+                     r::Int = 0,
+                     k::Int = 0)
+    return _stage_path(pipeline_cache_dir(pipeline, spec), stage; b = b, r = r, k = k)
+end
+
+"""
+    pipeline_stage_paths(pipeline, spec) -> DataFrame
+
+Return the expected nested-pipeline artifact paths for every stage row in
+`spec`, without loading or computing artifacts.
+"""
+function pipeline_stage_paths(pipeline::NestedStochasticPipeline, spec::PipelineSpec)
+    cache_dir = pipeline_cache_dir(pipeline, spec)
+    rows = NamedTuple[
+        (stage = :spec, b = 0, r = 0, k = 0, path = _stage_path(cache_dir, :spec)),
+        (stage = :observed, b = 0, r = 0, k = 0, path = _stage_path(cache_dir, :observed)),
+    ]
+
+    for b in 1:spec.B
+        push!(rows, (stage = :resample, b = b, r = 0, k = 0,
+                     path = _stage_path(cache_dir, :resample; b = b)))
+
+        for r in 1:spec.R
+            push!(rows, (stage = :imputed, b = b, r = r, k = 0,
+                         path = _stage_path(cache_dir, :imputed; b = b, r = r)))
+
+            for k in 1:spec.K
+                push!(rows, (stage = :linearized, b = b, r = r, k = k,
+                             path = _stage_path(cache_dir, :linearized; b = b, r = r, k = k)))
+                push!(rows, (stage = :measure, b = b, r = r, k = k,
+                             path = _stage_path(cache_dir, :measure; b = b, r = r, k = k)))
+            end
+        end
+    end
+
+    return DataFrame(rows)
+end
+
+"""
+    load_stage_artifact(path) -> artifact
+
+Load a nested-pipeline stage artifact saved under the standard `"artifact"`
+JLD2 key.
+"""
+load_stage_artifact(path::AbstractString) = JLD2.load(path, "artifact")
+
+function _ensure_spec_artifact!(pipeline::NestedStochasticPipeline,
+                                spec::PipelineSpec;
+                                force::Bool = false)
+    cache_dir = pipeline_cache_dir(pipeline, spec)
+    path = _stage_path(cache_dir, :spec)
+
+    if force || !isfile(path)
+        _save_stage_artifact(cache_dir, :spec, (spec = spec,))
+    end
+
+    return _manifest_row(:spec, 0, 0, 0, UInt64(0), path, "PipelineSpec")
+end
+
+function _load_resample_artifact(path::AbstractString,
+                                 observed::ObservedData,
+                                 b::Int)
+    artifact = load_stage_artifact(path)
+    return Resample(
+        b,
+        Vector{Int}(artifact.indices),
+        Vector{Int}(artifact.multiplicities),
+        observed.scores[Vector{Int}(artifact.indices), :],
+        UInt64(artifact.seed),
+    )
+end
+
+function _load_imputed_artifact(path::AbstractString,
+                                spec::PipelineSpec,
+                                b::Int,
+                                r::Int)
+    artifact = load_stage_artifact(path)
+    return ImputedData(
+        b,
+        r,
+        DataFrame(artifact.table),
+        Symbol(artifact.backend),
+        spec.imputer_options,
+        UInt64(artifact.seed),
+        artifact.report,
+    )
+end
+
+function _load_linearized_artifact(path::AbstractString,
+                                   spec::PipelineSpec,
+                                   b::Int,
+                                   r::Int,
+                                   k::Int)
+    artifact = load_stage_artifact(path)
+    bundle = artifact isa AnnotatedProfile ?
+             artifact :
+             dataframe_to_annotated_profile(artifact; ballot_kind = :strict)
+
+    return LinearizedProfile(
+        b,
+        r,
+        k,
+        bundle,
+        tuple(Symbol.(spec.active_candidates)...),
+        spec.linearizer_policy,
+        _stage_seed(spec, :linearization; b = b, r = r, k = k),
+    )
+end
+
+"""
+    ensure_observed!(pipeline, spec; force=false) -> ObservedData
+
+Ensure the spec and observed-data artifacts exist, reusing the existing cache
+unless `force=true`.
+"""
+function ensure_observed!(pipeline::NestedStochasticPipeline,
+                          spec::PipelineSpec;
+                          force::Bool = false)
+    cache_dir = pipeline_cache_dir(pipeline, spec)
+    _ensure_spec_artifact!(pipeline, spec; force = force)
+
+    path = _stage_path(cache_dir, :observed)
+    if isfile(path) && !force
+        return load_stage_artifact(path)
+    end
+
+    observed = load_observed_data(pipeline, spec)
+    _save_stage_artifact(cache_dir, :observed, observed)
+    return observed
+end
+
+"""
+    ensure_resamples!(pipeline, spec; force=false) -> DataFrame
+
+Ensure observed data and all bootstrap resample artifacts exist. The returned
+manifest uses the same schema as `PipelineResult.stage_manifest`.
+"""
+function ensure_resamples!(pipeline::NestedStochasticPipeline,
+                           spec::PipelineSpec;
+                           force::Bool = false)
+    cache_dir = pipeline_cache_dir(pipeline, spec)
+    stage_rows = NamedTuple[]
+    push!(stage_rows, _ensure_spec_artifact!(pipeline, spec; force = force))
+
+    observed = ensure_observed!(pipeline, spec; force = force)
+    observed_path = _stage_path(cache_dir, :observed)
+    push!(stage_rows, _manifest_row(:observed, 0, 0, 0, UInt64(0), observed_path, "ObservedData"))
+
+    for b in 1:spec.B
+        path = _stage_path(cache_dir, :resample; b = b)
+        if force || !isfile(path)
+            resample = _draw_resample(observed, spec, b)
+            _save_stage_artifact(
+                cache_dir,
+                :resample,
+                (
+                    indices = resample.indices,
+                    multiplicities = resample.multiplicities,
+                    seed = resample.seed,
+                );
+                b = b,
+            )
+        end
+
+        seed = UInt64(load_stage_artifact(path).seed)
+        push!(stage_rows, _manifest_row(:resample, b, 0, 0, seed, path, "Resample"))
+    end
+
+    return _manifest_dataframe(stage_rows)
+end
+
+"""
+    ensure_imputations!(pipeline, spec; force=false) -> DataFrame
+
+Ensure all imputation artifacts exist, creating missing upstream bootstrap
+artifacts as needed.
+"""
+function ensure_imputations!(pipeline::NestedStochasticPipeline,
+                             spec::PipelineSpec;
+                             force::Bool = false)
+    cache_dir = pipeline_cache_dir(pipeline, spec)
+    base_manifest = ensure_resamples!(pipeline, spec; force = false)
+    observed = load_stage_artifact(_stage_path(cache_dir, :observed))
+    stage_rows = NamedTuple[NamedTuple(row) for row in eachrow(base_manifest)]
+
+    for b in 1:spec.B
+        resample = _load_resample_artifact(
+            _stage_path(cache_dir, :resample; b = b),
+            observed,
+            b,
+        )
+
+        for r in 1:spec.R
+            path = _stage_path(cache_dir, :imputed; b = b, r = r)
+            if force || !isfile(path)
+                imputed = _impute_resample(resample, spec, r)
+                _save_stage_artifact(
+                    cache_dir,
+                    :imputed,
+                    (
+                        table = imputed.table,
+                        report = imputed.report,
+                        seed = imputed.seed,
+                        backend = imputed.backend,
+                    );
+                    b = b,
+                    r = r,
+                )
+            end
+
+            artifact = load_stage_artifact(path)
+            push!(stage_rows, _manifest_row(:imputed, b, r, 0, UInt64(artifact.seed), path, "ImputedData"))
+        end
+    end
+
+    return _manifest_dataframe(stage_rows)
+end
+
+"""
+    ensure_linearizations!(pipeline, spec; force=false) -> DataFrame
+
+Ensure all linearized-profile artifacts exist, creating missing upstream
+bootstrap and imputation artifacts as needed.
+"""
+function ensure_linearizations!(pipeline::NestedStochasticPipeline,
+                                spec::PipelineSpec;
+                                force::Bool = false)
+    cache_dir = pipeline_cache_dir(pipeline, spec)
+    base_manifest = ensure_imputations!(pipeline, spec; force = false)
+    stage_rows = NamedTuple[NamedTuple(row) for row in eachrow(base_manifest)]
+
+    for b in 1:spec.B, r in 1:spec.R
+        imputed = _load_imputed_artifact(
+            _stage_path(cache_dir, :imputed; b = b, r = r),
+            spec,
+            b,
+            r,
+        )
+
+        for k in 1:spec.K
+            path = _stage_path(cache_dir, :linearized; b = b, r = r, k = k)
+            if force || !isfile(path)
+                linearized = _linearize_imputed(imputed, spec, k)
+                _save_stage_artifact(
+                    cache_dir,
+                    :linearized,
+                    compact_profile_artifact_dataframe(linearized.bundle);
+                    b = b,
+                    r = r,
+                    k = k,
+                )
+            end
+
+            seed = _stage_seed(spec, :linearization; b = b, r = r, k = k)
+            push!(stage_rows, _manifest_row(:linearized, b, r, k, seed, path, "LinearizedProfile"))
+        end
+    end
+
+    return _manifest_dataframe(stage_rows)
+end
+
+"""
+    rebuild_pipeline_result_from_stage_cache(pipeline, spec) -> PipelineResult
+
+Rebuild the aggregate `PipelineResult` from cached measure artifacts. This is
+useful for orchestration scripts that need to recreate `result.jld2` after
+stage-only execution.
+"""
+function rebuild_pipeline_result_from_stage_cache(pipeline::NestedStochasticPipeline,
+                                                  spec::PipelineSpec)
+    cache_dir = pipeline_cache_dir(pipeline, spec)
+    paths = pipeline_stage_paths(pipeline, spec)
+    missing_paths = paths[.!isfile.(paths.path), :]
+    isempty(missing_paths) || throw(ArgumentError(
+        "Cannot rebuild PipelineResult because required stage artifacts are missing: $(missing_paths.path).",
+    ))
+
+    measure_tables = DataFrame[]
+    for b in 1:spec.B, r in 1:spec.R, k in 1:spec.K
+        push!(measure_tables, DataFrame(load_stage_artifact(
+            _stage_path(cache_dir, :measure; b = b, r = r, k = k),
+        )))
+    end
+
+    measure_cube = isempty(measure_tables) ? _measure_results_dataframe(MeasureResult[]) :
+                   vcat(measure_tables...; cols = :union)
+    decomposition = compute_variance_decomposition(measure_cube)
+    pooled_summaries = decomposition_table(decomposition)
+
+    stage_rows = NamedTuple[]
+    for row in eachrow(paths)
+        artifact_kind = row.stage === :spec ? "PipelineSpec" :
+                        row.stage === :observed ? "ObservedData" :
+                        row.stage === :resample ? "Resample" :
+                        row.stage === :imputed ? "ImputedData" :
+                        row.stage === :linearized ? "LinearizedProfile" :
+                        "MeasureResult"
+        seed = row.stage === :resample ? UInt64(load_stage_artifact(row.path).seed) :
+               row.stage === :imputed ? UInt64(load_stage_artifact(row.path).seed) :
+               row.stage === :linearized ? _stage_seed(spec, :linearization; b = row.b, r = row.r, k = row.k) :
+               UInt64(0)
+        push!(stage_rows, _manifest_row(Symbol(row.stage), Int(row.b), Int(row.r), Int(row.k), seed, row.path, artifact_kind))
+    end
+
+    audit_log = _audit_dataframe(NamedTuple[
+        (
+            stage = :spec,
+            b = 0,
+            r = 0,
+            k = 0,
+            message = "Rebuilt PipelineResult from cached nested-pipeline stage artifacts.",
+        ),
+    ])
+
+    return PipelineResult(
+        spec,
+        cache_dir,
+        _manifest_dataframe(stage_rows),
+        measure_cube,
+        pooled_summaries,
+        decomposition,
+        audit_log,
+    )
+end
+
+"""
+    ensure_measures!(pipeline, spec; force=false, progress=true) -> PipelineResult
+
+Ensure all nested-pipeline stage artifacts through measurement exist and save
+the aggregate `PipelineResult`. Existing `result.jld2` is reused unless
+`force=true`.
+"""
+function ensure_measures!(pipeline::NestedStochasticPipeline,
+                          spec::PipelineSpec;
+                          force::Bool = false,
+                          progress::Bool = true)
+    result_path = pipeline_result_path(pipeline, spec)
+    if isfile(result_path) && !force
+        return load_pipeline_result(result_path)
+    end
+
+    cache_dir = pipeline_cache_dir(pipeline, spec)
+    base_manifest = ensure_linearizations!(pipeline, spec; force = false)
+    stage_rows = NamedTuple[NamedTuple(row) for row in eachrow(base_manifest)]
+    audit_rows = NamedTuple[
+        (
+            stage = :spec,
+            b = 0,
+            r = 0,
+            k = 0,
+            message = "Running wave $(spec.wave_id) with $(length(spec.active_candidates)) candidates, B=$(spec.B), R=$(spec.R), K=$(spec.K).",
+        ),
+    ]
+    measure_tables = DataFrame[]
+    leaf_progress = pm.Progress(
+        spec.B * spec.R * spec.K;
+        desc = "Nested BRK $(spec.wave_id)",
+        dt = 1.0,
+        enabled = progress,
+    )
+
+    for b in 1:spec.B, r in 1:spec.R, k in 1:spec.K
+        path = _stage_path(cache_dir, :measure; b = b, r = r, k = k)
+
+        if force || !isfile(path)
+            linearized = _load_linearized_artifact(
+                _stage_path(cache_dir, :linearized; b = b, r = r, k = k),
+                spec,
+                b,
+                r,
+                k,
+            )
+            stage_results, stage_audits = _measure_results_for_profile(linearized, spec)
+            append!(audit_rows, stage_audits)
+            measure_df = _measure_results_dataframe(stage_results)
+            _save_stage_artifact(cache_dir, :measure, measure_df; b = b, r = r, k = k)
+        else
+            measure_df = DataFrame(load_stage_artifact(path))
+        end
+
+        push!(measure_tables, measure_df)
+        push!(stage_rows, _manifest_row(:measure, b, r, k, UInt64(0), path, "MeasureResult"))
+        pm.next!(
+            leaf_progress;
+            showvalues = [
+                (:wave_id, spec.wave_id),
+                (:b, b),
+                (:r, r),
+                (:k, k),
+                (:imputer_backend, spec.imputer_backend),
+                (:linearizer_policy, spec.linearizer_policy),
+            ],
+        )
+    end
+
+    measure_cube = vcat(measure_tables...; cols = :union)
+    decomposition = compute_variance_decomposition(measure_cube)
+    pooled_summaries = decomposition_table(decomposition)
+    result = PipelineResult(
+        spec,
+        cache_dir,
+        _manifest_dataframe(stage_rows),
+        measure_cube,
+        pooled_summaries,
+        decomposition,
+        _audit_dataframe(audit_rows),
+    )
+
+    save_pipeline_result(result_path, result; overwrite = true)
+    pm.finish!(leaf_progress)
+    return result
+end
+
 function pipeline_result_path(pipeline::NestedStochasticPipeline, spec::PipelineSpec)
-    return joinpath(pipeline.cache_root, _pipeline_cache_key(spec), "result.jld2")
+    return joinpath(pipeline_cache_dir(pipeline, spec), "result.jld2")
 end
 
 function load_pipeline_result(path::AbstractString)

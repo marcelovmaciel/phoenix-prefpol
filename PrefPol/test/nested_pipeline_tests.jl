@@ -308,6 +308,79 @@ end
     end
 end
 
+@testset "nested pipeline stage-only APIs reuse the canonical cache layout" begin
+    cfg = PrefPol.ElectionConfig(
+        2022,
+        "__nested_run_loader__",
+        "/tmp/unused",
+        3,
+        [3],
+        3,
+        3,
+        123,
+        ["A", "B", "C"],
+        ["grp"],
+        [PrefPol.Scenario("all", String[])],
+    )
+    wave = PrefPol.SurveyWaveConfig(cfg; wave_id = "stage-api-wave")
+
+    mktempdir() do dir
+        pipeline = PrefPol.NestedStochasticPipeline([wave]; cache_root = dir)
+        spec = PrefPol.build_pipeline_spec(
+            wave;
+            active_candidates = ["A", "B", "C"],
+            groupings = [:grp],
+            measures = [:Psi, :C, :D, :S],
+            B = 2,
+            R = 2,
+            K = 2,
+            imputer_backend = :zero,
+            consensus_tie_policy = :average,
+        )
+
+        expected_rows = 2 + spec.B + spec.B * spec.R + 2 * spec.B * spec.R * spec.K
+        paths = PrefPol.pipeline_stage_paths(pipeline, spec)
+        cache_dir = PrefPol.pipeline_cache_dir(pipeline, spec)
+
+        @test nrow(paths) == expected_rows
+        @test dirname(cache_dir) == dir
+        @test !all(isfile, paths.path)
+
+        observed = PrefPol.ensure_observed!(pipeline, spec)
+        @test observed isa PrefPol.ObservedData
+        @test isfile(paths[paths.stage .== :spec, :path][1])
+        @test isfile(paths[paths.stage .== :observed, :path][1])
+
+        resample_manifest = PrefPol.ensure_resamples!(pipeline, spec)
+        @test nrow(resample_manifest) == 2 + spec.B
+        @test all(isfile, resample_manifest.path)
+
+        imputation_manifest = PrefPol.ensure_imputations!(pipeline, spec)
+        @test nrow(imputation_manifest) == 2 + spec.B + spec.B * spec.R
+        @test all(isfile, imputation_manifest.path)
+
+        linearization_manifest = PrefPol.ensure_linearizations!(pipeline, spec)
+        @test nrow(linearization_manifest) == 2 + spec.B + spec.B * spec.R + spec.B * spec.R * spec.K
+        @test all(isfile, linearization_manifest.path)
+
+        linearized_path = linearization_manifest[linearization_manifest.stage .== :linearized, :path][1]
+        @test PrefPol.load_stage_artifact(linearized_path) isa DataFrame
+
+        result = PrefPol.ensure_measures!(pipeline, spec; progress = false)
+        @test result isa PrefPol.PipelineResult
+        @test nrow(result.stage_manifest) == expected_rows
+        @test all(isfile, result.stage_manifest.path)
+        @test isfile(PrefPol.pipeline_result_path(pipeline, spec))
+
+        rebuilt = PrefPol.rebuild_pipeline_result_from_stage_cache(pipeline, spec)
+        @test isequal(rebuilt.measure_cube, result.measure_cube)
+        @test isequal(rebuilt.pooled_summaries, result.pooled_summaries)
+
+        cached = PrefPol.ensure_measures!(pipeline, spec; progress = false)
+        @test isequal(cached.measure_cube, result.measure_cube)
+    end
+end
+
 @testset "lambda_sep derived identities and boundary cases" begin
     @test isnan(PrefPol._separation_ratio(0.0, 0.0))
     @test isinf(PrefPol._separation_ratio(0.2, 0.0))
