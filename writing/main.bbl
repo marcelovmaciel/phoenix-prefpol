@@ -1,0 +1,1917 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.2 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{nyt/global//global/global}
+    \entry{ballester10_charac_singl_peaked_domain}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=6ee5ec0a46576d6b2b75544c1f18163c}{%
+           family={Ballester},
+           familyi={B\bibinitperiod},
+           given={Miguel\bibnamedelima A.},
+           giveni={M\bibinitperiod\bibinitdelim A\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=88e3e6d3f491508b90fd7376d31342a6}{%
+           family={Haeringer},
+           familyi={H\bibinitperiod},
+           given={Guillaume},
+           giveni={G\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{df2fed1740a600a819a03caaa7063c4b}
+      \strng{fullhash}{df2fed1740a600a819a03caaa7063c4b}
+      \strng{bibnamehash}{df2fed1740a600a819a03caaa7063c4b}
+      \strng{authorbibnamehash}{df2fed1740a600a819a03caaa7063c4b}
+      \strng{authornamehash}{df2fed1740a600a819a03caaa7063c4b}
+      \strng{authorfullhash}{df2fed1740a600a819a03caaa7063c4b}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Social Choice and Welfare}
+      \field{number}{2}
+      \field{title}{A Characterization of the Single-Peaked Domain}
+      \field{volume}{36}
+      \field{year}{2010}
+      \field{dateera}{ce}
+      \field{pages}{305\bibrangedash 322}
+      \range{pages}{18}
+      \verb{doi}
+      \verb 10.1007/s00355-010-0476-3
+      \endverb
+      \keyw{social_choice,formal_theory,collective_choice}
+    \endentry
+    \entry{borba24_polar_ideol}{article}{}
+      \name{author}{3}{}{%
+        {{un=0,uniquepart=base,hash=f7c83e91e3ae4c4591674a8ce022396a}{%
+           family={Borba},
+           familyi={B\bibinitperiod},
+           given={Julian},
+           giveni={J\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=e2f1f16949f0722e92ba93c11ded91df}{%
+           family={Ribeiro},
+           familyi={R\bibinitperiod},
+           given={Ednaldo},
+           giveni={E\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=d23bb837ec80b0569b88af5527ffa555}{%
+           family={Fuks},
+           familyi={F\bibinitperiod},
+           given={Mario},
+           giveni={M\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{eba7f37618c4a57fbe131886d732ebb9}
+      \strng{fullhash}{eba7f37618c4a57fbe131886d732ebb9}
+      \strng{bibnamehash}{eba7f37618c4a57fbe131886d732ebb9}
+      \strng{authorbibnamehash}{eba7f37618c4a57fbe131886d732ebb9}
+      \strng{authornamehash}{eba7f37618c4a57fbe131886d732ebb9}
+      \strng{authorfullhash}{eba7f37618c4a57fbe131886d732ebb9}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Revista de Sociologia e Política}
+      \field{number}{nil}
+      \field{title}{Polarization and Ideology: Exploring the Contextual Nature of Democratic Commitment}
+      \field{volume}{32}
+      \field{year}{2024}
+      \field{pages}{nil}
+      \range{pages}{-1}
+      \verb{doi}
+      \verb 10.1590/1678-98732432e006
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1590/1678-98732432e006
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1590/1678-98732432e006
+      \endverb
+    \endentry
+    \entry{bramson2017understanding}{article}{}
+      \name{author}{8}{ul=3}{%
+        {{un=0,uniquepart=base,hash=539112d248445693ec08e25aa47faa34}{%
+           family={Bramson},
+           familyi={B\bibinitperiod},
+           given={Aaron},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=ad70c5e35134aca46cbff28738ab030c}{%
+           family={Grim},
+           familyi={G\bibinitperiod},
+           given={Patrick},
+           giveni={P\bibinitperiod},
+           givenun=0}}%
+        {{un=2,uniquepart=given,hash=00977feace5ead5d310eea12a5221be2}{%
+           family={Singer},
+           familyi={S\bibinitperiod},
+           given={Daniel\bibnamedelima J},
+           giveni={D\bibinitperiod\bibinitdelim J\bibinitperiod},
+           givenun=2}}%
+        {{un=0,uniquepart=base,hash=7c901bba9691bf74dd1a6d7556582553}{%
+           family={Berger},
+           familyi={B\bibinitperiod},
+           given={William\bibnamedelima J},
+           giveni={W\bibinitperiod\bibinitdelim J\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=496ae957f9e2779cc9b9089f6d380a70}{%
+           family={Sack},
+           familyi={S\bibinitperiod},
+           given={Graham},
+           giveni={G\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=5d63efef15a65a63a5e269689fb62ec7}{%
+           family={Fisher},
+           familyi={F\bibinitperiod},
+           given={Steven},
+           giveni={S\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=6ff30a337db8172c5def72bcee0c34bd}{%
+           family={Flocken},
+           familyi={F\bibinitperiod},
+           given={Carissa},
+           giveni={C\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=f61f5e8a5d8497a809156579f5f5b700}{%
+           family={Holman},
+           familyi={H\bibinitperiod},
+           given={Bennett},
+           giveni={B\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Cambridge University Press}%
+      }
+      \strng{namehash}{ab3e04659595420fd30091b6b97eb4a1}
+      \strng{fullhash}{51a8067eed975d74167db345745213b3}
+      \strng{bibnamehash}{ab3e04659595420fd30091b6b97eb4a1}
+      \strng{authorbibnamehash}{ab3e04659595420fd30091b6b97eb4a1}
+      \strng{authornamehash}{ab3e04659595420fd30091b6b97eb4a1}
+      \strng{authorfullhash}{51a8067eed975d74167db345745213b3}
+      \field{extraname}{1}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Philosophy of science}
+      \field{number}{1}
+      \field{title}{Understanding polarization: Meanings, measures, and model evaluation}
+      \field{volume}{84}
+      \field{year}{2017}
+      \field{pages}{115\bibrangedash 159}
+      \range{pages}{45}
+    \endentry
+    \entry{bramson16_disam_social_polar_concep_measur}{article}{}
+      \name{author}{7}{ul=3}{%
+        {{un=0,uniquepart=base,hash=539112d248445693ec08e25aa47faa34}{%
+           family={Bramson},
+           familyi={B\bibinitperiod},
+           given={Aaron},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=ad70c5e35134aca46cbff28738ab030c}{%
+           family={Grim},
+           familyi={G\bibinitperiod},
+           given={Patrick},
+           giveni={P\bibinitperiod},
+           givenun=0}}%
+        {{un=2,uniquepart=given,hash=00977feace5ead5d310eea12a5221be2}{%
+           family={Singer},
+           familyi={S\bibinitperiod},
+           given={Daniel\bibnamedelima J.},
+           giveni={D\bibinitperiod\bibinitdelim J\bibinitperiod},
+           givenun=2}}%
+        {{un=0,uniquepart=base,hash=5d63efef15a65a63a5e269689fb62ec7}{%
+           family={Fisher},
+           familyi={F\bibinitperiod},
+           given={Steven},
+           giveni={S\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=677aaa19344d7dd073f2e0e3c4b71d71}{%
+           family={Berger},
+           familyi={B\bibinitperiod},
+           given={William},
+           giveni={W\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=496ae957f9e2779cc9b9089f6d380a70}{%
+           family={Sack},
+           familyi={S\bibinitperiod},
+           given={Graham},
+           giveni={G\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=6ff30a337db8172c5def72bcee0c34bd}{%
+           family={Flocken},
+           familyi={F\bibinitperiod},
+           given={Carissa},
+           giveni={C\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{ab3e04659595420fd30091b6b97eb4a1}
+      \strng{fullhash}{77dc7ded3523c0e42a74425efcdde098}
+      \strng{bibnamehash}{ab3e04659595420fd30091b6b97eb4a1}
+      \strng{authorbibnamehash}{ab3e04659595420fd30091b6b97eb4a1}
+      \strng{authornamehash}{ab3e04659595420fd30091b6b97eb4a1}
+      \strng{authorfullhash}{77dc7ded3523c0e42a74425efcdde098}
+      \field{extraname}{2}
+      \field{sortinit}{B}
+      \field{sortinithash}{d7095fff47cda75ca2589920aae98399}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{The Journal of Mathematical Sociology}
+      \field{number}{2}
+      \field{title}{Disambiguation of Social Polarization Concepts and Measures}
+      \field{volume}{40}
+      \field{year}{2016}
+      \field{pages}{80\bibrangedash 111}
+      \range{pages}{32}
+      \verb{doi}
+      \verb 10.1080/0022250x.2016.1147443
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1080/0022250X.2016.1147443
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1080/0022250X.2016.1147443
+      \endverb
+    \endentry
+    \entry{can2015measuring}{article}{}
+      \name{author}{3}{}{%
+        {{un=0,uniquepart=base,hash=3f28f33c8f83a4747229ad397e3a5802}{%
+           family={Can},
+           familyi={C\bibinitperiod},
+           given={Burak},
+           giveni={B\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=39b0df3f197697a5bde315faa6fb7cf0}{%
+           family={Ozkes},
+           familyi={O\bibinitperiod},
+           given={Ali\bibnamedelima Ihsan},
+           giveni={A\bibinitperiod\bibinitdelim I\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=648160c3087a77ff7a8543b17ef13007}{%
+           family={Storcken},
+           familyi={S\bibinitperiod},
+           given={Ton},
+           giveni={T\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{b06f079d2bd3e3f1c14a1c423a65d11a}
+      \strng{fullhash}{b06f079d2bd3e3f1c14a1c423a65d11a}
+      \strng{bibnamehash}{b06f079d2bd3e3f1c14a1c423a65d11a}
+      \strng{authorbibnamehash}{b06f079d2bd3e3f1c14a1c423a65d11a}
+      \strng{authornamehash}{b06f079d2bd3e3f1c14a1c423a65d11a}
+      \strng{authorfullhash}{b06f079d2bd3e3f1c14a1c423a65d11a}
+      \field{sortinit}{C}
+      \field{sortinithash}{4d103a86280481745c9c897c925753c0}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Mathematical Social Sciences}
+      \field{number}{nil}
+      \field{title}{Measuring Polarization in Preferences}
+      \field{volume}{78}
+      \field{year}{2015}
+      \field{pages}{76\bibrangedash 79}
+      \range{pages}{4}
+      \verb{doi}
+      \verb 10.1016/j.mathsocsci.2015.09.006
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1016/j.mathsocsci.2015.09.006
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1016/j.mathsocsci.2015.09.006
+      \endverb
+    \endentry
+    \entry{dimaggio1996have}{article}{}
+      \name{author}{3}{}{%
+        {{un=0,uniquepart=base,hash=36198f5d938c1de7b3847a3ff2ef79d2}{%
+           family={DiMaggio},
+           familyi={D\bibinitperiod},
+           given={Paul},
+           giveni={P\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=02c9fee5af4987d8ec22207277ace861}{%
+           family={Evans},
+           familyi={E\bibinitperiod},
+           given={John},
+           giveni={J\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=d610ac0fe8422925ca3359187cb7e0dc}{%
+           family={Bryson},
+           familyi={B\bibinitperiod},
+           given={Bethany},
+           giveni={B\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {University of Chicago Press}%
+      }
+      \strng{namehash}{5bbd86e2501e0f46d1cadacee6a133b8}
+      \strng{fullhash}{5bbd86e2501e0f46d1cadacee6a133b8}
+      \strng{bibnamehash}{5bbd86e2501e0f46d1cadacee6a133b8}
+      \strng{authorbibnamehash}{5bbd86e2501e0f46d1cadacee6a133b8}
+      \strng{authornamehash}{5bbd86e2501e0f46d1cadacee6a133b8}
+      \strng{authorfullhash}{5bbd86e2501e0f46d1cadacee6a133b8}
+      \field{sortinit}{D}
+      \field{sortinithash}{6f385f66841fb5e82009dc833c761848}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{American journal of Sociology}
+      \field{number}{3}
+      \field{title}{Have American's social attitudes become more polarized?}
+      \field{volume}{102}
+      \field{year}{1996}
+      \field{pages}{690\bibrangedash 755}
+      \range{pages}{66}
+    \endentry
+    \entry{dowding25_explan_plural_polit_scien}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=dca51ad1c971b8dd55b701de70716b4e}{%
+           family={Dowding},
+           familyi={D\bibinitperiod},
+           given={Keith},
+           giveni={K\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=a6d73002d297362d28509e8b9c708abe}{%
+           family={Miller},
+           familyi={M\bibinitperiod},
+           given={Charles},
+           giveni={C\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{b005964bb31f0d1a4ef1012624d5583b}
+      \strng{fullhash}{b005964bb31f0d1a4ef1012624d5583b}
+      \strng{bibnamehash}{b005964bb31f0d1a4ef1012624d5583b}
+      \strng{authorbibnamehash}{b005964bb31f0d1a4ef1012624d5583b}
+      \strng{authornamehash}{b005964bb31f0d1a4ef1012624d5583b}
+      \strng{authorfullhash}{b005964bb31f0d1a4ef1012624d5583b}
+      \field{sortinit}{D}
+      \field{sortinithash}{6f385f66841fb5e82009dc833c761848}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Journal of Theoretical Politics}
+      \field{number}{nil}
+      \field{title}{Explanatory Pluralism in Political Science}
+      \field{volume}{nil}
+      \field{year}{2025}
+      \field{pages}{09516298251403391}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.1177/09516298251403391
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1177/09516298251403391
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1177/09516298251403391
+      \endverb
+    \endentry
+    \entry{elkind2022preference}{article}{}
+      \name{author}{3}{}{%
+        {{un=0,uniquepart=base,hash=18eeac45dc9828022f08c558b100dba4}{%
+           family={Elkind},
+           familyi={E\bibinitperiod},
+           given={Edith},
+           giveni={E\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=4a00ddb05f0130cfe3d93c5ad7cac829}{%
+           family={Lackner},
+           familyi={L\bibinitperiod},
+           given={Martin},
+           giveni={M\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=8245f2110020b2a092b34580ba36d1a7}{%
+           family={Peters},
+           familyi={P\bibinitperiod},
+           given={Dominik},
+           giveni={D\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{97387e1eb9b9414076b217c6745568b5}
+      \strng{fullhash}{97387e1eb9b9414076b217c6745568b5}
+      \strng{bibnamehash}{97387e1eb9b9414076b217c6745568b5}
+      \strng{authorbibnamehash}{97387e1eb9b9414076b217c6745568b5}
+      \strng{authornamehash}{97387e1eb9b9414076b217c6745568b5}
+      \strng{authorfullhash}{97387e1eb9b9414076b217c6745568b5}
+      \field{sortinit}{E}
+      \field{sortinithash}{8da8a182d344d5b9047633dfc0cc9131}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{eprintclass}{cs.GT}
+      \field{eprinttype}{arXiv}
+      \field{journaltitle}{arXiv preprint}
+      \field{title}{Preference restrictions in computational social choice: A survey}
+      \field{year}{2022}
+      \verb{eprint}
+      \verb 2205.09092
+      \endverb
+      \verb{urlraw}
+      \verb https://arxiv.org/abs/2205.09092
+      \endverb
+      \verb{url}
+      \verb https://arxiv.org/abs/2205.09092
+      \endverb
+    \endentry
+    \entry{elsner2025global}{report}{}
+      \name{author}{3}{}{%
+        {{un=0,uniquepart=base,hash=b8172ec258d6017c398e90ab63af5285}{%
+           family={Elsner},
+           familyi={E\bibinitperiod},
+           given={Mark},
+           giveni={M\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=6ba50897331f341195b2fd6f933ccf7b}{%
+           family={Atkinson},
+           familyi={A\bibinitperiod},
+           given={Grace},
+           giveni={G\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=a6cbc83f61d392d8a0631c147ec33bb7}{%
+           family={Zahidi},
+           familyi={Z\bibinitperiod},
+           given={Saadia},
+           giveni={S\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{institution}{1}{%
+        {World Economic Forum}%
+      }
+      \list{location}{1}{%
+        {Geneva}%
+      }
+      \strng{namehash}{99ca1a1ae7949c941b6e67b6fe83a984}
+      \strng{fullhash}{99ca1a1ae7949c941b6e67b6fe83a984}
+      \strng{bibnamehash}{99ca1a1ae7949c941b6e67b6fe83a984}
+      \strng{authorbibnamehash}{99ca1a1ae7949c941b6e67b6fe83a984}
+      \strng{authornamehash}{99ca1a1ae7949c941b6e67b6fe83a984}
+      \strng{authorfullhash}{99ca1a1ae7949c941b6e67b6fe83a984}
+      \field{sortinit}{E}
+      \field{sortinithash}{8da8a182d344d5b9047633dfc0cc9131}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{month}{1}
+      \field{title}{Global Risks Report 2025}
+      \field{type}{techreport}
+      \field{year}{2025}
+      \verb{urlraw}
+      \verb https://www.weforum.org/publications/global-risks-report-2025/digest/
+      \endverb
+      \verb{url}
+      \verb https://www.weforum.org/publications/global-risks-report-2025/digest/
+      \endverb
+    \endentry
+    \entry{esteban1994measurement}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=6d03853bbe44d3ed9388262ffd3a73ce}{%
+           family={Esteban},
+           familyi={E\bibinitperiod},
+           given={Joan-Maria},
+           giveni={J\bibinithyphendelim M\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=d8ab662529ff77a2e7edf535fbc17813}{%
+           family={Ray},
+           familyi={R\bibinitperiod},
+           given={Debraj},
+           giveni={D\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {JSTOR}%
+      }
+      \strng{namehash}{af5721e83d8230f963b64a9ebbef3781}
+      \strng{fullhash}{af5721e83d8230f963b64a9ebbef3781}
+      \strng{bibnamehash}{af5721e83d8230f963b64a9ebbef3781}
+      \strng{authorbibnamehash}{af5721e83d8230f963b64a9ebbef3781}
+      \strng{authornamehash}{af5721e83d8230f963b64a9ebbef3781}
+      \strng{authorfullhash}{af5721e83d8230f963b64a9ebbef3781}
+      \field{sortinit}{E}
+      \field{sortinithash}{8da8a182d344d5b9047633dfc0cc9131}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Econometrica: Journal of the Econometric Society}
+      \field{title}{On the measurement of polarization}
+      \field{year}{1994}
+      \field{pages}{819\bibrangedash 851}
+      \range{pages}{33}
+    \endentry
+    \entry{feld1988ideological}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=61365de1df95b48da33da2bbc615e49c}{%
+           family={Feld},
+           familyi={F\bibinitperiod},
+           given={Scott\bibnamedelima L},
+           giveni={S\bibinitperiod\bibinitdelim L\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=d3e54aacd5dac4accdf89726b383be19}{%
+           family={Grofman},
+           familyi={G\bibinitperiod},
+           given={Bernard},
+           giveni={B\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Cambridge University Press}%
+      }
+      \strng{namehash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{fullhash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{bibnamehash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{authorbibnamehash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{authornamehash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{authorfullhash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \field{extraname}{1}
+      \field{sortinit}{F}
+      \field{sortinithash}{2638baaa20439f1b5a8f80c6c08a13b4}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{American Political Science Review}
+      \field{number}{3}
+      \field{title}{Ideological consistency as a collective phenomenon}
+      \field{volume}{82}
+      \field{year}{1988}
+      \field{dateera}{ce}
+      \field{pages}{773\bibrangedash 788}
+      \range{pages}{16}
+    \endentry
+    \entry{feld1990collectivities}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=61365de1df95b48da33da2bbc615e49c}{%
+           family={Feld},
+           familyi={F\bibinitperiod},
+           given={Scott\bibnamedelima L},
+           giveni={S\bibinitperiod\bibinitdelim L\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=d3e54aacd5dac4accdf89726b383be19}{%
+           family={Grofman},
+           familyi={G\bibinitperiod},
+           given={Bernard},
+           giveni={B\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Sage Publications}%
+      }
+      \strng{namehash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{fullhash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{bibnamehash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{authorbibnamehash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{authornamehash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \strng{authorfullhash}{b0310ed6cf2bee1b27af72eb880e6daf}
+      \field{extraname}{2}
+      \field{sortinit}{F}
+      \field{sortinithash}{2638baaa20439f1b5a8f80c6c08a13b4}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Rationality and Society}
+      \field{number}{4}
+      \field{title}{Collectivities as actors: Consistency of collective choices}
+      \field{volume}{2}
+      \field{year}{1990}
+      \field{dateera}{ce}
+      \field{pages}{429\bibrangedash 448}
+      \range{pages}{20}
+    \endentry
+    \entry{fiorina08_polit_polar_americ_public}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=20012aa72b2d5ba33800446684c92b9b}{%
+           family={Fiorina},
+           familyi={F\bibinitperiod},
+           given={Morris\bibnamedelima P.},
+           giveni={M\bibinitperiod\bibinitdelim P\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=9eafc0f37612b43f4ceea425fdd94238}{%
+           family={Abrams},
+           familyi={A\bibinitperiod},
+           given={Samuel\bibnamedelima J.},
+           giveni={S\bibinitperiod\bibinitdelim J\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{c92ecb962f5f7a2c97e5e0379afc6c3e}
+      \strng{fullhash}{c92ecb962f5f7a2c97e5e0379afc6c3e}
+      \strng{bibnamehash}{c92ecb962f5f7a2c97e5e0379afc6c3e}
+      \strng{authorbibnamehash}{c92ecb962f5f7a2c97e5e0379afc6c3e}
+      \strng{authornamehash}{c92ecb962f5f7a2c97e5e0379afc6c3e}
+      \strng{authorfullhash}{c92ecb962f5f7a2c97e5e0379afc6c3e}
+      \field{sortinit}{F}
+      \field{sortinithash}{2638baaa20439f1b5a8f80c6c08a13b4}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Annual Review of Political Science}
+      \field{number}{1}
+      \field{title}{Political Polarization in the American Public}
+      \field{volume}{11}
+      \field{year}{2008}
+      \field{pages}{563\bibrangedash 588}
+      \range{pages}{26}
+      \verb{doi}
+      \verb 10.1146/annurev.polisci.11.053106.153836
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1146/annurev.polisci.11.053106.153836
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1146/annurev.polisci.11.053106.153836
+      \endverb
+    \endentry
+    \entry{flache2017}{article}{}
+      \name{author}{7}{}{%
+        {{un=0,uniquepart=base,hash=20b231e6594fb90b80cc3127eac084d7}{%
+           family={Flache},
+           familyi={F\bibinitperiod},
+           given={Andreas},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=4e839d42ee28366c7e7dcdd07ec2363a}{%
+           family={Mäs},
+           familyi={M\bibinitperiod},
+           given={Michael},
+           giveni={M\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=cbc7446d89ad308e6cd9b2fb131598de}{%
+           family={Feliciani},
+           familyi={F\bibinitperiod},
+           given={Thomas},
+           giveni={T\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=319aa06ad07206d3fa903247163f94c7}{%
+           family={Chattoe-Brown},
+           familyi={C\bibinithyphendelim B\bibinitperiod},
+           given={Edmund},
+           giveni={E\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=d2fab89b3beda9cbddabaa3c50947ee6}{%
+           family={Deffuant},
+           familyi={D\bibinitperiod},
+           given={Guillaume},
+           giveni={G\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=4256af01eb9e81b09e2ea9f55d63248c}{%
+           family={Huet},
+           familyi={H\bibinitperiod},
+           given={Sylvie},
+           giveni={S\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=955098f9f3588518a8295a64a8a7c613}{%
+           family={Lorenz},
+           familyi={L\bibinitperiod},
+           given={Jan},
+           giveni={J\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{25c3f04d2f220ad539b79a5ff0d81e14}
+      \strng{fullhash}{53df936ab9ae3335d903b5e31c9b885c}
+      \strng{bibnamehash}{25c3f04d2f220ad539b79a5ff0d81e14}
+      \strng{authorbibnamehash}{25c3f04d2f220ad539b79a5ff0d81e14}
+      \strng{authornamehash}{25c3f04d2f220ad539b79a5ff0d81e14}
+      \strng{authorfullhash}{53df936ab9ae3335d903b5e31c9b885c}
+      \field{sortinit}{F}
+      \field{sortinithash}{2638baaa20439f1b5a8f80c6c08a13b4}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{abstract}{In 1997, Robert Axelrod wondered in a highly influential paper "If people tend to become more alike in their beliefs, attitudes, and behavior when they interact, why do not all such differences eventually disappear?" Axelrod&rsquo;s question highlighted an ongoing quest for formal theoretical answers joined by researchers from a wide range of disciplines. Numerous models have been developed to understand why and under what conditions diversity in beliefs, attitudes and behavior can co-exist with the fact that very often in interactions, social influence reduces differences between people. Reviewing three prominent approaches, we discuss the theoretical ingredients that researchers added to classic models of social influence as well as their implications. Then, we propose two main frontiers for future research. First, there is urgent need for more theoretical work comparing, relating and integrating alternative models. Second, the field suffers from a strong imbalance between a proliferation of theoretical studies and a dearth of empirical work. More empirical work is needed testing and underpinning micro-level assumptions about social influence as well as macro-level predictions. In conclusion, we discuss major roadblocks that need to be overcome to achieve progress on each frontier. We also propose that a new generation of empirically-based computational social influence models can make unique contributions for understanding key societal challenges, like the possible effects of social media on societal polarization.}
+      \field{issn}{1460-7425}
+      \field{journaltitle}{Journal of Artificial Societies and Social Simulation}
+      \field{number}{4}
+      \field{title}{Models of Social Influence: Towards the Next Frontiers}
+      \field{volume}{20}
+      \field{year}{2017}
+      \field{dateera}{ce}
+      \field{pages}{2}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.18564/jasss.3521
+      \endverb
+      \verb{urlraw}
+      \verb http://jasss.soc.surrey.ac.uk/20/4/2.html
+      \endverb
+      \verb{url}
+      \verb http://jasss.soc.surrey.ac.uk/20/4/2.html
+      \endverb
+      \keyw{Social Influence,Opinion Dynamics,Polarization,Calibration and Validation,Micro-Macro Link}
+    \endentry
+    \entry{fuks22_polar_e_contex}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=d23bb837ec80b0569b88af5527ffa555}{%
+           family={Fuks},
+           familyi={F\bibinitperiod},
+           given={Mario},
+           giveni={M\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=0dafaab0ee6c587bf82fb3fbb9add675}{%
+           family={Marques},
+           familyi={M\bibinitperiod},
+           given={Pedro\bibnamedelima Henrique},
+           giveni={P\bibinitperiod\bibinitdelim H\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{b1a977a7ac1304e791602ec81bc6dd7b}
+      \strng{fullhash}{b1a977a7ac1304e791602ec81bc6dd7b}
+      \strng{bibnamehash}{b1a977a7ac1304e791602ec81bc6dd7b}
+      \strng{authorbibnamehash}{b1a977a7ac1304e791602ec81bc6dd7b}
+      \strng{authornamehash}{b1a977a7ac1304e791602ec81bc6dd7b}
+      \strng{authorfullhash}{b1a977a7ac1304e791602ec81bc6dd7b}
+      \field{sortinit}{F}
+      \field{sortinithash}{2638baaa20439f1b5a8f80c6c08a13b4}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Opinião Pública}
+      \field{number}{3}
+      \field{title}{Polarização E Contexto: Medindo E Explicando a polarização política No Brasil}
+      \field{volume}{28}
+      \field{year}{2022}
+      \field{pages}{560\bibrangedash 593}
+      \range{pages}{34}
+      \verb{doi}
+      \verb 10.1590/1807-01912022283560
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1590/1807-01912022283560
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1590/1807-01912022283560
+      \endverb
+    \endentry
+    \entry{gerring12_mere_descr}{article}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=a6a0cbfe9daf777684dbb8947a681e73}{%
+           family={Gerring},
+           familyi={G\bibinitperiod},
+           given={John},
+           giveni={J\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{a6a0cbfe9daf777684dbb8947a681e73}
+      \strng{fullhash}{a6a0cbfe9daf777684dbb8947a681e73}
+      \strng{bibnamehash}{a6a0cbfe9daf777684dbb8947a681e73}
+      \strng{authorbibnamehash}{a6a0cbfe9daf777684dbb8947a681e73}
+      \strng{authornamehash}{a6a0cbfe9daf777684dbb8947a681e73}
+      \strng{authorfullhash}{a6a0cbfe9daf777684dbb8947a681e73}
+      \field{sortinit}{G}
+      \field{sortinithash}{32d67eca0634bf53703493fb1090a2e8}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{British Journal of Political Science}
+      \field{number}{4}
+      \field{title}{Mere Description}
+      \field{volume}{42}
+      \field{year}{2012}
+      \field{dateera}{ce}
+      \field{pages}{721\bibrangedash 746}
+      \range{pages}{26}
+      \verb{doi}
+      \verb 10.1017/s0007123412000130
+      \endverb
+    \endentry
+    \entry{holbrook2011attitude}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=4ae92d7aab230a8c1566ce1d9bd92867}{%
+           family={Holbrook},
+           familyi={H\bibinitperiod},
+           given={Allyson\bibnamedelima L},
+           giveni={A\bibinitperiod\bibinitdelim L\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=0bccfbe9947e9e285fc2ab4c20df77b8}{%
+           family={Druckman},
+           familyi={D\bibinitperiod},
+           given={James\bibnamedelima N},
+           giveni={J\bibinitperiod\bibinitdelim N\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Cambridge University Press Cambridge}%
+      }
+      \strng{namehash}{c3f8125f9133c3789b5808fdf9709014}
+      \strng{fullhash}{c3f8125f9133c3789b5808fdf9709014}
+      \strng{bibnamehash}{c3f8125f9133c3789b5808fdf9709014}
+      \strng{authorbibnamehash}{c3f8125f9133c3789b5808fdf9709014}
+      \strng{authornamehash}{c3f8125f9133c3789b5808fdf9709014}
+      \strng{authorfullhash}{c3f8125f9133c3789b5808fdf9709014}
+      \field{sortinit}{H}
+      \field{sortinithash}{23a3aa7c24e56cfa16945d55545109b5}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Cambridge handbook of experimental political science}
+      \field{title}{Attitude change experiments in political science}
+      \field{volume}{1}
+      \field{year}{2011}
+      \field{pages}{141\bibrangedash 154}
+      \range{pages}{14}
+    \endentry
+    \entry{igersheim22_compar_votin_method}{article}{}
+      \name{author}{4}{}{%
+        {{un=0,uniquepart=base,hash=dbf8c5b94c67f4d9fd0dc73ca582f651}{%
+           family={Igersheim},
+           familyi={I\bibinitperiod},
+           given={Herrade},
+           giveni={H\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=56b2cbc4935738727f5ce11839e31fcb}{%
+           family={Durand},
+           familyi={D\bibinitperiod},
+           given={François},
+           giveni={F\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=7bf11c4c20cbe82110c7ebeae0badfc5}{%
+           family={Hamlin},
+           familyi={H\bibinitperiod},
+           given={Aaron},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=7582b5bb44e4babdf5f945fcc162277c}{%
+           family={Laslier},
+           familyi={L\bibinitperiod},
+           given={Jean-François},
+           giveni={J\bibinithyphendelim F\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{733b911078b328ed1d403dd1cc487e61}
+      \strng{fullhash}{1117f30bc51b0cb7df806affcc96cc93}
+      \strng{bibnamehash}{733b911078b328ed1d403dd1cc487e61}
+      \strng{authorbibnamehash}{733b911078b328ed1d403dd1cc487e61}
+      \strng{authornamehash}{733b911078b328ed1d403dd1cc487e61}
+      \strng{authorfullhash}{1117f30bc51b0cb7df806affcc96cc93}
+      \field{sortinit}{I}
+      \field{sortinithash}{8d291c51ee89b6cd86bf5379f0b151d8}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{European Journal of Political Economy}
+      \field{number}{nil}
+      \field{title}{Comparing Voting Methods: 2016 Us Presidential Election}
+      \field{volume}{71}
+      \field{year}{2022}
+      \field{dateera}{ce}
+      \field{pages}{102057}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.1016/j.ejpoleco.2021.102057
+      \endverb
+    \endentry
+    \entry{iyengar12_affec_not_ideol}{article}{}
+      \name{author}{3}{}{%
+        {{un=0,uniquepart=base,hash=cc7508dbd54eff68f7ffe197dc0e70bd}{%
+           family={Iyengar},
+           familyi={I\bibinitperiod},
+           given={Shanto},
+           giveni={S\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=2b123810a6b3614cfb9e60a8b9fcbcc9}{%
+           family={Sood},
+           familyi={S\bibinitperiod},
+           given={Gaurav},
+           giveni={G\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=17e3e2c5aa6917f0914dd31699e53820}{%
+           family={Lelkes},
+           familyi={L\bibinitperiod},
+           given={Yphtach},
+           giveni={Y\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{a9fa6dac5a418b6e785c7269de640683}
+      \strng{fullhash}{a9fa6dac5a418b6e785c7269de640683}
+      \strng{bibnamehash}{a9fa6dac5a418b6e785c7269de640683}
+      \strng{authorbibnamehash}{a9fa6dac5a418b6e785c7269de640683}
+      \strng{authornamehash}{a9fa6dac5a418b6e785c7269de640683}
+      \strng{authorfullhash}{a9fa6dac5a418b6e785c7269de640683}
+      \field{sortinit}{I}
+      \field{sortinithash}{8d291c51ee89b6cd86bf5379f0b151d8}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Public Opinion Quarterly}
+      \field{number}{3}
+      \field{title}{Affect, Not Ideology}
+      \field{volume}{76}
+      \field{year}{2012}
+      \field{pages}{405\bibrangedash 431}
+      \range{pages}{27}
+      \verb{doi}
+      \verb 10.1093/poq/nfs038
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1093/poq/nfs038
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1093/poq/nfs038
+      \endverb
+    \endentry
+    \entry{kaminski2015empirical}{incollection}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=9cabb9dd86b925362ed3778fdcbee59e}{%
+           family={Kaminski},
+           familyi={K\bibinitperiod},
+           given={Marek\bibnamedelima M.},
+           giveni={M\bibinitperiod\bibinitdelim M\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Edward Elgar Publishing}%
+      }
+      \strng{namehash}{9cabb9dd86b925362ed3778fdcbee59e}
+      \strng{fullhash}{9cabb9dd86b925362ed3778fdcbee59e}
+      \strng{bibnamehash}{9cabb9dd86b925362ed3778fdcbee59e}
+      \strng{authorbibnamehash}{9cabb9dd86b925362ed3778fdcbee59e}
+      \strng{authornamehash}{9cabb9dd86b925362ed3778fdcbee59e}
+      \strng{authorfullhash}{9cabb9dd86b925362ed3778fdcbee59e}
+      \field{sortinit}{K}
+      \field{sortinithash}{c02bf6bff1c488450c352b40f5d853ab}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Handbook of social choice and voting}
+      \field{title}{Empirical examples of voting paradoxes}
+      \field{year}{2015}
+      \field{dateera}{ce}
+    \endentry
+    \entry{kekkonen21_affec_blocs}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=9e6f8b51d07c9b54640611b66b3c7093}{%
+           family={Kekkonen},
+           familyi={K\bibinitperiod},
+           given={Arto},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=3f4437207168ab386b8ebc821784bca8}{%
+           family={Ylä-Anttila},
+           familyi={Y\bibinithyphendelim A\bibinitperiod},
+           given={Tuomas},
+           giveni={T\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{c0cdea74c13d845876cf4db3d7453f6a}
+      \strng{fullhash}{c0cdea74c13d845876cf4db3d7453f6a}
+      \strng{bibnamehash}{c0cdea74c13d845876cf4db3d7453f6a}
+      \strng{authorbibnamehash}{c0cdea74c13d845876cf4db3d7453f6a}
+      \strng{authornamehash}{c0cdea74c13d845876cf4db3d7453f6a}
+      \strng{authorfullhash}{c0cdea74c13d845876cf4db3d7453f6a}
+      \field{sortinit}{K}
+      \field{sortinithash}{c02bf6bff1c488450c352b40f5d853ab}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Electoral Studies}
+      \field{number}{nil}
+      \field{title}{Affective Blocs: Understanding Affective Polarization in Multiparty Systems}
+      \field{volume}{72}
+      \field{year}{2021}
+      \field{pages}{102367}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.1016/j.electstud.2021.102367
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1016/j.electstud.2021.102367
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1016/j.electstud.2021.102367
+      \endverb
+    \endentry
+    \entry{lachat24_alter_to_plural_rule_singl_winner_elect}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=df4208729daf934f6222be06109d8998}{%
+           family={Lachat},
+           familyi={L\bibinitperiod},
+           given={Romain},
+           giveni={R\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=7582b5bb44e4babdf5f945fcc162277c}{%
+           family={Laslier},
+           familyi={L\bibinitperiod},
+           given={Jean-François},
+           giveni={J\bibinithyphendelim F\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{2c37a76592b0812e64290bf471b548b4}
+      \strng{fullhash}{2c37a76592b0812e64290bf471b548b4}
+      \strng{bibnamehash}{2c37a76592b0812e64290bf471b548b4}
+      \strng{authorbibnamehash}{2c37a76592b0812e64290bf471b548b4}
+      \strng{authornamehash}{2c37a76592b0812e64290bf471b548b4}
+      \strng{authorfullhash}{2c37a76592b0812e64290bf471b548b4}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{European Journal of Political Economy}
+      \field{number}{nil}
+      \field{title}{Alternatives To Plurality Rule for Single-Winner Elections: When Do They Make a Difference?}
+      \field{volume}{81}
+      \field{year}{2024}
+      \field{pages}{102505}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.1016/j.ejpoleco.2024.102505
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1016/j.ejpoleco.2024.102505
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1016/j.ejpoleco.2024.102505
+      \endverb
+    \endentry
+    \entry{list11_theor_judgm_aggreg}{article}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=9b700b5bc9d3212ebe5f067c59563500}{%
+           family={List},
+           familyi={L\bibinitperiod},
+           given={Christian},
+           giveni={C\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{9b700b5bc9d3212ebe5f067c59563500}
+      \strng{fullhash}{9b700b5bc9d3212ebe5f067c59563500}
+      \strng{bibnamehash}{9b700b5bc9d3212ebe5f067c59563500}
+      \strng{authorbibnamehash}{9b700b5bc9d3212ebe5f067c59563500}
+      \strng{authornamehash}{9b700b5bc9d3212ebe5f067c59563500}
+      \strng{authorfullhash}{9b700b5bc9d3212ebe5f067c59563500}
+      \field{sortinit}{L}
+      \field{sortinithash}{7c47d417cecb1f4bd38d1825c427a61a}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Synthese}
+      \field{number}{1}
+      \field{title}{The Theory of Judgment Aggregation: an Introductory Review}
+      \field{volume}{187}
+      \field{year}{2011}
+      \field{pages}{179\bibrangedash 207}
+      \range{pages}{29}
+      \verb{doi}
+      \verb 10.1007/s11229-011-0025-3
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1007/s11229-011-0025-3
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1007/s11229-011-0025-3
+      \endverb
+    \endentry
+    \entry{maciel2024bolsonaro}{article}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=f90d4edf4b3b78adc22991f349713552}{%
+           family={Maciel},
+           familyi={M\bibinitperiod},
+           given={Marcelo\bibnamedelima V.},
+           giveni={M\bibinitperiod\bibinitdelim V\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Elsevier}%
+      }
+      \strng{namehash}{f90d4edf4b3b78adc22991f349713552}
+      \strng{fullhash}{f90d4edf4b3b78adc22991f349713552}
+      \strng{bibnamehash}{f90d4edf4b3b78adc22991f349713552}
+      \strng{authorbibnamehash}{f90d4edf4b3b78adc22991f349713552}
+      \strng{authornamehash}{f90d4edf4b3b78adc22991f349713552}
+      \strng{authorfullhash}{f90d4edf4b3b78adc22991f349713552}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{European Journal of Political Economy}
+      \field{title}{Was Bolsonaro's 2018 electoral victory an institutional accident?}
+      \field{volume}{83}
+      \field{year}{2024}
+      \field{pages}{102548}
+      \range{pages}{1}
+    \endentry
+    \entry{maciel20_ideol_motiv_biases_multip_issues_opinion_model}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=f90d4edf4b3b78adc22991f349713552}{%
+           family={Maciel},
+           familyi={M\bibinitperiod},
+           given={Marcelo\bibnamedelima V.},
+           giveni={M\bibinitperiod\bibinitdelim V\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=3beb3a74759ed5fc163ff83d8083d0f5}{%
+           family={Martins},
+           familyi={M\bibinitperiod},
+           given={André\bibnamedelima C.R.},
+           giveni={A\bibinitperiod\bibinitdelim C\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{eeabaf8f9fe1f90ecba8abaeeaf627be}
+      \strng{fullhash}{eeabaf8f9fe1f90ecba8abaeeaf627be}
+      \strng{bibnamehash}{eeabaf8f9fe1f90ecba8abaeeaf627be}
+      \strng{authorbibnamehash}{eeabaf8f9fe1f90ecba8abaeeaf627be}
+      \strng{authornamehash}{eeabaf8f9fe1f90ecba8abaeeaf627be}
+      \strng{authorfullhash}{eeabaf8f9fe1f90ecba8abaeeaf627be}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Physica A: Statistical Mechanics and its Applications}
+      \field{number}{nil}
+      \field{title}{Ideologically Motivated Biases in a Multiple Issues Opinion Model}
+      \field{volume}{553}
+      \field{year}{2020}
+      \field{dateera}{ce}
+      \field{pages}{124293}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.1016/j.physa.2020.124293
+      \endverb
+    \endentry
+    \entry{mason2015disrespectfully}{article}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=24ac0b3eb712e7a80d67d98da1ace21c}{%
+           family={Mason},
+           familyi={M\bibinitperiod},
+           given={Lilliana},
+           giveni={L\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Wiley Online Library}%
+      }
+      \strng{namehash}{24ac0b3eb712e7a80d67d98da1ace21c}
+      \strng{fullhash}{24ac0b3eb712e7a80d67d98da1ace21c}
+      \strng{bibnamehash}{24ac0b3eb712e7a80d67d98da1ace21c}
+      \strng{authorbibnamehash}{24ac0b3eb712e7a80d67d98da1ace21c}
+      \strng{authornamehash}{24ac0b3eb712e7a80d67d98da1ace21c}
+      \strng{authorfullhash}{24ac0b3eb712e7a80d67d98da1ace21c}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{American journal of political science}
+      \field{number}{1}
+      \field{title}{“I disrespectfully agree”: The differential effects of partisan sorting on social and issue polarization}
+      \field{volume}{59}
+      \field{year}{2015}
+      \field{pages}{128\bibrangedash 145}
+      \range{pages}{18}
+    \endentry
+    \entry{mehlhaff23_group_based_approac_to_measur_polar}{article}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=f415bbcb9a5c965646080b1b03c80220}{%
+           family={Mehlhaff},
+           familyi={M\bibinitperiod},
+           given={Isaac\bibnamedelima D.},
+           giveni={I\bibinitperiod\bibinitdelim D\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{f415bbcb9a5c965646080b1b03c80220}
+      \strng{fullhash}{f415bbcb9a5c965646080b1b03c80220}
+      \strng{bibnamehash}{f415bbcb9a5c965646080b1b03c80220}
+      \strng{authorbibnamehash}{f415bbcb9a5c965646080b1b03c80220}
+      \strng{authornamehash}{f415bbcb9a5c965646080b1b03c80220}
+      \strng{authorfullhash}{f415bbcb9a5c965646080b1b03c80220}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{American Political Science Review}
+      \field{number}{3}
+      \field{title}{A Group-Based Approach To Measuring Polarization}
+      \field{volume}{118}
+      \field{year}{2023}
+      \field{pages}{1518\bibrangedash 1526}
+      \range{pages}{9}
+      \verb{doi}
+      \verb 10.1017/s0003055423001041
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1017/S0003055423001041
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1017/S0003055423001041
+      \endverb
+    \endentry
+    \entry{mouw2001culture}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=2cc0fff7ed7bfaed7223bb1412576232}{%
+           family={Mouw},
+           familyi={M\bibinitperiod},
+           given={Ted},
+           giveni={T\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=3c57eab63d174a7fd38cafaea1037d1e}{%
+           family={Sobel},
+           familyi={S\bibinitperiod},
+           given={Michael\bibnamedelima E},
+           giveni={M\bibinitperiod\bibinitdelim E\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {The University of Chicago Press}%
+      }
+      \strng{namehash}{6988ac512d2f33072f6da25e6cf44289}
+      \strng{fullhash}{6988ac512d2f33072f6da25e6cf44289}
+      \strng{bibnamehash}{6988ac512d2f33072f6da25e6cf44289}
+      \strng{authorbibnamehash}{6988ac512d2f33072f6da25e6cf44289}
+      \strng{authornamehash}{6988ac512d2f33072f6da25e6cf44289}
+      \strng{authorfullhash}{6988ac512d2f33072f6da25e6cf44289}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{American Journal of Sociology}
+      \field{number}{4}
+      \field{title}{Culture wars and opinion polarization: the case of abortion}
+      \field{volume}{106}
+      \field{year}{2001}
+      \field{pages}{913\bibrangedash 943}
+      \range{pages}{31}
+    \endentry
+    \entry{narens2007introduction}{book}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=78befcc68a6e87473054d3c29e65f82e}{%
+           family={Narens},
+           familyi={N\bibinitperiod},
+           given={Louis},
+           giveni={L\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Psychology Press}%
+      }
+      \strng{namehash}{78befcc68a6e87473054d3c29e65f82e}
+      \strng{fullhash}{78befcc68a6e87473054d3c29e65f82e}
+      \strng{bibnamehash}{78befcc68a6e87473054d3c29e65f82e}
+      \strng{authorbibnamehash}{78befcc68a6e87473054d3c29e65f82e}
+      \strng{authornamehash}{78befcc68a6e87473054d3c29e65f82e}
+      \strng{authorfullhash}{78befcc68a6e87473054d3c29e65f82e}
+      \field{sortinit}{N}
+      \field{sortinithash}{22369a73d5f88983a108b63f07f37084}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Introduction to the Theories of Measurement and Meaningfulness and the Use of Symmetry in Science}
+      \field{year}{2007}
+    \endentry
+    \entry{narens2020pursuit}{book}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=78befcc68a6e87473054d3c29e65f82e}{%
+           family={Narens},
+           familyi={N\bibinitperiod},
+           given={Louis},
+           giveni={L\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=8862d88d195a014f1fb9bf58754a3d24}{%
+           family={Skyrms},
+           familyi={S\bibinitperiod},
+           given={Brian},
+           giveni={B\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Oxford University Press}%
+      }
+      \strng{namehash}{efc678d0ef392962e5f002d9020fa2e1}
+      \strng{fullhash}{efc678d0ef392962e5f002d9020fa2e1}
+      \strng{bibnamehash}{efc678d0ef392962e5f002d9020fa2e1}
+      \strng{authorbibnamehash}{efc678d0ef392962e5f002d9020fa2e1}
+      \strng{authornamehash}{efc678d0ef392962e5f002d9020fa2e1}
+      \strng{authorfullhash}{efc678d0ef392962e5f002d9020fa2e1}
+      \field{sortinit}{N}
+      \field{sortinithash}{22369a73d5f88983a108b63f07f37084}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{The Pursuit of Happiness: Philosophical and Psychological Foundations of Utility}
+      \field{year}{2020}
+    \endentry
+    \entry{nunes2023biografia}{book}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=03311e4f8bf1beb914996e39992bbc51}{%
+           family={Nunes},
+           familyi={N\bibinitperiod},
+           given={Felipe},
+           giveni={F\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=13f10f0969edee088e7350ed47fa38bc}{%
+           family={Traumann},
+           familyi={T\bibinitperiod},
+           given={Thomas},
+           giveni={T\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {HARLEQUIN}%
+      }
+      \strng{namehash}{b579c718adf64c8d922c6a8438320273}
+      \strng{fullhash}{b579c718adf64c8d922c6a8438320273}
+      \strng{bibnamehash}{b579c718adf64c8d922c6a8438320273}
+      \strng{authorbibnamehash}{b579c718adf64c8d922c6a8438320273}
+      \strng{authornamehash}{b579c718adf64c8d922c6a8438320273}
+      \strng{authorfullhash}{b579c718adf64c8d922c6a8438320273}
+      \field{sortinit}{N}
+      \field{sortinithash}{22369a73d5f88983a108b63f07f37084}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Biografia do abismo}
+      \field{year}{2023}
+    \endentry
+    \entry{patty14_analy_big_data}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=f07e4de9b39aa2cdd5e7c5057152dfa7}{%
+           family={Patty},
+           familyi={P\bibinitperiod},
+           given={John\bibnamedelima W.},
+           giveni={J\bibinitperiod\bibinitdelim W\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=5ae08ab5e897eebd99862a9fea07ee64}{%
+           family={Penn},
+           familyi={P\bibinitperiod},
+           given={Elizabeth\bibnamedelima Maggie},
+           giveni={E\bibinitperiod\bibinitdelim M\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{fullhash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{bibnamehash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{authorbibnamehash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{authornamehash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{authorfullhash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \field{extraname}{1}
+      \field{sortinit}{P}
+      \field{sortinithash}{ff3bcf24f47321b42cb156c2cc8a8422}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{PS: Political Science \& Politics}
+      \field{number}{01}
+      \field{title}{Analyzing Big Data: Social Choice and Measurement}
+      \field{volume}{48}
+      \field{year}{2014}
+      \field{dateera}{ce}
+      \field{pages}{95\bibrangedash 101}
+      \range{pages}{7}
+      \verb{doi}
+      \verb 10.1017/s1049096514001814
+      \endverb
+      \keyw{social_choice}
+    \endentry
+    \entry{patty2019measuring}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=f07e4de9b39aa2cdd5e7c5057152dfa7}{%
+           family={Patty},
+           familyi={P\bibinitperiod},
+           given={John\bibnamedelima W.},
+           giveni={J\bibinitperiod\bibinitdelim W\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=5ae08ab5e897eebd99862a9fea07ee64}{%
+           family={Penn},
+           familyi={P\bibinitperiod},
+           given={Elizabeth\bibnamedelima Maggie},
+           giveni={E\bibinitperiod\bibinitdelim M\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Annual Reviews}%
+      }
+      \strng{namehash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{fullhash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{bibnamehash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{authorbibnamehash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{authornamehash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \strng{authorfullhash}{37bfc2d7c3ae39a81fc40a5ad34ad92e}
+      \field{extraname}{2}
+      \field{sortinit}{P}
+      \field{sortinithash}{ff3bcf24f47321b42cb156c2cc8a8422}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Annual Review of Political Science}
+      \field{title}{Measuring fairness, inequality, and big data: Social choice since Arrow}
+      \field{volume}{22}
+      \field{year}{2019}
+      \field{dateera}{ce}
+      \field{pages}{435\bibrangedash 460}
+      \range{pages}{26}
+    \endentry
+    \entry{perote-pena15_model_delib_aggreg_democ}{article}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=4ec6c832b5f94b4328c70c899562a18d}{%
+           family={Perote-Peña},
+           familyi={P\bibinithyphendelim P\bibinitperiod},
+           given={Juan},
+           giveni={J\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=baa6fff350d8ba13c293ce2cd5caad4d}{%
+           family={Piggins},
+           familyi={P\bibinitperiod},
+           given={Ashley},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{d47c0be2904016052db1f9532e70acaf}
+      \strng{fullhash}{d47c0be2904016052db1f9532e70acaf}
+      \strng{bibnamehash}{d47c0be2904016052db1f9532e70acaf}
+      \strng{authorbibnamehash}{d47c0be2904016052db1f9532e70acaf}
+      \strng{authornamehash}{d47c0be2904016052db1f9532e70acaf}
+      \strng{authorfullhash}{d47c0be2904016052db1f9532e70acaf}
+      \field{sortinit}{P}
+      \field{sortinithash}{ff3bcf24f47321b42cb156c2cc8a8422}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Economics and Philosophy}
+      \field{number}{1}
+      \field{title}{A Model of Deliberative and Aggregative Democracy}
+      \field{volume}{31}
+      \field{year}{2015}
+      \field{dateera}{ce}
+      \field{pages}{93\bibrangedash 121}
+      \range{pages}{29}
+      \verb{doi}
+      \verb 10.1017/s0266267114000418
+      \endverb
+    \endentry
+    \entry{popov2014consensus}{article}{}
+      \name{author}{3}{}{%
+        {{un=0,uniquepart=base,hash=09940aa27f2e7edef06c574691ebb259}{%
+           family={Popov},
+           familyi={P\bibinitperiod},
+           given={Sergey\bibnamedelima V},
+           giveni={S\bibinitperiod\bibinitdelim V\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=77dd55a8b51c1c5f93441c4f63c9d236}{%
+           family={Popova},
+           familyi={P\bibinitperiod},
+           given={Anna},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=549bee3aadf3f8b72fd84072efe0a453}{%
+           family={Regenwetter},
+           familyi={R\bibinitperiod},
+           given={Michel},
+           giveni={M\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Educational Publishing Foundation}%
+      }
+      \strng{namehash}{1352df98483d7489df3e65e301e71ee3}
+      \strng{fullhash}{1352df98483d7489df3e65e301e71ee3}
+      \strng{bibnamehash}{1352df98483d7489df3e65e301e71ee3}
+      \strng{authorbibnamehash}{1352df98483d7489df3e65e301e71ee3}
+      \strng{authornamehash}{1352df98483d7489df3e65e301e71ee3}
+      \strng{authorfullhash}{1352df98483d7489df3e65e301e71ee3}
+      \field{sortinit}{P}
+      \field{sortinithash}{ff3bcf24f47321b42cb156c2cc8a8422}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Decision}
+      \field{number}{2}
+      \field{title}{Consensus in organizations: Hunting for the social choice conundrum in APA elections.}
+      \field{volume}{1}
+      \field{year}{2014}
+      \field{pages}{123}
+      \range{pages}{1}
+    \endentry
+    \entry{regenwetter2006behavioral}{book}{}
+      \name{author}{4}{}{%
+        {{un=0,uniquepart=base,hash=549bee3aadf3f8b72fd84072efe0a453}{%
+           family={Regenwetter},
+           familyi={R\bibinitperiod},
+           given={Michel},
+           giveni={M\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=d3e54aacd5dac4accdf89726b383be19}{%
+           family={Grofman},
+           familyi={G\bibinitperiod},
+           given={Bernard},
+           giveni={B\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=fd30305f6b994391009288ab526285c0}{%
+           family={Tsetlin},
+           familyi={T\bibinitperiod},
+           given={Ilia},
+           giveni={I\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=8b75f5656a809b26e05052ae089e8341}{%
+           family={Marley},
+           familyi={M\bibinitperiod},
+           given={Anthony\bibnamedelima AJ},
+           giveni={A\bibinitperiod\bibinitdelim A\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Cambridge University Press}%
+      }
+      \strng{namehash}{65d5e11817fd999554142946a4aacf12}
+      \strng{fullhash}{e8b3d790842001e4ccdb552b4a387426}
+      \strng{bibnamehash}{65d5e11817fd999554142946a4aacf12}
+      \strng{authorbibnamehash}{65d5e11817fd999554142946a4aacf12}
+      \strng{authornamehash}{65d5e11817fd999554142946a4aacf12}
+      \strng{authorfullhash}{e8b3d790842001e4ccdb552b4a387426}
+      \field{sortinit}{R}
+      \field{sortinithash}{5e1c39a9d46ffb6bebd8f801023a9486}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Behavioral social choice: probabilistic models, statistical inference, and applications}
+      \field{year}{2006}
+      \field{dateera}{ce}
+    \endentry
+    \entry{rothers25_poles_polar}{article}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=983b6cf37477c4966d615a079016b0bf}{%
+           family={Rothers},
+           familyi={R\bibinitperiod},
+           given={Adrian},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{983b6cf37477c4966d615a079016b0bf}
+      \strng{fullhash}{983b6cf37477c4966d615a079016b0bf}
+      \strng{bibnamehash}{983b6cf37477c4966d615a079016b0bf}
+      \strng{authorbibnamehash}{983b6cf37477c4966d615a079016b0bf}
+      \strng{authornamehash}{983b6cf37477c4966d615a079016b0bf}
+      \strng{authorfullhash}{983b6cf37477c4966d615a079016b0bf}
+      \field{sortinit}{R}
+      \field{sortinithash}{5e1c39a9d46ffb6bebd8f801023a9486}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Electoral Studies}
+      \field{number}{nil}
+      \field{title}{The Poles in Polarization: Social Categorization and Affective Polarization in Multiparty Systems}
+      \field{volume}{95}
+      \field{year}{2025}
+      \field{pages}{102908}
+      \range{pages}{1}
+      \verb{doi}
+      \verb 10.1016/j.electstud.2025.102908
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1016/j.electstud.2025.102908
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1016/j.electstud.2025.102908
+      \endverb
+    \endentry
+    \entry{samuels23_partis_stereot_polar_brazil}{article}{}
+      \name{author}{3}{}{%
+        {{un=1,uniquepart=given,hash=bbfd8cc613855926f5e8f5c7894ebf37}{%
+           family={Samuels},
+           familyi={S\bibinitperiod},
+           given={David},
+           giveni={D\bibinitperiod},
+           givenun=1}}%
+        {{un=0,uniquepart=base,hash=6ca3e3419c2ddaa1602cc12d174fc872}{%
+           family={Mello},
+           familyi={M\bibinitperiod},
+           given={Fernando},
+           giveni={F\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=82ac83c33fd05fab5be2950a06588121}{%
+           family={Zucco},
+           familyi={Z\bibinitperiod},
+           given={Cesar},
+           giveni={C\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{e8485ffc9334db25b88315bc66aea331}
+      \strng{fullhash}{e8485ffc9334db25b88315bc66aea331}
+      \strng{bibnamehash}{e8485ffc9334db25b88315bc66aea331}
+      \strng{authorbibnamehash}{e8485ffc9334db25b88315bc66aea331}
+      \strng{authornamehash}{e8485ffc9334db25b88315bc66aea331}
+      \strng{authorfullhash}{e8485ffc9334db25b88315bc66aea331}
+      \field{sortinit}{S}
+      \field{sortinithash}{b164b07b29984b41daf1e85279fbc5ab}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Latin American Politics and Society}
+      \field{number}{2}
+      \field{title}{Partisan Stereotyping and Polarization in Brazil}
+      \field{volume}{66}
+      \field{year}{2023}
+      \field{pages}{47\bibrangedash 71}
+      \range{pages}{25}
+      \verb{doi}
+      \verb 10.1017/lap.2023.38
+      \endverb
+      \verb{urlraw}
+      \verb http://dx.doi.org/10.1017/lap.2023.38
+      \endverb
+      \verb{url}
+      \verb http://dx.doi.org/10.1017/lap.2023.38
+      \endverb
+    \endentry
+    \entry{samuels2018partisans}{book}{}
+      \name{author}{2}{}{%
+        {{un=1,uniquepart=given,hash=54d59f5fec5bf0eeea7c1c46bc58ca3a}{%
+           family={Samuels},
+           familyi={S\bibinitperiod},
+           given={David\bibnamedelima J},
+           giveni={D\bibinitperiod\bibinitdelim J\bibinitperiod},
+           givenun=1}}%
+        {{un=0,uniquepart=base,hash=82ac83c33fd05fab5be2950a06588121}{%
+           family={Zucco},
+           familyi={Z\bibinitperiod},
+           given={Cesar},
+           giveni={C\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Cambridge University Press}%
+      }
+      \strng{namehash}{79167e071bf7a6eb4d1609a4a52f590b}
+      \strng{fullhash}{79167e071bf7a6eb4d1609a4a52f590b}
+      \strng{bibnamehash}{79167e071bf7a6eb4d1609a4a52f590b}
+      \strng{authorbibnamehash}{79167e071bf7a6eb4d1609a4a52f590b}
+      \strng{authornamehash}{79167e071bf7a6eb4d1609a4a52f590b}
+      \strng{authorfullhash}{79167e071bf7a6eb4d1609a4a52f590b}
+      \field{sortinit}{S}
+      \field{sortinithash}{b164b07b29984b41daf1e85279fbc5ab}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Partisans, antipartisans, and nonpartisans: voting behavior in Brazil}
+      \field{year}{2018}
+    \endentry
+    \entry{sen2007identity}{book}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=18688d43042a810cb6ae6bb19c167f1b}{%
+           family={Sen},
+           familyi={S\bibinitperiod},
+           given={Amartya},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {WW Norton \& Company}%
+      }
+      \strng{namehash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{fullhash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{bibnamehash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{authorbibnamehash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{authornamehash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{authorfullhash}{18688d43042a810cb6ae6bb19c167f1b}
+      \field{extraname}{1}
+      \field{sortinit}{S}
+      \field{sortinithash}{b164b07b29984b41daf1e85279fbc5ab}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Identity and violence: The illusion of destiny (issues of our time)}
+      \field{year}{2007}
+    \endentry
+    \entry{sen2018collective}{book}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=18688d43042a810cb6ae6bb19c167f1b}{%
+           family={Sen},
+           familyi={S\bibinitperiod},
+           given={Amartya},
+           giveni={A\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Harvard University Press}%
+      }
+      \strng{namehash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{fullhash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{bibnamehash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{authorbibnamehash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{authornamehash}{18688d43042a810cb6ae6bb19c167f1b}
+      \strng{authorfullhash}{18688d43042a810cb6ae6bb19c167f1b}
+      \field{extraname}{2}
+      \field{sortinit}{S}
+      \field{sortinithash}{b164b07b29984b41daf1e85279fbc5ab}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Collective choice and social welfare}
+      \field{year}{2018}
+      \field{dateera}{ce}
+      \keyw{collective_choice,social_choice,formal_theory,democracy}
+    \endentry
+    \entry{shugart2017votes}{book}{}
+      \name{author}{2}{}{%
+        {{un=0,uniquepart=base,hash=d01c6765eebb278f2a94cc1d99f355c8}{%
+           family={Shugart},
+           familyi={S\bibinitperiod},
+           given={Matthew},
+           giveni={M\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=9bef3d0ab1fa8537b3f391990a8f01f5}{%
+           family={Taagepera},
+           familyi={T\bibinitperiod},
+           given={Rein},
+           giveni={R\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{publisher}{1}{%
+        {Cambridge University Press}%
+      }
+      \strng{namehash}{0035ddb48d7f0cf0dccc63296fca23e9}
+      \strng{fullhash}{0035ddb48d7f0cf0dccc63296fca23e9}
+      \strng{bibnamehash}{0035ddb48d7f0cf0dccc63296fca23e9}
+      \strng{authorbibnamehash}{0035ddb48d7f0cf0dccc63296fca23e9}
+      \strng{authornamehash}{0035ddb48d7f0cf0dccc63296fca23e9}
+      \strng{authorfullhash}{0035ddb48d7f0cf0dccc63296fca23e9}
+      \field{sortinit}{S}
+      \field{sortinithash}{b164b07b29984b41daf1e85279fbc5ab}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Votes from seats: Logical models of electoral systems}
+      \field{year}{2017}
+      \field{dateera}{ce}
+    \endentry
+    \entry{szufa2024map}{thesis}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=d163564c059b392a27bb67ce8aecd4a6}{%
+           family={Szufa},
+           familyi={S\bibinitperiod},
+           given={Stanislaw\bibnamedelima Andrzej},
+           giveni={S\bibinitperiod\bibinitdelim A\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{institution}{1}{%
+        {AGH University, Faculty of Computer Science}%
+      }
+      \list{location}{1}{%
+        {Krakow, Poland}%
+      }
+      \strng{namehash}{d163564c059b392a27bb67ce8aecd4a6}
+      \strng{fullhash}{d163564c059b392a27bb67ce8aecd4a6}
+      \strng{bibnamehash}{d163564c059b392a27bb67ce8aecd4a6}
+      \strng{authorbibnamehash}{d163564c059b392a27bb67ce8aecd4a6}
+      \strng{authornamehash}{d163564c059b392a27bb67ce8aecd4a6}
+      \strng{authorfullhash}{d163564c059b392a27bb67ce8aecd4a6}
+      \field{sortinit}{S}
+      \field{sortinithash}{b164b07b29984b41daf1e85279fbc5ab}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Map of Elections}
+      \field{type}{{Ph.D.} thesis}
+      \field{year}{2024}
+    \endentry
+    \entry{zhang2016multiple}{article}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=2063c983a464ccacb561a99c48899267}{%
+           family={Zhang},
+           familyi={Z\bibinitperiod},
+           given={Zhongheng},
+           giveni={Z\bibinitperiod},
+           givenun=0}}%
+      }
+      \strng{namehash}{2063c983a464ccacb561a99c48899267}
+      \strng{fullhash}{2063c983a464ccacb561a99c48899267}
+      \strng{bibnamehash}{2063c983a464ccacb561a99c48899267}
+      \strng{authorbibnamehash}{2063c983a464ccacb561a99c48899267}
+      \strng{authornamehash}{2063c983a464ccacb561a99c48899267}
+      \strng{authorfullhash}{2063c983a464ccacb561a99c48899267}
+      \field{sortinit}{Z}
+      \field{sortinithash}{96892c0b0a36bb8557c40c49813d48b3}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Annals of translational medicine}
+      \field{number}{2}
+      \field{title}{Multiple imputation with multivariate imputation by chained equation (MICE) package}
+      \field{volume}{4}
+      \field{year}{2016}
+      \field{pages}{30}
+      \range{pages}{1}
+    \endentry
+    \entry{zwicker2016introduction}{incollection}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=ca41798818a9a6b556a761561b44e62f}{%
+           family={Zwicker},
+           familyi={Z\bibinitperiod},
+           given={William\bibnamedelima S},
+           giveni={W\bibinitperiod\bibinitdelim S\bibinitperiod},
+           givenun=0}}%
+      }
+      \name{editor}{5}{}{%
+        {{hash=acc19cd69415325993a1e9374870704f}{%
+           family={Brandt},
+           familyi={B\bibinitperiod},
+           given={Felix},
+           giveni={F\bibinitperiod}}}%
+        {{hash=81da09aaa261f0e4e292e8d16cb4c006}{%
+           family={Conitzer},
+           familyi={C\bibinitperiod},
+           given={Vincent},
+           giveni={V\bibinitperiod}}}%
+        {{hash=42991b9be1d7eaaa6d9de9c4e81c23ab}{%
+           family={Endriss},
+           familyi={E\bibinitperiod},
+           given={Ulle},
+           giveni={U\bibinitperiod}}}%
+        {{hash=b3a98e52d0fc3b93396284382d66f227}{%
+           family={Lang},
+           familyi={L\bibinitperiod},
+           given={Jérôme},
+           giveni={J\bibinitperiod}}}%
+        {{hash=7ff34acec04d8032d96671d5ccbe05bc}{%
+           family={Procaccia},
+           familyi={P\bibinitperiod},
+           given={Ariel\bibnamedelima D},
+           giveni={A\bibinitperiod\bibinitdelim D\bibinitperiod}}}%
+      }
+      \strng{namehash}{ca41798818a9a6b556a761561b44e62f}
+      \strng{fullhash}{ca41798818a9a6b556a761561b44e62f}
+      \strng{bibnamehash}{ca41798818a9a6b556a761561b44e62f}
+      \strng{authorbibnamehash}{ca41798818a9a6b556a761561b44e62f}
+      \strng{authornamehash}{ca41798818a9a6b556a761561b44e62f}
+      \strng{authorfullhash}{ca41798818a9a6b556a761561b44e62f}
+      \strng{editorbibnamehash}{7f8fce5409817f6c28b9e86ff1f7b802}
+      \strng{editornamehash}{7f8fce5409817f6c28b9e86ff1f7b802}
+      \strng{editorfullhash}{a5f8cb95266ecc9a863f798f83d2581d}
+      \field{sortinit}{Z}
+      \field{sortinithash}{96892c0b0a36bb8557c40c49813d48b3}
+      \field{extradatescope}{labelyear}
+      \field{labeldatesource}{}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{Handbook of computational social choice}
+      \field{title}{Introduction to the Theory of Voting.}
+      \field{year}{2016}
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+
