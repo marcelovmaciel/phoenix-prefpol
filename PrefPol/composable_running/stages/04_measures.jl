@@ -41,10 +41,10 @@ function parse_args(args)
             Usage:
               julia --project=PrefPol PrefPol/composable_running/stages/04_measures.jl [--config PATH] [--year YEAR] [--scenario NAME] [--m VALUE_OR_RANGE] [--backend NAME] [--linearizer NAME] [--force] [--dry-run] [--smoke-test]
 
-            Phase 4 wrapper:
-              Builds PipelineSpec jobs and calls PrefPol.run_batch. Upstream
-              bootstrap, imputation, and linearization artifacts are produced
-              by the existing nested pipeline until Phase 5 splits them out.
+            Phase 5:
+              Builds PipelineSpec jobs and calls PrefPol.ensure_measures!.
+              Upstream bootstrap, imputation, and linearization artifacts can
+              also be created independently by stages 01-03.
             """)
             exit(0)
         else
@@ -268,8 +268,7 @@ function sorted_table(df::DataFrame)
     return sort(df, cols)
 end
 
-function spec_metadata(result::pp.PipelineResult, meta::NamedTuple)
-    spec = result.spec
+function spec_metadata(spec::pp.PipelineSpec, cache_dir::AbstractString, meta::NamedTuple)
     return merge((
         wave_id = spec.wave_id,
         active_candidates_key = join(spec.active_candidates, "|"),
@@ -286,8 +285,12 @@ function spec_metadata(result::pp.PipelineResult, meta::NamedTuple)
         seed_namespace = spec.seed_namespace,
         schema_version = spec.schema_version,
         code_version = spec.code_version,
-        cache_dir = result.cache_dir,
+        cache_dir = String(cache_dir),
     ), meta)
+end
+
+function spec_metadata(result::pp.PipelineResult, meta::NamedTuple)
+    return spec_metadata(result.spec, result.cache_dir, meta)
 end
 
 function decorate!(df::DataFrame, meta::NamedTuple)
@@ -363,8 +366,25 @@ function measure_manifest(results::pp.BatchRunResult)
     return DataFrame(rows)
 end
 
-function print_plan(batch::pp.StudyBatchSpec, settings)
-    println("Measure stage plan:")
+function stage_manifest(results::Vector{DataFrame},
+                        batch::pp.StudyBatchSpec,
+                        pipeline::pp.NestedStochasticPipeline)
+    tables = DataFrame[]
+    for (idx, manifest) in enumerate(results)
+        item = batch.items[idx]
+        meta = merge(item.metadata, (batch_index = idx,))
+        cache_dir = pp.pipeline_cache_dir(pipeline, item.spec)
+        df = decorate!(DataFrame(manifest), spec_metadata(item.spec, cache_dir, meta))
+        df[!, :status] = fill("success", nrow(df))
+        df[!, :error] = fill("", nrow(df))
+        df[!, :timestamp] = fill(Dates.format(now(), dateformat"yyyy-mm-ddTHH:MM:SS"), nrow(df))
+        push!(tables, df)
+    end
+    return isempty(tables) ? DataFrame() : vcat(tables...; cols = :union)
+end
+
+function print_plan(batch::pp.StudyBatchSpec, settings; stage_name::AbstractString = "Measure")
+    println(stage_name, " stage plan:")
     println("  cache_root=", settings.cache_root)
     println("  output_root=", settings.output_root)
     println("  B/R/K=", settings.B, "/", settings.R, "/", settings.K)
@@ -384,6 +404,39 @@ function print_plan(batch::pp.StudyBatchSpec, settings)
     return nothing
 end
 
+function run_stage_manifests(pipeline::pp.NestedStochasticPipeline,
+                             batch::pp.StudyBatchSpec,
+                             stage::Symbol;
+                             force::Bool = false)
+    manifests = DataFrame[]
+    for item in batch.items
+        manifest = if stage === :resample
+            pp.ensure_resamples!(pipeline, item.spec; force = force)
+        elseif stage === :imputed
+            pp.ensure_imputations!(pipeline, item.spec; force = force)
+        elseif stage === :linearized
+            pp.ensure_linearizations!(pipeline, item.spec; force = force)
+        else
+            throw(ArgumentError("Unsupported stage-only runner `$stage`."))
+        end
+        push!(manifests, manifest)
+    end
+    return manifests
+end
+
+function run_measure_batch(pipeline::pp.NestedStochasticPipeline,
+                           batch::pp.StudyBatchSpec;
+                           force::Bool = false,
+                           progress::Bool = true)
+    results = pp.PipelineResult[]
+    metadata = NamedTuple[]
+    for item in batch.items
+        push!(results, pp.ensure_measures!(pipeline, item.spec; force = force, progress = progress))
+        push!(metadata, item.metadata)
+    end
+    return pp.BatchRunResult(batch, results, metadata)
+end
+
 function main(args = ARGS)
     opts = parse_args(args)
     cfg = load_orchestration_config(opts["config"])
@@ -392,7 +445,7 @@ function main(args = ARGS)
     waves, registry, wave_by_id = load_waves()
     batch = build_batch(targets, wave_by_id, settings)
 
-    print_plan(batch, settings)
+    print_plan(batch, settings; stage_name = "Measure")
     settings.dry_run && return nothing
 
     mkpath(settings.cache_root)
@@ -400,8 +453,7 @@ function main(args = ARGS)
     mkpath(joinpath(settings.output_root, "manifests"))
 
     pipeline = pp.NestedStochasticPipeline(registry; cache_root = settings.cache_root)
-    runner = pp.BatchRunner(pipeline)
-    results = pp.run_batch(runner, batch; force = settings.force)
+    results = run_measure_batch(pipeline, batch; force = settings.force)
 
     measure_dir = joinpath(settings.output_root, "measures")
     manifest_dir = joinpath(settings.output_root, "manifests")
@@ -418,4 +470,6 @@ function main(args = ARGS)
     return nothing
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

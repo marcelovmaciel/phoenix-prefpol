@@ -4,10 +4,10 @@ This directory is reserved for the ordered composable stage scripts described
 in `../PLAN.md`.
 
 Phase 1 created the directory. Phase 2 identified the public utility surface
-that future stages should reuse; see `../UTILITY_INVENTORY.md`. Phase 4 adds
-the first stage scripts.
+that future stages should reuse; see `../UTILITY_INVENTORY.md`. Phase 5 wires
+the first statistical stages to public nested-pipeline `ensure_*` APIs.
 
-Current Phase 4 entrypoints:
+Current Phase 5 entrypoints:
 
 - `00_validate_configs.jl`
 - `01_bootstrap.jl`
@@ -15,11 +15,11 @@ Current Phase 4 entrypoints:
 - `03_linearize.jl`
 - `04_measures.jl`
 
-`04_measures.jl` is the only stage that executes the statistical workflow in
-Phase 4. It calls the existing nested `PrefPol.run_batch` path, which also
-creates bootstrap, imputation, and linearization artifacts. The `01`-`03`
-scripts are intentionally informational until Phase 5 wires those stages to
-public stage-only APIs.
+`01_bootstrap.jl`, `02_impute.jl`, and `03_linearize.jl` create their stage
+artifacts independently through `PrefPol.ensure_resamples!`,
+`PrefPol.ensure_imputations!`, and `PrefPol.ensure_linearizations!`.
+`04_measures.jl` calls `PrefPol.ensure_measures!` and writes aggregate measure
+tables plus manifests.
 
 Later phases should add the remaining planned stage entrypoints:
 

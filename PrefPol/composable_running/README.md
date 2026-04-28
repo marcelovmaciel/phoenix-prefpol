@@ -7,11 +7,11 @@ Phase 1 created the directory structure. Phase 2 identified the existing
 `PrefPol/src/` utilities that later stage scripts should reuse; see
 `UTILITY_INVENTORY.md`.
 
-Phase 4 adds the first runnable stage entrypoints. `stages/04_measures.jl`
-wraps the existing nested pipeline end to end and writes measure tables plus
-manifests. `stages/01_bootstrap.jl`, `stages/02_impute.jl`, and
-`stages/03_linearize.jl` are explicit wrappers that document the Phase 4
-limitation: those stages become independently executable in Phase 5.
+Phase 5 separates the statistical pipeline into independently callable
+bootstrap, imputation, linearization, and measure stages. `stages/01_bootstrap.jl`
+through `stages/03_linearize.jl` call the public nested-pipeline `ensure_*`
+APIs, while `stages/04_measures.jl` finishes measurement and writes aggregate
+tables plus manifests.
 
 ## Layout
 
@@ -35,11 +35,14 @@ Phase 4 supports config-driven runs when an orchestration TOML exists, but can
 also run a small default plan for local smoke checks:
 
 ```bash
-julia --project=PrefPol PrefPol/composable_running/stages/00_validate_configs.jl
-julia --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --smoke-test --dry-run
-julia --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --config PrefPol/config/orchestration.toml
-julia --project=PrefPol PrefPol/composable_running/run_all_smoke.jl --config PrefPol/config/smoke_test.toml
-julia --project=PrefPol PrefPol/composable_running/run_all_paper.jl --config PrefPol/config/orchestration.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/00_validate_configs.jl
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/01_bootstrap.jl --smoke-test --dry-run
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/02_impute.jl --smoke-test --dry-run
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/03_linearize.jl --smoke-test --dry-run
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --smoke-test --dry-run
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --config PrefPol/config/orchestration.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/run_all_smoke.jl --config PrefPol/config/smoke_test.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/run_all_paper.jl --config PrefPol/config/orchestration.toml
 ```
 
 ## Utility Reuse Rules
