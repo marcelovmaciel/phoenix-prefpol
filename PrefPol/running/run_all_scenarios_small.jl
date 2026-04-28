@@ -441,11 +441,11 @@ function effective_numbers_for_artifact(path::AbstractString)
     else
         sum((value / reversal_total)^2 for value in reversal_values)
     end
-    ER = HHI_reversal === missing ? missing : 1.0 / HHI_reversal
+    ENRP = HHI_reversal === missing ? missing : 1.0 / HHI_reversal
     m = length(profile.pool)
 
     return (
-        ER = ER,
+        ENRP = ENRP,
         EO = EO,
         HHI_reversal = HHI_reversal,
         HHI_rankings = HHI_rankings,
@@ -506,7 +506,7 @@ function effective_numbers_summary_table(draws::DataFrame)
         :scenario_dir,
         :base_scenario_dir,
     ]
-    metric_cols = [:ER, :EO, :HHI_reversal, :HHI_rankings]
+    metric_cols = [:ENRP, :EO, :HHI_reversal, :HHI_rankings]
     rows = NamedTuple[]
 
     for subdf in groupby(draws, group_cols)

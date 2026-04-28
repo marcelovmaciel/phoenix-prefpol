@@ -47,7 +47,7 @@
 \begin{abstract}
 Polarization is usually measured by mapping citizens onto a one-dimensional ideological scale and summarizing the resulting distribution. This paper instead treats dissent as a property of ranked-preference profiles. In multiparty settings, citizens rank several alternatives, and political conflict may appear not only as ideological distance, but as organization in the space of rankings.
 
-I develop a structure-sensitive measurement strategy that separates global reversal patterns, effective support, and group-level structuration. Globally, \(\Psi\), \(R\), \(HHI\), and \(RHHI\) distinguish pairwise antagonism, reversal mass, and reversal concentration. Effective-number diagnostics track whether dissent is diffuse across many rankings or compressed into fewer effective configurations. At the group level, \(C\), \(D\), \(1-O\), and \(S\) distinguish internal coherence, between-group divergence, distributional non-overlap, and net support separation. I apply these diagnostics to ranked candidate preferences constructed from Brazilian CSES survey data from 2006, 2018, and 2022 using a nested resampling, imputation, and linearization pipeline.
+I develop a structure-sensitive measurement strategy that separates global reversal patterns, effective support, and group-level structuration. Globally, \(\Psi\), \(R\), \(HHI\), and \(RHHI\) distinguish pairwise antagonism, reversal mass, and reversal concentration. Effective-number diagnostics track whether dissent is diffuse across many rankings or compressed into fewer effective configurations. At the group level, \(C\), \(D\), \(1-O\), and \(S\) distinguish internal coherence, between-group divergence, distributional non-overlap, and consensus separation. I apply these diagnostics to ranked candidate preferences constructed from Brazilian CSES survey data from 2006, 2018, and 2022 using a nested resampling, imputation, and linearization pipeline.
 
 The results show that Brazil's ranking profile becomes more conflictual and more organized between 2006 and 2022, but not as a collapse into two internally homogeneous camps. In 2006, dissent is present but relatively diffuse, with weak PT-centered structuration. In 2018, the profile becomes more conflictual and is organized most strongly by respondents' position toward Lula. By 2022, conflict is both higher and more compressed: pairwise antagonism and reversal mass rise, effective ranking and reversal-pair diversity fall, and ideology overtakes PT as the dominant structuring variable. The resulting pattern is compressed ideological structuration in a multiparty ranking space, not a simple binary division of the electorate. The results motivate a general point for comparative research: structure-aware metrics can register rising conflict without forcing electorates into binary representations, providing a portable template for dissent measurement in multiparty systems.
 \end{abstract}
@@ -108,7 +108,7 @@ This ambiguity is especially consequential in multiparty settings. Much of the p
 
 Brazil offers a useful vantage point for this problem. It is frequently described as deeply divided in journalistic and political discourse, and recent elections have been marked by intense elite conflict and affective antagonism \parencite{nunes2023biografia, samuels2018partisans, sen2007identity}. At the same time, Brazil's multiparty presidential system, fragmented electoral field, and heterogeneous electorate make it difficult to assume that a single ideological axis captures the relevant structure of political disagreement. The empirical question is therefore not only whether Brazil is polarized, but how dissent is organized in the space of ranked candidate preferences.
 
- Dissent in multiparty electorates is not exhausted by attitudes, ideal points, or first choices. It also has a profile structure: a pattern in how citizens rank, reverse, cluster around, and separate among multiple alternatives. The contribution of the article is to develop diagnostics that make this structure observable and comparable. I develop diagnostics that describe how rankings are organized globally and across exogenous respondent partitions. Globally, \(\Psi\), \(R\), \(\kappa\), \(RHHI\), and effective-support summaries distinguish pairwise antagonism, reversal mass, reversal concentration, and the effective number of opposed rankings. At the group level, \(C\), \(D\), \(O\), and \(S\) distinguish internal coherence, between-group divergence, distributional overlap, and net support separation.
+ Dissent in multiparty electorates is not exhausted by attitudes, ideal points, or first choices. It also has a profile structure: a pattern in how citizens rank, reverse, cluster around, and separate among multiple alternatives. The contribution of the article is to develop diagnostics that make this structure observable and comparable. I develop diagnostics that describe how rankings are organized globally and across exogenous respondent partitions. Globally, \(\Psi\), \(R\), \(\kappa\), \(RHHI\), and effective-support summaries distinguish pairwise antagonism, reversal mass, reversal concentration, and the effective number of opposed rankings. At the group level, \(C\), \(D\), \(O\), and \(S\) distinguish internal coherence, between-group divergence, distributional overlap, and consensus separation.
 
 I then apply these diagnostics to ranked candidate preferences constructed from Brazilian CSES survey data from 2006, 2018, and 2022. The application shows why the distinction matters. Dissent increases and the ranking space becomes more compressed, but the resulting structure is not reducible to a binary split. In 2018, Lula support is the strongest structuring partition; in 2022, ideology overtakes PT. The analysis therefore describes not only whether conflict rises, but what form that conflict takes in profile space. I also separate variability induced by resampling, imputation, and stochastic linearization to assess the robustness of these descriptive patterns.
 
@@ -365,7 +365,7 @@ In the empirical figures, I report \(1-O\) so that larger values indicate
 greater distributional separation.
 
 
-For this reason, I do not combine the group diagnostics into a single polarization score. A composite measure would obscure the distinction between internal coherence, external divergence, distributional overlap, and excess separation. Instead, I treat \(C\), \(D\), \(O\), and \(S\) as a diagnostic panel. The goal is not to assign each partition one scalar value of polarization, but to describe how, and in what sense, an exogenous grouping structures the preference profile. In this sense, the paper extends the disambiguation strategy of \textcite{bramson2017understanding, bramson16_disam_social_polar_concep_measur} from one-dimensional attitude distributions to ranked-preference profiles: rather than asking whether an electorate is polarized in general, the analysis asks which structural features of dissent are present, and how they vary across time and partitions.
+For this reason, I do not combine the group diagnostics into a single polarization score. A composite measure would obscure the distinction between internal coherence, external divergence, distributional overlap, and consensus separation. Instead, I treat \(C\), \(D\), \(O\), and \(S\) as a diagnostic panel. The goal is not to assign each partition one scalar value of polarization, but to describe how, and in what sense, an exogenous grouping structures the preference profile. In this sense, the paper extends the disambiguation strategy of \textcite{bramson2017understanding, bramson16_disam_social_polar_concep_measur} from one-dimensional attitude distributions to ranked-preference profiles: rather than asking whether an electorate is polarized in general, the analysis asks which structural features of dissent are present, and how they vary across time and partitions.
 
 \begin{table}[htbp]
 \centering
@@ -434,7 +434,7 @@ In this way, \(RHHI\) not only distinguishes between the profiles \(i(m)\) and \
 
 
 
-Regarding the behavior of the group diagnostics \(C\), \(D\), \(S\), and \(O\), it is useful to interpret them against two reference profiles. First, consider an \(e\)-profile, where every possible ranking appears with equal frequency within each group. In this case, group labels do not organize the profile. The best consensus ranking still mismatches group members on about half of all pairwise comparisons, so \(C^{\star}\approx 1/2\) and the rebased coherence is \(C\approx 0\). The divergence statistic \(D\), however, need not be close to zero, because it compares group members to other groups' fitted consensuses; in an unstructured ranking space, these consensuses are still typically at nonzero Kendall distance from individual rankings. This is why \(D\) must be interpreted together with support separation. Since \(S=D-(1-C^{\star})\), the within-group dispersion term absorbs the generic distance induced by the lack of structure, yielding \(S\approx 0\). Overlap also diagnoses the same situation: if all groups approximate the same uniform distribution over rankings, then \(O\approx 1\), or equivalently \(1-O\approx 0\).
+Regarding the behavior of the group diagnostics \(C\), \(D\), \(S\), and \(O\), it is useful to interpret them against two reference profiles. First, consider an \(e\)-profile, where every possible ranking appears with equal frequency within each group. In this case, group labels do not organize the profile. The best consensus ranking still mismatches group members on about half of all pairwise comparisons, so \(C^{\star}\approx 1/2\) and the rebased coherence is \(C\approx 0\). The divergence statistic \(D\), however, need not be close to zero, because it compares group members to other groups' fitted consensuses; in an unstructured ranking space, these consensuses are still typically at nonzero Kendall distance from individual rankings. This is why \(D\) must be interpreted together with separation measures. Since \(S=D-(1-C^{\star})\), the within-group dispersion term absorbs the generic distance induced by the lack of structure, yielding \(S\approx 0\). Overlap also diagnoses the same situation: if all groups approximate the same uniform distribution over rankings, then \(O\approx 1\), or equivalently \(1-O\approx 0\).
 
 Second, consider a unanimous profile \(u\), where all respondents share the same ranking. Then internal coherence is maximal, so \(C=1\). If all groups share that same ranking, their consensuses coincide, \(D=0\), and therefore \(S=0\): there is no group separation because there is no disagreement to organize. Overlap is also maximal, \(O=1\). By contrast, if each group is internally unanimous but different groups hold different, possibly opposed, rankings, then \(C=1\), \(D\) is high, \(S=D\), and \(O = 0\). These reference cases show why the diagnostics should not be collapsed into a single score. \(C\) captures internal consolidation, \(D\) captures distance to external consensuses, \(S\) removes the within-group dispersion contained in \(D\), and \(O\) checks whether groups actually share support in the ranking distribution.
 
@@ -706,7 +706,7 @@ opposition, especially in 2022.
 
 Figure~\ref{fig:group-2006} reports the group-based diagnostics for 2006:
 within-group coherence \(C\), between-group divergence \(D\), distributional
-non-overlap \(1-O\), and support separation \(S\). The main result is
+non-overlap \(1-O\), and consensus separation \(S\). The main result is
 weak group structuration overall, with PT evaluation as the partial exception.
 For most demographic partitions, \(C\) is positive but modest, usually between
 about \(0.32\) and \(0.41\), and it declines or remains flat as the candidate
@@ -719,7 +719,7 @@ PT evaluation stands out in 2006. It has the highest coherence at \(m=2\),
 with \(C \approx 0.47\), and the highest divergence, with \(D \approx 0.53\).
 It also has the largest distributional non-overlap, rising from
 \(1-O \approx 0.39\) at \(m=2\) to \(1-O \approx 0.52\) at \(m=5\). The
-signed support-separation measure \(S\) is the clearest indication of the
+consensus separation measure \(S\) is the clearest indication of the
 difference: PT reaches \(S \approx 0.26\) at \(m=2\), while sex, ideology, and
 age are essentially zero. However, this PT-centered structuration weakens as
 additional candidates enter the ranking set. By \(m=5\), PT's \(C\) has fallen
@@ -728,7 +728,7 @@ Thus, in 2006, PT evaluation structures the binary comparison, but much less
 of the richer ranking profile.
 
 The other 2006 groupings mainly show the distinction between non-overlap and
-support separation. For income, education, ideology, and age,
+consensus separation. For income, education, ideology, and age,
 \(1-O\) increases with \(m\), in some cases reaching values around \(0.37\) to
 \(0.49\). But this does not by itself imply strong polarization between
 groups. As \(m\) grows, the ranking space becomes larger and empirical support
@@ -748,7 +748,7 @@ coherence, beginning at \(C \approx 0.51\) for \(m=2\) and declining to
 \(C \approx 0.36\) by \(m=5\). It also has the highest between-group
 divergence, from \(D \approx 0.56\) at \(m=2\) to \(D \approx 0.53\) at
 \(m=5\). Its distributional non-overlap is high throughout, increasing from
-\(1-O \approx 0.43\) to \(1-O \approx 0.53\), and its signed support separation
+\(1-O \approx 0.43\) to \(1-O \approx 0.53\), and its consensus separation
 is the largest in the figure, declining from \(S \approx 0.32\) to
 \(S \approx 0.21\).
 
@@ -761,7 +761,7 @@ above the demographic baselines, with \(C\) around \(0.34\) at \(m=2\) and
 around \(0.09\) at \(m=2\) and \(0.06\) at \(m=5\). This distinction matters:
 several groupings have differentiated consensuses, but only Lula's score
 combines high coherence, high divergence, high non-overlap, and high net
-support separation. The 2018 profile is therefore not simply more conflictual than 2006; among the
+consensus separation. The 2018 profile is therefore not simply more conflictual than 2006; among the
 tested partitions, Lula score is the clearest grouping associated with
 coherent and separated subprofiles, while
 ideology is weaker but still informative.
@@ -799,7 +799,7 @@ In 2022, the group-based measures show a clearer structure than in the
 previous waves, but not because all groupings become equally informative.
 Race, age, education, income, and sex remain weak discriminators. Their
 within-group coherence \(C\) is low, their between-group divergence \(D\) is
-moderate, and their signed support separation \(S\) remains close to zero or
+moderate, and their consensus separation \(S\) remains close to zero or
 only weakly positive across candidate-set sizes. These variables therefore do
 not define compact and externally separated preference blocs, even when their
 distributions become less overlapping as \(m\) increases.
@@ -815,7 +815,7 @@ dispersion. On this criterion, most demographic groupings remain weak.
 
 Abortion, religion, and PT evaluation are more informative than the purely
 demographic partitions. Abortion shows moderate non-overlap and modest positive
-support separation, especially for smaller candidate sets, but it declines as
+consensus separation, especially for smaller candidate sets, but it declines as
 new alternatives are included. Religion has relatively high divergence and
 non-overlap, but its coherence and \(S\) remain below the main political
 variables. PT evaluation is stronger: its \(D\) remains high across
@@ -839,7 +839,7 @@ subprofiles.
 
 Ideology is the clear outlier in 2022. It has the highest within-group
 coherence \(C\), the highest or near-highest between-group divergence \(D\),
-the largest non-overlap \(1-O\), and the largest signed support separation
+the largest non-overlap \(1-O\), and the largest consensus separation
 \(S\) across candidate-set sizes. Its values also decline as more alternatives
 are added, which is expected: larger candidate sets make rankings harder to
 compress into internally coherent group consensuses. But even after this
@@ -853,7 +853,7 @@ a simple PT/non-PT split. PT evaluation still matters, but the pattern is
 asymmetric: it produces high between-group divergence without equally high
 within-group coherence. Ideology is different. It is the only grouping that
 simultaneously approaches high coherence, high divergence, high non-overlap,
-and high signed support separation.
+and high consensus separation.
 The 2022 group analysis therefore identifies ideology as the most informative
 partition among those examined, followed by PT evaluation, while demographic
 partitions remain weak.
@@ -900,13 +900,13 @@ ranking space.
 The group-based measures compare how much of this organization is visible
 under the partitions examined. In 2006, PT evaluation is the only grouping
 that clearly stands above the demographic partitions. It has higher coherence,
-divergence, non-overlap, and support separation, especially in the binary
+divergence, non-overlap, and consensus separation, especially in the binary
 comparison. But this structure weakens as additional alternatives are admitted.
 In 2018, the missingness of PT evaluation prevents using it directly, and the
 relevant political grouping is instead respondents' score for Lula. Lula score
 is the clearest grouping in that year: it is the only 2018 partition that
 combines high within-group coherence, high between-group divergence, high
-non-overlap, and substantial support separation. Ideology is also informative,
+non-overlap, and substantial consensus separation. Ideology is also informative,
 but it remains below Lula score.
 
 By 2022, the ranking of informative groupings changes again. PT evaluation
@@ -914,7 +914,7 @@ remains informative, but it no longer produces the most internally coherent
 subprofiles. Its between-group divergence remains high, which means that
 PT-defined consensuses are still far apart, but its coherence is lower. In
 2022, ideology is the clear outlier. It has the highest coherence, the highest
-or near-highest divergence, the largest non-overlap, and the largest support
+or near-highest divergence, the largest non-overlap, and the largest consensus
 separation across candidate-set sizes. The resulting sequence is therefore not
 simply PT versus anti-PT throughout the period. Among the groupings examined,
 the most informative partition is PT evaluation in 2006, Lula score in 2018,
@@ -1039,85 +1039,277 @@ collection would be of a different nature (e.g., focus groups)
 \appendix
 
 \section{Mathematical Appendix}
-\subsection{Decomposition of the Group Divergence Statistic}
+\subsection{Decomposition of \(D\) into within-group dispersion and consensus separation}
+\label{app:d-consensus-separation}
 
-This appendix demonstrates why the group divergence statistic \(D\) can be decomposed into within-group dispersion (\(1 - C^{\star}\)) plus an excess-distance component. It also proves why the support-separation statistic \(S\) is strictly non-negative.
+This appendix shows why the group divergence statistic \(D\), under the
+member-to-other-consensus definition used in this paper, can be decomposed into
+a within-group dispersion component and a consensus-separation component. The
+result depends on defining \(D\) as the average distance from members of one
+group to the consensus rankings of other groups. It does not apply to a
+statistic defined only as the distance between group consensuses.
 
-
-Let \(A\) be the active candidate set, with \(|A|=m\), and let \(\mathcal{L}(A)\) denote the set of linear orders over \(A\). For each group \(G_g\) of size \(n_g\), we use the normalized average Kendall loss of a candidate consensus ranking \(\rho \in \mathcal{L}(A)\), defined as:
+Let \(A\) be the active candidate set, with \(|A|=m\), and let
+\(\mathcal{L}(A)\) denote the set of linear orders over \(A\). For each group
+\(G_g\) of size \(n_g\), define the normalized average Kendall loss of a
+candidate consensus ranking \(\rho \in \mathcal{L}(A)\) as
 \[
-\ell_g(\rho) = \frac{1}{n_g} \sum_{x \in G_g} \frac{d_\tau(x,\rho)}{\binom{m}{2}}
+\ell_g(\rho)
+=
+\frac{1}{n_g}
+\sum_{x \in G_g}
+\frac{d_\tau(x,\rho)}{\binom{m}{2}},
 \]
-where \(x\) represents the observed ranking of an individual member in \(G_g\).
+where \(x\) is the observed ranking of an individual member of \(G_g\), and
+\(d_\tau\) is Kendall tau distance.
 
-The consensus set of group \(g\) consists of the ranking(s) that minimize this loss:
+The consensus set of group \(g\) is the set of rankings that minimize this loss:
 \[
-M_g = \arg\min_{\rho \in \mathcal{L}(A)} \ell_g(\rho)
-\]
-
-To account for cases where \(M_g\) is not a singleton, all consensus-dependent quantities are averaged over the minimizing rankings. Let \(\bar{\ell}_g(M_h)\) denote the average loss of group \(g\)'s members relative to the consensus set of another group \(h\):
-\[
-\bar{\ell}_g(M_h) = \frac{1}{|M_h|} \sum_{\rho \in M_h} \ell_g(\rho)
-\]
-
-
-The within-group dispersion of \(G_g\) around its own consensus is its minimum average loss:
-\[
-W_g = \bar{\ell}_g(M_g) = \min_{\rho \in \mathcal{L}(A)} \ell_g(\rho)
-\]
-Because every ranking \(\rho \in M_g\) achieves this exact minimum, \(W_g\) is simply the optimal value \(\ell_g(\rho)\).
-
-The aggregate within-group dispersion (\(W\)) is the size-weighted average across all \(k\) groups. By definition, this is the inverse of the raw coherence statistic \(C^{\star}\):
-\[
-W = \sum_{g=1}^k \frac{n_g}{n} W_g = 1 - C^{\star}
+M_g
+=
+\arg\min_{\rho \in \mathcal{L}(A)} \ell_g(\rho).
 \]
 
-
-The group divergence statistic measures the average distance from members of one group to the consensuses of \textit{other} groups:
+When \(M_g\) is not a singleton, consensus-dependent quantities are averaged
+over the minimizing rankings. Let \(\bar{\ell}_g(M_h)\) denote the average loss
+of group \(g\)'s members relative to the consensus set of group \(h\):
 \[
-D = \frac{1}{k-1} \sum_{g=1}^k \sum_{h \neq g} \frac{n_g}{n} \bar{\ell}_g(M_h)
+\bar{\ell}_g(M_h)
+=
+\frac{1}{|M_h|}
+\sum_{\rho \in M_h}
+\ell_g(\rho).
 \]
 
-For each ordered pair of distinct groups (\(g \neq h\)), we can decompose the distance by adding and subtracting group \(g\)'s own internal dispersion, \(W_g\):
+The within-group dispersion of \(G_g\) around its own consensus set is its
+minimum average loss:
 \[
-\bar{\ell}_g(M_h) = W_g + \left[ \bar{\ell}_g(M_h) - W_g \right]
+W_g
+=
+\bar{\ell}_g(M_g)
+=
+\min_{\rho \in \mathcal{L}(A)} \ell_g(\rho).
+\]
+Because every ranking \(\rho \in M_g\) achieves this same minimum, averaging
+over \(M_g\) does not change the value.
+
+The raw coherence of group \(g\) is
+\[
+C_g^\star
+=
+1-W_g.
+\]
+Aggregating by group size gives
+\[
+C^\star
+=
+\sum_{g=1}^{k}
+\frac{n_g}{n}C_g^\star,
+\qquad
+n=\sum_{g=1}^{k}n_g.
+\]
+Therefore the aggregate within-group dispersion is
+\[
+W
+=
+\sum_{g=1}^{k}
+\frac{n_g}{n}W_g
+=
+1-C^\star.
 \]
 
-Substituting this decomposition into the equation for \(D\) yields two separate summations:
+The raw coherence statistic \(C^\star\) is not bounded below by \(0\), but by
+\(1/2\). To see this, fix any ranking \(\rho \in \mathcal{L}(A)\), and let
+\(\rho^{\mathrm{rev}}\) be its reverse. For any individual ranking \(x\),
 \[
-D = \underbrace{\frac{1}{k-1} \sum_{g=1}^k \sum_{h \neq g} \frac{n_g}{n} W_g}_{\text{Internal Dispersion}} + \underbrace{\frac{1}{k-1} \sum_{g=1}^k \sum_{h \neq g} \frac{n_g}{n} \left[ \bar{\ell}_g(M_h) - W_g \right]}_{\text{Support Separation } (S)}
+d_\tau(x,\rho)
++
+d_\tau(x,\rho^{\mathrm{rev}})
+=
+\binom{m}{2}.
+\]
+After normalizing and averaging over members of group \(g\), this implies
+\[
+\ell_g(\rho)
++
+\ell_g(\rho^{\mathrm{rev}})
+=
+1.
+\]
+Hence at least one of \(\rho\) or \(\rho^{\mathrm{rev}}\) has average normalized
+loss no greater than \(1/2\). Since \(W_g\) is the minimum of \(\ell_g(\rho)\)
+over all rankings,
+\[
+W_g \le \frac{1}{2}.
+\]
+It follows that
+\[
+C_g^\star
+=
+1-W_g
+\ge
+\frac{1}{2},
+\]
+and therefore \(C^\star \ge 1/2\). This motivates the rebased coherence
+statistic
+\[
+C
+=
+2C^\star-1,
+\]
+which places the no-structure baseline at zero.
+
+The group divergence statistic is defined as the average distance from members
+of one group to the consensus set of other groups:
+\[
+D
+=
+\frac{1}{k-1}
+\sum_{g=1}^{k}
+\sum_{h\neq g}
+\frac{n_g}{n}
+\bar{\ell}_g(M_h).
 \]
 
-
-In the first term, the value \(\frac{n_g}{n} W_g\) depends only on \(g\), not on \(h\). For any fixed group \(g\), there are exactly \((k-1)\) other groups where \(h \neq g\). Summing over \(h\) therefore multiplies the term by \((k-1)\), which cleanly cancels out the normalization constant:
+For each ordered pair of distinct groups \((g,h)\), add and subtract group
+\(g\)'s own internal dispersion \(W_g\):
 \[
-\frac{1}{k-1} \sum_{g=1}^k (k-1) \frac{n_g}{n} W_g = \sum_{g=1}^k \frac{n_g}{n} W_g = W = 1 - C^{\star}
+\bar{\ell}_g(M_h)
+=
+W_g
++
+\left[
+\bar{\ell}_g(M_h)-W_g
+\right].
+\]
+Substituting into the definition of \(D\) yields
+\[
+D
+=
+\underbrace{
+\frac{1}{k-1}
+\sum_{g=1}^{k}
+\sum_{h\neq g}
+\frac{n_g}{n}W_g
+}_{\text{within-group dispersion}}
++
+\underbrace{
+\frac{1}{k-1}
+\sum_{g=1}^{k}
+\sum_{h\neq g}
+\frac{n_g}{n}
+\left[
+\bar{\ell}_g(M_h)-W_g
+\right]
+}_{\text{consensus separation}}.
 \]
 
-
-With the first term simplified, the decomposition of \(D\) becomes:
+The first term simplifies because \(W_g\) depends only on \(g\), not on \(h\).
+For each fixed group \(g\), there are \(k-1\) groups \(h\neq g\). Hence
 \[
-D = (1 - C^{\star}) + S
+\frac{1}{k-1}
+\sum_{g=1}^{k}
+\sum_{h\neq g}
+\frac{n_g}{n}W_g
+=
+\frac{1}{k-1}
+\sum_{g=1}^{k}
+(k-1)
+\frac{n_g}{n}W_g
+=
+\sum_{g=1}^{k}
+\frac{n_g}{n}W_g
+=
+W.
 \]
-where \(S\) is the support-separation statistic:
+Since \(W=1-C^\star\), the decomposition becomes
 \[
-S = \frac{1}{k-1} \sum_{g=1}^k \sum_{h \neq g} \frac{n_g}{n} \left[ \bar{\ell}_g(M_h) - W_g \right]
+D
+=
+(1-C^\star)
++
+S,
 \]
-Equivalently, \(S = D - (1 - C^{\star})\).
-
-\textbf{Proof of non-negativity:} By definition, \(W_g\) is the absolute minimum possible average loss for group \(g\) (\(\min_{\rho} \ell_g(\rho)\)). Therefore, for \textit{any} ranking \(\rho\) belonging to another group's consensus set \(M_h\), it must hold true that \(\ell_g(\rho) \ge W_g\).
-
-Consequently, the average loss \(\bar{\ell}_g(M_h) \ge W_g\), meaning the bracketed difference is always non-negative:
+where \(S\) is the consensus-separation statistic:
 \[
-\bar{\ell}_g(M_h) - W_g \ge 0
+S
+=
+\frac{1}{k-1}
+\sum_{g=1}^{k}
+\sum_{h\neq g}
+\frac{n_g}{n}
+\left[
+\bar{\ell}_g(M_h)-W_g
+\right].
 \]
-Because \(S\) is a size-weighted sum of strictly non-negative terms, it follows that:
+Equivalently,
 \[
-S \ge 0
+S
+=
+D-(1-C^\star).
 \]
 
-The statistic \(S\) is not a signed difference between unrelated quantities; it is the non-negative residual in the decomposition of \(D\). While internal dispersion (\(W\)) is naturally bounded (because a consensus can always be oriented to agree with at least half the group on any pair), the distance to \textit{another} group's consensus (\(\bar{\ell}_g(M_h)\)) is not restricted by this same internal limit. Thus, \(S\) captures the true excess distance separating groups after factoring out the internal dispersion already baked into \(D\).
+If the rebased coherence statistic \(C=2C^\star-1\) is used, then
+\[
+C^\star
+=
+\frac{C+1}{2},
+\]
+so
+\[
+1-C^\star
+=
+\frac{1-C}{2}.
+\]
+Thus the same decomposition can be written on the rebased scale as
+\[
+D
+=
+\frac{1-C}{2}
++
+S,
+\]
+or equivalently,
+\[
+S
+=
+D-\frac{1-C}{2}.
+\]
 
+The consensus-separation statistic \(S\) is non-negative. By definition,
+\[
+W_g
+=
+\min_{\rho \in \mathcal{L}(A)} \ell_g(\rho).
+\]
+Therefore, for any ranking \(\rho \in \mathcal{L}(A)\),
+\[
+\ell_g(\rho)\ge W_g.
+\]
+In particular, for every ranking \(\rho \in M_h\),
+\[
+\ell_g(\rho)\ge W_g.
+\]
+Averaging over all rankings in \(M_h\) preserves the inequality:
+\[
+\bar{\ell}_g(M_h)\ge W_g.
+\]
+Hence each bracketed term in \(S\) is non-negative:
+\[
+\bar{\ell}_g(M_h)-W_g\ge 0.
+\]
+Since \(S\) is a weighted average of non-negative terms,
+\[
+S\ge 0.
+\]
+
+The statistic \(S\) equals zero when the consensus set of every other group is
+also optimal, on average, for the group being evaluated. It becomes positive
+when other groups' consensus rankings are worse summaries of group \(g\)'s
+members than group \(g\)'s own consensus set. Thus \(S\) should be interpreted
+as consensus separation: the part of \(D\) that remains after removing the
+within-group dispersion already built into distances from individual rankings
+to consensus rankings.
 
 \subsection{On RHHI and e(m) profiles}
 For the profile \( e(m) \), each of the \( m! \) possible orderings occurs with frequency \( 1/m! \). Consider a pair of reversal orderings \( (r, -r) \). Since both have the same frequency, the local reversal component is

@@ -52,7 +52,7 @@ const OUTPUT_COLS = [
     :n_rankings_observed_mean,
     :EO_median,
     :n_reversal_pairs_observed_mean,
-    :ER_median,
+    :ENRP_median,
     :max_rankings_possible,
     :max_reversal_pairs_possible,
 ]
@@ -116,6 +116,13 @@ function filter_label(scenario_name::AbstractString, filters::Dict{Symbol,String
     return join(parts, "__")
 end
 
+function normalize_effective_number_columns!(df::DataFrame)
+    if !in(:ENRP_median, propertynames(df)) && :ER_median in propertynames(df)
+        rename!(df, :ER_median => :ENRP_median)
+    end
+    return df
+end
+
 function choose_rows(df::DataFrame,
                      year::Int,
                      scenario_name::AbstractString,
@@ -165,7 +172,7 @@ function write_markdown_table(io::IO, year::Int, scenario_name::AbstractString, 
     println(io)
     println(
         io,
-        "| m | observed rankings mean | EO median | observed reversal pairs mean | ER median | max rankings | max reversal pairs |",
+        "| m | observed rankings mean | EO median | observed reversal pairs mean | ENRP median | max rankings | max reversal pairs |",
     )
     println(io, "|---:|---:|---:|---:|---:|---:|---:|")
 
@@ -173,7 +180,7 @@ function write_markdown_table(io::IO, year::Int, scenario_name::AbstractString, 
         println(
             io,
             "| $(row.m) | $(row.n_rankings_observed_mean) | $(row.EO_median) | " *
-            "$(row.n_reversal_pairs_observed_mean) | $(row.ER_median) | " *
+            "$(row.n_reversal_pairs_observed_mean) | $(row.ENRP_median) | " *
             "$(row.max_rankings_possible) | $(row.max_reversal_pairs_possible) |",
         )
     end
@@ -256,7 +263,7 @@ function presentation_rows(per_year_tables::Dict{Int,DataFrame};
 
     for year in years
         if paper_only
-            append!(headers, ["EO $(year)", "ER $(year)"])
+            append!(headers, ["EO $(year)", "ENRP $(year)"])
         else
             append!(
                 headers,
@@ -264,7 +271,7 @@ function presentation_rows(per_year_tables::Dict{Int,DataFrame};
                     "rankings $(year)",
                     "EO $(year)",
                     "reversal pairs $(year)",
-                    "ER $(year)",
+                    "ENRP $(year)",
                 ],
             )
         end
@@ -276,7 +283,7 @@ function presentation_rows(per_year_tables::Dict{Int,DataFrame};
         for year in years
             row = table_row_by_m(per_year_tables[year], m)
             if paper_only
-                append!(row_values, [fmt_num(row.EO_median), fmt_num(row.ER_median)])
+                append!(row_values, [fmt_num(row.EO_median), fmt_num(row.ENRP_median)])
             else
                 append!(
                     row_values,
@@ -284,7 +291,7 @@ function presentation_rows(per_year_tables::Dict{Int,DataFrame};
                         fmt_num(row.n_rankings_observed_mean),
                         fmt_num(row.EO_median),
                         fmt_num(row.n_reversal_pairs_observed_mean),
-                        fmt_num(row.ER_median),
+                        fmt_num(row.ENRP_median),
                     ],
                 )
             end
@@ -347,7 +354,7 @@ function main(args = ARGS)
     )
 
     scenario_by_year, filters = parse_filters(args)
-    df = CSV.read(INPUT_CSV, DataFrame)
+    df = normalize_effective_number_columns!(CSV.read(INPUT_CSV, DataFrame))
     mkpath(OUTPUT_DIR)
 
     markdown_path = joinpath(

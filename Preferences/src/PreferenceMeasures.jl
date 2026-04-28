@@ -171,22 +171,22 @@ end
 function effective_reversal_ranking_diagnostics(
     p::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRank}},
 )
-    ER = effective_reversal_rankings(p)
+    ENRP = effective_reversal_rankings(p)
     EO = effective_observed_rankings(p)
     return (
-        ER = ER,
+        ENRP = ENRP,
         EO = EO,
-        reversal_to_ranking_effective_ratio = EO == 0.0 ? NaN : ER / EO,
+        reversal_to_ranking_effective_ratio = EO == 0.0 ? NaN : ENRP / EO,
     )
 end
 
 function effective_reversal_ranking_diagnostics(rankings::AbstractVector)
-    ER = effective_reversal_rankings(rankings)
+    ENRP = effective_reversal_rankings(rankings)
     EO = effective_observed_rankings(rankings)
     return (
-        ER = ER,
+        ENRP = ENRP,
         EO = EO,
-        reversal_to_ranking_effective_ratio = EO == 0.0 ? NaN : ER / EO,
+        reversal_to_ranking_effective_ratio = EO == 0.0 ? NaN : ENRP / EO,
     )
 end
 

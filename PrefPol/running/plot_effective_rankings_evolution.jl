@@ -2,7 +2,7 @@
     plot_effective_rankings_evolution.jl
 
 Read the compact effective-ranking evolution tables and generate a 1x2 plot:
-median EO by m on the left, median ER by m on the right, with one connected
+median EO by m on the left, median ENRP by m on the right, with one connected
 dot series per year.
 
 Run after `effective_rankings_evolution_tables.jl`:
@@ -44,7 +44,10 @@ function load_evolution_tables(input_dir::AbstractString = INPUT_DIR)
     tables = DataFrame[]
     for file in sort(files)
         df = CSV.read(file, DataFrame)
-        required = [:year, :m, :EO_median, :ER_median]
+        if !in(:ENRP_median, propertynames(df)) && :ER_median in propertynames(df)
+            rename!(df, :ER_median => :ENRP_median)
+        end
+        required = [:year, :m, :EO_median, :ENRP_median]
         missing_cols = setdiff(required, propertynames(df))
         isempty(missing_cols) || error("$(file) is missing required columns $(missing_cols).")
         push!(tables, df)
@@ -80,10 +83,10 @@ function plot_evolution(df::DataFrame)
     ax_er = Axis(
         fig[1, 2],
         xlabel = "m",
-        ylabel = "median ER",
+        ylabel = "median ENRP",
         title = "Effective reversal pairs",
         xticks = 2:5,
-        yticks = regular_ticks(df.ER_median, 2.5),
+        yticks = regular_ticks(df.ENRP_median, 2.5),
     )
 
     for year in years
@@ -95,8 +98,8 @@ function plot_evolution(df::DataFrame)
         lines!(ax_eo, rows.m, rows.EO_median; color, linewidth = 2.5, label)
         scatter!(ax_eo, rows.m, rows.EO_median; color, markersize = 9)
 
-        lines!(ax_er, rows.m, rows.ER_median; color, linewidth = 2.5, label)
-        scatter!(ax_er, rows.m, rows.ER_median; color, markersize = 9)
+        lines!(ax_er, rows.m, rows.ENRP_median; color, linewidth = 2.5, label)
+        scatter!(ax_er, rows.m, rows.ENRP_median; color, markersize = 9)
     end
 
     axislegend(ax_eo, "year"; position = :lt, framevisible = false)

@@ -313,7 +313,7 @@ end
     unanim_eff = pp.effective_reversal_ranking_diagnostics(unanim)
     unanim_support = pp.ranking_support_diagnostics(unanim)
     @test unanim_eff.EO ≈ 1.0
-    @test unanim_eff.ER ≈ 0.0
+    @test unanim_eff.ENRP ≈ 0.0
     @test unanim_eff.reversal_to_ranking_effective_ratio ≈ 0.0
     @test unanim_support.n_unique_rankings == 1
     @test unanim_support.max_ranking_mass ≈ 1.0
@@ -322,7 +322,7 @@ end
     uniform_eff = pp.effective_reversal_ranking_diagnostics(uniform)
     uniform_support = pp.ranking_support_diagnostics(uniform)
     @test uniform_eff.EO ≈ 6.0
-    @test uniform_eff.ER ≈ 3.0
+    @test uniform_eff.ENRP ≈ 3.0
     @test uniform_eff.reversal_to_ranking_effective_ratio ≈ 0.5
     @test uniform_support.possible_rankings == 6
     @test uniform_support.n_unique_rankings == 6
@@ -332,18 +332,18 @@ end
     inversion_eff = pp.effective_reversal_ranking_diagnostics(inversion)
     inversion_support = pp.ranking_support_diagnostics(inversion)
     @test inversion_eff.EO ≈ 2.0
-    @test inversion_eff.ER ≈ 1.0
+    @test inversion_eff.ENRP ≈ 1.0
     @test inversion_eff.reversal_to_ranking_effective_ratio ≈ 0.5
     @test inversion_support.n_unique_rankings == 2
 
     nonuniform = pp.Profile(pool3, [abc, abc, abc, abc, cba, cba, acb, acb, acb, bca])
     nonuniform_eff = pp.effective_reversal_ranking_diagnostics(nonuniform)
     expected_EO = 1 / (0.4^2 + 0.2^2 + 0.3^2 + 0.1^2)
-    expected_ER = 1 / ((2 / 3)^2 + (1 / 3)^2)
+    expected_ENRP = 1 / ((2 / 3)^2 + (1 / 3)^2)
     @test nonuniform_eff.EO ≈ expected_EO
-    @test nonuniform_eff.ER ≈ expected_ER
-    @test nonuniform_eff.reversal_to_ranking_effective_ratio ≈ expected_ER / expected_EO
-    @test !(nonuniform_eff.ER ≈ 1 / pp.reversal_geometric(nonuniform))
+    @test nonuniform_eff.ENRP ≈ expected_ENRP
+    @test nonuniform_eff.reversal_to_ranking_effective_ratio ≈ expected_ENRP / expected_EO
+    @test !(nonuniform_eff.ENRP ≈ 1 / pp.reversal_geometric(nonuniform))
 
     for (m, expected_possible) in (2 => 2, 3 => 6, 4 => 24, 5 => 120, 6 => 720, 7 => 5040)
         pool = pp.CandidatePool(Symbol.("C" .* string.(1:m)))
@@ -367,9 +367,9 @@ end
         @test diag.EO <= diag.n_unique_rankings + sqrt(eps(Float64))
         @test diag.n_unique_rankings <= min(diag.n_observations, diag.possible_rankings)
     end
-    @test uniform_eff.ER <= factorial(3) / 2
-    @test inversion_eff.ER <= factorial(3) / 2
-    @test nonuniform_eff.ER <= factorial(3) / 2
+    @test uniform_eff.ENRP <= factorial(3) / 2
+    @test inversion_eff.ENRP <= factorial(3) / 2
+    @test nonuniform_eff.ENRP <= factorial(3) / 2
 end
 
 @testset "Incomplete-ballot linearization policy" begin
