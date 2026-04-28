@@ -162,6 +162,18 @@ function _plot_title(rows::AbstractDataFrame;
     )
 end
 
+function _plot_year_label(rows::AbstractDataFrame; year = nothing, wave_id = nothing)
+    year_label = year === nothing ?
+                 (hasproperty(rows, :year) ? string(rows[1, :year]) :
+                  wave_id === nothing ? string(rows[1, :wave_id]) : string(wave_id)) :
+                 string(year)
+    return string("Global Measures • Year = ", year_label)
+end
+
+function _plot_draws_label(rows::AbstractDataFrame)
+    return string("draws = ", rows[1, :n_draws])
+end
+
 function _plot_paper_title(rows::AbstractDataFrame;
                            year = nothing,
                            wave_id = nothing)
@@ -169,16 +181,15 @@ function _plot_paper_title(rows::AbstractDataFrame;
                  (hasproperty(rows, :year) ? string(rows[1, :year]) :
                   wave_id === nothing ? string(rows[1, :wave_id]) : string(wave_id)) :
                  string(year)
-    return string(
-        "Year ",
-        year_label,
-        " • B = ",
-        rows[1, :B],
-        ", R = ",
-        rows[1, :R],
-        ", K = ",
-        rows[1, :K],
-    )
+    return string("Group measures • Year = ", year_label)
+end
+
+function _candidate_label_text(candidate_label::AbstractString;
+                               wrap_candidates::Bool = false,
+                               candidate_wrap_width::Int = 60)
+    return wrap_candidates ?
+           join(TextWrap.wrap(candidate_label; width = candidate_wrap_width), "\n") :
+           candidate_label
 end
 
 function lines_alt_by_variant(measures_over_m::AbstractDict;
@@ -731,24 +742,34 @@ function plot_pipeline_scenario(result_or_results;
         ax.yticks[] = (ticks, [@sprintf("%.1f", tick) for tick in ticks])
     end
 
-    titlegrid = GridLayout(tellwidth = true)
-    fig[0, 1] = titlegrid
+    titlegrid = GridLayout(tellwidth = false)
+    rowgap!(titlegrid, 0)
+    fig[0, 1:2] = titlegrid
     Label(
         titlegrid[1, 1];
-        text = _plot_title(
-            rows;
-            year = year,
-            scenario_name = scenario_name,
-            imputer_backend = imputer_backend,
-        ),
-        fontsize = 18,
-        halign = :left,
+        text = _plot_year_label(rows; year = year, wave_id = wave_id),
+        fontsize = 14,
+        halign = :center,
+        padding = (0, 0, 0, 0),
+        tellwidth = false,
     )
     Label(
         titlegrid[2, 1];
-        text = data.candidate_label,
-        fontsize = 14,
+        text = _plot_draws_label(rows),
+        fontsize = 12,
         halign = :left,
+        justification = :left,
+        padding = (0, 0, 0, 0),
+        tellwidth = false,
+    )
+    Label(
+        titlegrid[3, 1];
+        text = data.candidate_label,
+        fontsize = 12,
+        halign = :left,
+        justification = :left,
+        padding = (0, 0, 0, 0),
+        tellwidth = false,
     )
 
     legend_handles = Any[]
@@ -1157,7 +1178,9 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
                                            fixed_colorrange_limits = _PAPER_GROUP_HEATMAP_COLORRANGE,
                                            show_values::Bool = true,
                                            colorbar_label = nothing,
-                                           clist_size = 60)
+                                           clist_size = 60,
+                                           wrap_candidates::Bool = false,
+                                           candidate_wrap_width::Int = clist_size)
     data = PrefPol.pipeline_group_heatmap_values(
         result_or_results;
         year = year,
@@ -1201,18 +1224,28 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
     title_txt = _plot_paper_title(rows; year = year, wave_id = wave_id)
 
     fig_width = max(980, 360 * ncol + 160)
-    fig_height = max(520, 190 + 210 * nrow + 30 * length(group_syms))
+    fig_height = max(540, 220 + 210 * nrow + 30 * length(group_syms))
     fig = Figure(size = (fig_width, fig_height))
     rowgap!(fig.layout, 22)
     colgap!(fig.layout, 22)
-    fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :left)
+    fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :center)
     fig[2, 1:ncol] = Label(
         fig,
-        join(TextWrap.wrap(data.candidate_label; width = clist_size));
+        _plot_draws_label(rows);
         fontsize = 14,
         halign = :left,
     )
-    header_rows = 2
+    fig[3, 1:ncol] = Label(
+        fig,
+        _candidate_label_text(
+            data.candidate_label;
+            wrap_candidates = wrap_candidates,
+            candidate_wrap_width = candidate_wrap_width,
+        );
+        fontsize = 14,
+        halign = :left,
+    )
+    header_rows = 3
 
     hm_ref = nothing
     for (panel_idx, measure) in enumerate(wanted_measures)
@@ -1264,7 +1297,9 @@ function plot_pipeline_group_paper_osmoothed_heatmap(result_or_results;
                                                      colormap = Makie.Reverse(:RdBu),
                                                      show_values::Bool = true,
                                                      colorbar_label = nothing,
-                                                     clist_size = 60)
+                                                     clist_size = 60,
+                                                     wrap_candidates::Bool = false,
+                                                     candidate_wrap_width::Int = clist_size)
     return plot_pipeline_group_paper_heatmap(
         result_or_results;
         year = year,
@@ -1282,6 +1317,8 @@ function plot_pipeline_group_paper_osmoothed_heatmap(result_or_results;
         show_values = show_values,
         colorbar_label = colorbar_label,
         clist_size = clist_size,
+        wrap_candidates = wrap_candidates,
+        candidate_wrap_width = candidate_wrap_width,
     )
 end
 

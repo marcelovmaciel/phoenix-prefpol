@@ -204,6 +204,23 @@ function combo_stem(combo)
     )
 end
 
+function group_heatmap_plot_stem(rows::AbstractDataFrame, target, combo, basename::AbstractString)
+    row = rows[1, :]
+    year_value = hasproperty(rows, :year) ? row.year : target.wave_id
+
+    return join((
+        basename,
+        "year-$(sanitize_path_component(string(year_value)))",
+        "scenario-$(sanitize_path_component(string(target.scenario_name)))",
+        "backend-$(sanitize_path_component(string(combo.imputer_backend)))",
+        "linearizer-$(sanitize_path_component(string(combo.linearizer_policy)))",
+        "B-$(row.B)",
+        "R-$(row.R)",
+        "K-$(row.K)",
+        "draws-$(row.n_draws)",
+    ), "_")
+end
+
 function write_group_scenario_outputs!(results::pp.BatchRunResult,
                                        manifest::DataFrame,
                                        target)
@@ -289,7 +306,11 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
             colorbar_label = "median value",
             clist_size = 60,
         )
-        pp.save_pipeline_plot(fig_heatmap, PAPER_GROUP_HEATMAP_BASENAME * "_" * stem; dir = dir)
+        pp.save_pipeline_plot(
+            fig_heatmap,
+            group_heatmap_plot_stem(heatmap_data.rows, target, combo, PAPER_GROUP_HEATMAP_BASENAME);
+            dir = dir,
+        )
 
         fig_o_smoothed = _PLOT_EXT.plot_pipeline_group_paper_osmoothed_heatmap(
             o_smoothed_combo_results;
@@ -303,7 +324,11 @@ function write_group_scenario_outputs!(results::pp.BatchRunResult,
             colorbar_label = "median 1 - O_smoothed",
             clist_size = 60,
         )
-        pp.save_pipeline_plot(fig_o_smoothed, PAPER_O_SMOOTHED_BASENAME * "_" * stem; dir = dir)
+        pp.save_pipeline_plot(
+            fig_o_smoothed,
+            group_heatmap_plot_stem(o_smoothed_data.rows, target, combo, PAPER_O_SMOOTHED_BASENAME);
+            dir = dir,
+        )
     end
 
     return nothing

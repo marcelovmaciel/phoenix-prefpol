@@ -32,10 +32,11 @@ const MANIFEST_PATH = joinpath(SMALL_OUTPUT_ROOT, "run_manifest.csv")
 const GLOBAL_OUTPUT_ROOT = joinpath(SMALL_OUTPUT_ROOT, "global")
 const GLOBAL_MEASURES = [:Psi, :R, :HHI, :RHHI]
 const ANALYSIS_ROLE_MAIN = "main"
-# Top-level plot targets. When this file is included by the group plot script,
-# that script's constants take precedence.
+# Top-level plot targets. `nothing` discovers all main-role wave/scenario pairs
+# from the saved manifest. When this file is included by narrower wrapper
+# scripts, those scripts' constants take precedence.
 if !isdefined(@__MODULE__, :TARGETS)
-    const TARGETS = [(wave_id = "2018", scenario_name = "main_2018")]
+    const TARGETS = nothing
 end
 if !isdefined(@__MODULE__, :TARGET_GROUPINGS_BY_WAVE)
     const TARGET_GROUPINGS_BY_WAVE = Dict("2018" => nothing)
@@ -123,6 +124,26 @@ function sanitize_path_component(value::AbstractString)
     return replace(String(value), r"[^A-Za-z0-9._-]+" => "_")
 end
 
+function global_plot_stem(rows::AbstractDataFrame, target, combo)
+    row = rows[1, :]
+    year_value = hasproperty(rows, :year) ? row.year : target.wave_id
+    scenario_value = target.scenario_name
+    backend_value = combo.imputer_backend
+    linearizer_value = combo.linearizer_policy
+
+    return join((
+        "global_measures",
+        "year-$(sanitize_path_component(string(year_value)))",
+        "scenario-$(sanitize_path_component(string(scenario_value)))",
+        "backend-$(sanitize_path_component(string(backend_value)))",
+        "linearizer-$(sanitize_path_component(string(linearizer_value)))",
+        "B-$(row.B)",
+        "R-$(row.R)",
+        "K-$(row.K)",
+        "draws-$(row.n_draws)",
+    ), "_")
+end
+
 function sorted_table(df::DataFrame)
     sort_cols = [
         col for col in (
@@ -199,18 +220,19 @@ function load_saved_small_results(manifest::DataFrame)
 end
 
 function scenario_targets(manifest::DataFrame)
-    target_keys = Set((String(target.wave_id), String(target.scenario_name)) for target in TARGETS)
     manifest_rows = :analysis_role in propertynames(manifest) ?
                     manifest[manifest.analysis_role .== ANALYSIS_ROLE_MAIN, :] :
                     manifest
     rows = unique(select(manifest_rows, :wave_id, :year, :scenario_name))
+    target_keys = TARGETS === nothing ? nothing :
+                  Set((String(target.wave_id), String(target.scenario_name)) for target in TARGETS)
     targets = [
         (
             wave_id = String(row.wave_id),
             year = Int(row.year),
             scenario_name = String(row.scenario_name),
         ) for row in eachrow(rows)
-        if (String(row.wave_id), String(row.scenario_name)) in target_keys
+        if target_keys === nothing || (String(row.wave_id), String(row.scenario_name)) in target_keys
     ]
     return sort(
         targets;
@@ -368,7 +390,7 @@ function write_scenario_outputs!(results::pp.BatchRunResult,
         # The exported scenario plotting helper filters on imputer backend only,
         # so we subset to one explicit linearizer branch here rather than
         # reimplementing the figure logic.
-        pp.pipeline_scenario_plot_data(
+        plot_data = pp.pipeline_scenario_plot_data(
             combo_results;
             wave_id = target.wave_id,
             scenario_name = target.scenario_name,
@@ -386,12 +408,7 @@ function write_scenario_outputs!(results::pp.BatchRunResult,
             connect_lines = true,
             ytick_step = 0.1,
         )
-        stem = string(
-            "global_",
-            sanitize_path_component(String(combo.imputer_backend)),
-            "_",
-            sanitize_path_component(String(combo.linearizer_policy)),
-        )
+        stem = global_plot_stem(plot_data.rows, target, combo)
         pp.save_pipeline_plot(fig, stem; dir = dir)
     end
 
