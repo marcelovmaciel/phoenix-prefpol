@@ -1344,6 +1344,366 @@ function _summarize_variance_plot_rows(rows::AbstractDataFrame)
     return DataFrame(summaries)
 end
 
+function _variance_by_m_panel_value(row, cols)
+    parts = String[]
+    for col in Symbol.(collect(cols))
+        hasproperty(row, col) || continue
+        value = getproperty(row, col)
+        ismissing(value) && continue
+        if col === :measure
+            push!(parts, get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS,
+                             PrefPol.normalize_variance_measure(value),
+                             string(value)))
+        else
+            push!(parts, string(value))
+        end
+    end
+    return isempty(parts) ? "All" : join(parts, " | ")
+end
+
+function _variance_by_m_axis_values(rows::AbstractDataFrame, panel_cols)
+    labels = String[]
+    keys = Tuple[]
+    seen = Set{Tuple}()
+    for row in eachrow(rows)
+        key = Tuple(hasproperty(row, col) ? getproperty(row, col) : missing
+                    for col in Symbol.(collect(panel_cols)))
+        key in seen && continue
+        push!(seen, key)
+        push!(keys, key)
+        push!(labels, _variance_by_m_panel_value(row, panel_cols))
+    end
+    return keys, labels
+end
+
+function _variance_by_m_select(rows::AbstractDataFrame, panel_cols, key, facet_col, facet_value)
+    mask = trues(nrow(rows))
+    for (idx, col) in enumerate(Symbol.(collect(panel_cols)))
+        hasproperty(rows, col) || continue
+        mask .&= rows[!, col] .== key[idx]
+    end
+    mask .&= rows[!, facet_col] .== facet_value
+    return rows[mask, :]
+end
+
+"""
+    plot_variance_decomposition_by_m(table; value_kind = :variance, ...)
+
+Plot the primary cellwise variance decomposition with candidate-set size `m`
+on the x-axis. Facets distinguish pipeline choices and panels default to
+measures. The input may be a fine variance-decomposition table or a wide table
+with `*_variance` columns.
+"""
+function plot_variance_decomposition_by_m(table::AbstractDataFrame;
+                                          value_kind::Symbol = :variance,
+                                          components = [:bootstrap, :imputation, :linearization],
+                                          facet_by::Symbol = :pipeline,
+                                          panel_by = :measure,
+                                          share_denominator::Symbol = :total,
+                                          outfile = nothing,
+                                          figsize = nothing,
+                                          palette = nothing)
+    facet_by === :pipeline || throw(ArgumentError(
+        "plot_variance_decomposition_by_m currently supports `facet_by=:pipeline`.",
+    ))
+    palette === nothing && (palette = _wong_colors())
+
+    rows = PrefPol.variance_decomposition_by_m_plot_table(
+        table;
+        value_kind = value_kind,
+        components = components,
+        share_denominator = share_denominator,
+    )
+    isempty(rows) && throw(ArgumentError("No rows available for variance decomposition by-m plot."))
+
+    panel_cols = panel_by isa Symbol ? [panel_by] : Symbol.(collect(panel_by))
+    facet_col = :pipeline_label
+    facets = unique(rows[!, facet_col])
+    panel_keys, panel_labels = _variance_by_m_axis_values(rows, panel_cols)
+    component_syms = Symbol.(collect(components))
+    component_labels = [get(_VARIANCE_DOTWHISKER_COMPONENT_LABELS, component, string(component))
+                        for component in component_syms]
+    component_order = Dict(component => idx for (idx, component) in enumerate(component_syms))
+    ms = sort(unique(Int.(rows.m)))
+    offsets = _variance_component_offsets(length(component_syms))
+
+    nrow = max(length(panel_keys), 1)
+    ncol = max(length(facets), 1)
+    if figsize === nothing
+        figsize = (max(420 * ncol, 520), max(260 * nrow, 360))
+    end
+
+    fig = Figure(size = figsize)
+    axes = Axis[]
+    ylabel = value_kind === :share ? "variance share" : "variance component"
+
+    for (row_idx, key) in enumerate(panel_keys)
+        for (col_idx, facet) in enumerate(facets)
+            ax = Axis(
+                fig[row_idx, col_idx];
+                title = row_idx == 1 ? string(facet) : "",
+                xlabel = row_idx == nrow ? "m" : "",
+                ylabel = col_idx == 1 ? ylabel : "",
+                xticks = (ms, string.(ms)),
+            )
+            push!(axes, ax)
+
+            sub = _variance_by_m_select(rows, panel_cols, key, facet_col, facet)
+            if col_idx == 1
+                Label(fig[row_idx, 0], panel_labels[row_idx]; rotation = pi / 2, tellheight = false)
+            end
+
+            for component in component_syms
+                comp_rows = sub[sub.component .== component, :]
+                isempty(comp_rows) && continue
+                sort!(comp_rows, :m)
+                idx = component_order[component]
+                spacing = length(ms) > 1 ? max(1.0, float(minimum(diff(ms)))) : 1.0
+                x = Float64.(comp_rows.m) .+ offsets[idx] .* spacing
+                y = Float64.(comp_rows.value)
+                color = palette[(idx - 1) % length(palette) + 1]
+                lines!(ax, x, y; color = color, linewidth = 1.6)
+                scatter!(ax, x, y; color = color, markersize = 7)
+            end
+
+            if value_kind === :share
+                ymax = maximum(Float64.(sub.value); init = 1.0)
+                ymax <= 1.0 && ylims!(ax, 0.0, 1.0)
+            end
+        end
+    end
+
+    handles = [Makie.LineElement(; color = palette[(idx - 1) % length(palette) + 1], linewidth = 3)
+               for idx in eachindex(component_syms)]
+    Legend(fig[1:nrow, ncol + 1], handles, component_labels)
+    resize_to_layout!(fig)
+
+    outfile !== nothing && save(outfile, fig; px_per_unit = 4)
+    return fig
+end
+
+function _variance_boxplot_panel_keys(rows::AbstractDataFrame)
+    keys = Tuple[]
+    labels = String[]
+    seen = Set{Tuple}()
+
+    for row in eachrow(rows)
+        grouping = hasproperty(row, :panel_grouping) ? row.panel_grouping :
+                   (hasproperty(row, :grouping) ? row.grouping : missing)
+        label = hasproperty(row, :panel_label) ? string(row.panel_label) :
+                string(get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS, Symbol(row.measure), string(row.measure)))
+        key = (Symbol(row.measure), grouping, label)
+        key in seen && continue
+        push!(seen, key)
+        push!(keys, (Symbol(row.measure), grouping))
+        push!(labels, label)
+    end
+
+    return keys, labels
+end
+
+function _variance_boxplot_select_panel(rows::AbstractDataFrame, key)
+    measure, grouping = key
+    mask = [
+        Symbol(row.measure) == measure &&
+        isequal(
+            hasproperty(row, :panel_grouping) ? row.panel_grouping :
+            (hasproperty(row, :grouping) ? row.grouping : missing),
+            grouping,
+        )
+        for row in eachrow(rows)
+    ]
+    return rows[mask, :]
+end
+
+function _variance_boxplot_raw_xs(x::Real, n::Int, width::Real)
+    n <= 1 && return [Float64(x)]
+    return Float64.(x .+ collect(range(-0.28 * width, 0.28 * width; length = n)))
+end
+
+function _draw_vertical_boxplot!(ax, x::Real, values::AbstractVector{<:Real}, color;
+                                 width::Real,
+                                 point_size::Real = 4.5,
+                                 show_points::Bool = true)
+    stats = _boxplot_stats(values)
+    stats === nothing && return nothing
+    half_width = width / 2
+
+    poly!(
+        ax,
+        Makie.Point2f[
+            (x - half_width, stats.q25),
+            (x + half_width, stats.q25),
+            (x + half_width, stats.q75),
+            (x - half_width, stats.q75),
+        ];
+        color = (color, 0.18),
+        strokecolor = color,
+        strokewidth = 1.4,
+    )
+    lines!(ax, [x, x], [stats.whisker_lo, stats.q25]; color = color, linewidth = 1.5)
+    lines!(ax, [x, x], [stats.q75, stats.whisker_hi]; color = color, linewidth = 1.5)
+    lines!(ax, [x - half_width / 2, x + half_width / 2], [stats.whisker_lo, stats.whisker_lo];
+           color = color, linewidth = 1.5)
+    lines!(ax, [x - half_width / 2, x + half_width / 2], [stats.whisker_hi, stats.whisker_hi];
+           color = color, linewidth = 1.5)
+    lines!(ax, [x - half_width, x + half_width], [stats.median, stats.median];
+           color = color, linewidth = 2.2)
+
+    if show_points
+        raw_x = _variance_boxplot_raw_xs(x, length(values), width)
+        scatter!(ax, raw_x, Float64.(values); color = (color, 0.42), markersize = point_size)
+    end
+
+    if show_points && !isempty(stats.outliers)
+        scatter!(ax, fill(Float64(x), length(stats.outliers)), stats.outliers;
+                 color = (color, 0.55), markersize = point_size + 1)
+    end
+
+    return nothing
+end
+
+function _variance_boxplot_candidate_label(rows::AbstractDataFrame)
+    isempty(rows) && return ""
+    try
+        return PrefPol.pipeline_candidate_label(rows)
+    catch
+        return ""
+    end
+end
+
+"""
+    plot_variance_decomposition_year_scenario_boxplots(table; year, scenario_name, ...)
+
+Draw the primary variance-decomposition figure for one `(year, scenario)`
+selection. Panels are measures, x is `m`, and dodged/color-coded boxplots show
+variance components; each boxplot's observations are the matching pipeline and
+grouping rows in that fixed year/scenario/m/measure/component cell. Use
+`group_pooling=:none` for grouping-specific diagnostic panels.
+"""
+function plot_variance_decomposition_year_scenario_boxplots(table::AbstractDataFrame;
+                                                            year,
+                                                            scenario_name,
+                                                            measures = :paper,
+                                                            groupings = nothing,
+                                                            group_pooling::Symbol = :within_grouping,
+                                                            value_kind::Symbol = :share,
+                                                            components = [:bootstrap, :imputation, :linearization],
+                                                            include_total::Bool = false,
+                                                            outfile = nothing,
+                                                            figsize = nothing,
+                                                            maxcols::Int = 2,
+                                                            palette = nothing,
+                                                            show_points::Bool = true)
+    palette === nothing && (palette = _wong_colors())
+    value_kind in (:variance, :share) || throw(ArgumentError(
+        "`value_kind` must be `:variance` or `:share`, got `$(value_kind)`.",
+    ))
+
+    rows = PrefPol.variance_decomposition_year_scenario_boxplot_table(
+        table;
+        year = year,
+        scenario_name = scenario_name,
+        measures = measures,
+        groupings = groupings,
+        group_pooling = group_pooling,
+        value_kind = value_kind,
+        components = components,
+        include_total = include_total,
+    )
+    isempty(rows) && throw(ArgumentError(
+        "No rows available for variance decomposition year/scenario boxplot.",
+    ))
+
+    component_syms = Symbol.(collect(components))
+    if include_total && !(:total in component_syms)
+        push!(component_syms, :total)
+    end
+    component_order = Dict(component => idx for (idx, component) in enumerate(component_syms))
+    component_labels = [get(_VARIANCE_DOTWHISKER_COMPONENT_LABELS, component, string(component))
+                        for component in component_syms]
+    panel_keys, panel_labels = _variance_boxplot_panel_keys(rows)
+    ms = sort(unique(Int.(rows.m)))
+    offsets = _variance_component_offsets(length(component_syms))
+    spacing = length(ms) > 1 ? max(1.0, float(minimum(diff(ms)))) : 1.0
+    box_width = min(0.16 * spacing, 0.22 / max(length(component_syms), 1) * spacing)
+
+    npanels = length(panel_keys)
+    ncol = min(maxcols, max(npanels, 1))
+    nrow = cld(max(npanels, 1), ncol)
+    if figsize === nothing
+        figsize = (max(380 * ncol, 720), max(285 * nrow + 95, 420))
+    end
+
+    fig = Figure(size = figsize)
+    Label(
+        fig[0, 1:ncol];
+        text = "Variance decomposition: year=$(year)",
+        fontsize = 18,
+        halign = :center,
+    )
+    candidate_label = _variance_boxplot_candidate_label(rows)
+    if !isempty(candidate_label)
+        Label(
+            fig[1, 1:ncol];
+            text = join(TextWrap.wrap(candidate_label; width = 120)),
+            fontsize = 13,
+            halign = :left,
+        )
+    end
+    plot_row_offset = isempty(candidate_label) ? 0 : 1
+
+    ylabel = value_kind === :share ? "variance share" : "variance component"
+    axes = Axis[]
+
+    for (idx, key) in enumerate(panel_keys)
+        grid_row = div(idx - 1, ncol) + 1
+        grid_col = mod(idx - 1, ncol) + 1
+        ax = Axis(
+            fig[grid_row + plot_row_offset, grid_col];
+            title = panel_labels[idx],
+            xlabel = grid_row == nrow ? "m" : "",
+            ylabel = grid_col == 1 ? ylabel : "",
+            xticks = (ms, string.(ms)),
+        )
+        push!(axes, ax)
+
+        panel_rows = _variance_boxplot_select_panel(rows, key)
+        for component in component_syms
+            component in keys(component_order) || continue
+            comp_rows = panel_rows[panel_rows.component .== component, :]
+            isempty(comp_rows) && continue
+            component_idx = component_order[component]
+            color = palette[(component_idx - 1) % length(palette) + 1]
+
+            for m in ms
+                cell_rows = comp_rows[Int.(comp_rows.m) .== m, :]
+                isempty(cell_rows) && continue
+                x = Float64(m) + offsets[component_idx] * spacing
+                values = Float64.(cell_rows.value)
+                _draw_vertical_boxplot!(ax, x, values, color; width = box_width, show_points = show_points)
+            end
+        end
+
+        if value_kind === :share
+            ymax = maximum(Float64.(panel_rows.value); init = 1.0)
+            ymax <= 1.0 && ylims!(ax, 0.0, 1.0)
+        end
+    end
+
+    handles = [Makie.LineElement(; color = palette[(idx - 1) % length(palette) + 1], linewidth = 5)
+               for idx in eachindex(component_syms)]
+    Legend(fig[(1 + plot_row_offset):(nrow + plot_row_offset), ncol + 1], handles, component_labels)
+
+    pipelines = sort(unique(String.(rows.pipeline_label)))
+    pipeline_text = "Pipelines: " * join(pipelines, "; ")
+    Label(fig[nrow + plot_row_offset + 1, 1:ncol]; text = join(TextWrap.wrap(pipeline_text; width = 120)), fontsize = 10, halign = :left)
+
+    resize_to_layout!(fig)
+    outfile !== nothing && save(outfile, fig; px_per_unit = 4)
+    return fig
+end
+
 function plot_variance_decomposition_dotwhisker(pooled_table::AbstractDataFrame;
                                                 measures = PrefPol.DEFAULT_PAPER_VARIANCE_MEASURES,
                                                 components = _VARIANCE_DOTWHISKER_COMPONENTS,
@@ -1433,7 +1793,7 @@ function plot_variance_decomposition_boxplot(pooled_table::AbstractDataFrame;
                                              measures = PrefPol.DEFAULT_PAPER_VARIANCE_MEASURES,
                                              components = _VARIANCE_DOTWHISKER_COMPONENTS,
                                              figsize = (900, 560),
-                                             title = "Variance decomposition boxplot",
+                                             title = "Pooled variance decomposition diagnostic",
                                              xlabel = "absolute variance component",
                                              outfile = nothing,
                                              palette = nothing)

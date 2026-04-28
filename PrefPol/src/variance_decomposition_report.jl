@@ -1,5 +1,5 @@
 const DEFAULT_VARIANCE_DECOMPOSITION_ESTIMATOR = :existing_nested_moments
-const DEFAULT_PAPER_VARIANCE_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :Sep, :S]
+const DEFAULT_PAPER_VARIANCE_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :S, :Sep]
 const DEFAULT_PAPER_VARIANCE_MEASURE_LABELS = Dict(
     :Psi => "Ψ",
     :R => "R",
@@ -16,6 +16,13 @@ const _VARIANCE_REPORT_COMPONENTS = (
     (:imputation, :imputation_variance),
     (:linearization, :linearization_variance),
     (:total, :total_variance),
+)
+const _VARIANCE_REPORT_COMPONENT_LABELS = Dict(
+    :bootstrap => "Bootstrap",
+    :imputation => "Imputation",
+    :linearization => "Linearization",
+    :total => "Total",
+    :empirical => "Empirical",
 )
 const _VARIANCE_REPORT_DECOMPOSITION_COLUMNS = [
     :bootstrap_variance,
@@ -39,7 +46,7 @@ function VarianceDecompositionReportSpec(; selections = nothing,
                                          m_values = nothing,
                                          measures = nothing,
                                          groupings = nothing,
-                                         pool_over_m::Bool = true,
+                                         pool_over_m::Bool = false,
                                          pool_over_selections::Bool = false,
                                          include_empirical::Bool = false,
                                          estimator::Symbol = DEFAULT_VARIANCE_DECOMPOSITION_ESTIMATOR)
@@ -58,6 +65,20 @@ function VarianceDecompositionReportSpec(; selections = nothing,
         estimator,
     )
 end
+
+"""
+    VarianceDecompositionReportSpec(; pool_over_m = false, ...)
+
+Configure variance-decomposition reporting.
+
+The decomposition is a descriptive nested partition computed within fixed
+analysis cells. The candidate-set size `m` is part of the conditioning
+information because changing `m` changes the ranking space, sparsity regime,
+and scale/geometry of several measures. Reports therefore preserve `m` by
+default. Set `pool_over_m=true` only for pooled descriptive diagnostics, not for
+the primary cellwise variance decomposition.
+"""
+VarianceDecompositionReportSpec
 
 function normalize_variance_measure(measure)
     sym = Symbol(measure)
@@ -313,6 +334,251 @@ function variance_decomposition_fine_table(input,
     return DataFrame(rows)
 end
 
+function _component_label(component::Symbol)
+    return get(_VARIANCE_REPORT_COMPONENT_LABELS, component, String(component))
+end
+
+function _pipeline_label(row)
+    imputer = _get_or_missing(row, :imputer_backend)
+    linearizer = _get_or_missing(row, :linearizer_policy)
+    imputer_label = ismissing(imputer) ? "unknown imputer" : string(imputer)
+    linearizer_label = ismissing(linearizer) ? "unknown linearizer" : string(linearizer)
+    return string(imputer_label, " + ", linearizer_label)
+end
+
+function _variance_by_m_fine_input(table)
+    df = DataFrame(table)
+    isempty(df) && return df
+    cols = Set(Symbol.(names(df)))
+    if all(col -> col in cols, (:component, :value))
+        return df
+    end
+
+    return variance_decomposition_fine_table(
+        df,
+        VarianceDecompositionReportSpec(measures = :all, pool_over_m = false),
+    )
+end
+
+function _variance_by_m_cell_cols(fine::AbstractDataFrame)
+    skip = Set([
+        :component,
+        :component_label,
+        :component_order,
+        :pipeline_label,
+        :panel_label,
+        :value_kind,
+        :value,
+        :notes,
+        :source_result,
+    ])
+    return [Symbol(name) for name in names(fine) if !(Symbol(name) in skip)]
+end
+
+"""
+    variance_decomposition_by_m_plot_table(table; value_kind = :variance, components = ...)
+
+Prepare cellwise variance-decomposition rows for the primary m-explicit plot.
+
+The returned table preserves `m` and adds `component_label` and
+`pipeline_label`. `value_kind=:variance` returns raw component magnitudes.
+`value_kind=:share` returns component / total variance within the same fixed
+cell, using zero when total variance is zero. Pooling over `m` is intentionally
+not performed here; use `variance_decomposition_pooled_table` only for
+secondary diagnostics.
+"""
+function variance_decomposition_by_m_plot_table(table;
+                                                value_kind::Symbol = :variance,
+                                                components = [:bootstrap, :imputation, :linearization],
+                                                share_denominator::Symbol = :total)
+    value_kind in (:variance, :share) || throw(ArgumentError(
+        "`value_kind` must be `:variance` or `:share`, got `$(value_kind)`.",
+    ))
+    share_denominator === :total || throw(ArgumentError(
+        "Only `share_denominator=:total` is currently supported.",
+    ))
+
+    fine = _variance_by_m_fine_input(table)
+    isempty(fine) && return DataFrame()
+    :m in Symbol.(names(fine)) || throw(ArgumentError(
+        "variance_decomposition_by_m_plot_table requires an `m` column.",
+    ))
+
+    fine[!, :component] = Symbol.(fine.component)
+    wanted_components = Symbol.(collect(components))
+    wanted_set = Set(wanted_components)
+    component_order = Dict(component => idx for (idx, component) in enumerate(wanted_components))
+    cell_cols = _variance_by_m_cell_cols(fine)
+
+    total_values = Dict{Tuple, Float64}()
+    if value_kind === :share
+        total_rows = fine[fine.component .== :total, :]
+        isempty(total_rows) && throw(ArgumentError(
+            "`value_kind=:share` requires `:total` rows or a wide `total_variance` column.",
+        ))
+        for subdf in groupby(total_rows, cell_cols)
+            key = Tuple(subdf[1, col] for col in cell_cols)
+            total_values[key] = Float64(subdf[1, :value])
+        end
+    end
+
+    rows = NamedTuple[]
+    for row in eachrow(fine)
+        component = Symbol(row.component)
+        component in wanted_set || continue
+        key = Tuple(row[col] for col in cell_cols)
+        raw_value = Float64(row.value)
+        plot_value = value_kind === :variance ?
+                     raw_value :
+                     _safe_variance_share(raw_value, get(total_values, key, 0.0))
+        base = (; (col => row[col] for col in cell_cols)...)
+        push!(rows, merge(base, (
+            component = component,
+            component_label = _component_label(component),
+            value = plot_value,
+            value_kind = value_kind,
+            pipeline_label = _pipeline_label(row),
+            component_order = component_order[component],
+        )))
+    end
+
+    out = DataFrame(rows)
+    isempty(out) && return out
+    sort_cols = [col for col in (:measure, :year, :wave_id, :scenario_name, :m, :pipeline_label, :component_order)
+                 if col in Symbol.(names(out))]
+    isempty(sort_cols) || sort!(out, sort_cols)
+    return out
+end
+
+function _variance_boxplot_selection_filter!(df::DataFrame; year, scenario_name)
+    if year !== nothing
+        if :year in Symbol.(names(df))
+            filter!(:year => value -> !ismissing(value) && value == year, df)
+        elseif :wave_id in Symbol.(names(df))
+            filter!(:wave_id => value -> !ismissing(value) && value == year, df)
+        else
+            throw(ArgumentError("Variance decomposition boxplot data require `year` or `wave_id` to filter by year."))
+        end
+    end
+
+    if scenario_name !== nothing
+        :scenario_name in Symbol.(names(df)) || throw(ArgumentError(
+            "Variance decomposition boxplot data require `scenario_name` to filter by scenario.",
+        ))
+        filter!(:scenario_name => value -> !ismissing(value) && string(value) == string(scenario_name), df)
+    end
+
+    return df
+end
+
+function _variance_boxplot_measure_filter!(df::DataFrame, measures)
+    isempty(df) && return Symbol[]
+    df[!, :measure] = [normalize_variance_measure(value) for value in df.measure]
+    wanted_measures = _variance_report_measure_list(measures, unique(Symbol.(df.measure)))
+    measure_order = Dict(measure => idx for (idx, measure) in enumerate(wanted_measures))
+    filter!(:measure => measure -> haskey(measure_order, Symbol(measure)), df)
+    sort!(df, order(:measure, by = measure -> get(measure_order, Symbol(measure), typemax(Int))))
+    return wanted_measures
+end
+
+function _variance_boxplot_grouping_filter!(df::DataFrame, groupings)
+    (:grouping in Symbol.(names(df))) || return df
+    groupings === nothing && return df
+
+    wanted_groupings = Set(Symbol.(collect(_as_vector(groupings))))
+    filter!(:grouping => value -> ismissing(value) || Symbol(value) in wanted_groupings, df)
+    return df
+end
+
+function _variance_boxplot_measure_grouping_panel_label(measure, grouping)
+    measure_label = _variance_measure_label(Symbol(measure))
+    ismissing(grouping) && return measure_label
+    return string(measure_label, " | ", grouping)
+end
+
+function _validate_variance_group_pooling(group_pooling::Symbol)
+    group_pooling in (:none, :within_grouping, :across_groupings) || throw(ArgumentError(
+        "`group_pooling` must be one of `:none`, `:within_grouping`, or `:across_groupings`, " *
+        "got `$(group_pooling)`.",
+    ))
+    return group_pooling
+end
+
+function _variance_boxplot_panel_grouping(row, group_pooling::Symbol)
+    group_pooling === :none || return missing
+    return hasproperty(row, :grouping) ? row.grouping : missing
+end
+
+function _variance_boxplot_pooled_panel_label(row, group_pooling::Symbol)
+    group_pooling === :none && return _variance_boxplot_measure_grouping_panel_label(row.measure, row.panel_grouping)
+    return _variance_measure_label(Symbol(row.measure))
+end
+
+"""
+    variance_decomposition_year_scenario_boxplot_table(table; year, scenario_name, ...)
+
+Prepare one row per pipeline/component observation for the primary
+year/scenario variance-decomposition boxplot. The returned table preserves `m`
+and pipeline choices. By default, panels are measure-only: grouping rows are
+kept as observations inside each `(m, measure, component)` boxplot rather than
+used as facets. Set `group_pooling=:none` to restore grouping-specific
+diagnostic panels.
+"""
+function variance_decomposition_year_scenario_boxplot_table(table;
+                                                            year,
+                                                            scenario_name,
+                                                            measures = :paper,
+                                                            groupings = nothing,
+                                                            group_pooling::Symbol = :within_grouping,
+                                                            value_kind::Symbol = :share,
+                                                            components = [:bootstrap, :imputation, :linearization],
+                                                            include_total::Bool = false)
+    group_pooling = _validate_variance_group_pooling(group_pooling)
+    component_list = Symbol.(collect(components))
+    if include_total && !(:total in component_list)
+        push!(component_list, :total)
+    end
+
+    rows = variance_decomposition_by_m_plot_table(
+        table;
+        value_kind = value_kind,
+        components = component_list,
+    )
+    if isempty(rows)
+        throw(ArgumentError(
+            "No variance-decomposition rows are available before filtering. " *
+            "Check `SELECTED_SELECTIONS`, `M_VALUES`, `MEASURES`, and the input CSV.",
+        ))
+    end
+
+    _variance_boxplot_selection_filter!(rows; year = year, scenario_name = scenario_name)
+    _variance_boxplot_measure_filter!(rows, measures)
+    _variance_boxplot_grouping_filter!(rows, groupings)
+    if isempty(rows)
+        throw(ArgumentError(
+            "No variance-decomposition rows matched year=$(year), scenario_name=$(scenario_name).",
+        ))
+    end
+
+    rows[!, :component] = Symbol.(rows.component)
+    rows[!, :measure] = Symbol.(rows.measure)
+    rows[!, :measure_label] = [_variance_measure_label(measure) for measure in rows.measure]
+    rows[!, :panel_grouping] = [
+        _variance_boxplot_panel_grouping(row, group_pooling)
+        for row in eachrow(rows)
+    ]
+    rows[!, :panel_label] = [
+        _variance_boxplot_pooled_panel_label(row, group_pooling)
+        for row in eachrow(rows)
+    ]
+    rows[!, :group_pooling] = fill(group_pooling, nrow(rows))
+
+    sort_cols = [col for col in (:measure, :panel_grouping, :grouping, :m, :component_order, :pipeline_label)
+                 if col in Symbol.(names(rows))]
+    isempty(sort_cols) || sort!(rows, sort_cols)
+    return rows
+end
+
 function _pooled_group_cols(fine::AbstractDataFrame, spec::VarianceDecompositionReportSpec)
     cols = Symbol[
         :grouping,
@@ -383,6 +649,16 @@ function variance_decomposition_pooled_table(fine::AbstractDataFrame,
     return DataFrame(rows)
 end
 
+"""
+    variance_decomposition_pooled_table(fine, spec)
+
+Summarize fine variance-decomposition rows across cells. With the default spec,
+`m` remains a grouping column. Passing `pool_over_m=true` intentionally pools
+candidate-set sizes and should be treated as a descriptive diagnostic rather
+than the primary cellwise decomposition.
+"""
+variance_decomposition_pooled_table
+
 function variance_decomposition_report(input,
                                        spec::VarianceDecompositionReportSpec = VarianceDecompositionReportSpec())
     fine = variance_decomposition_fine_table(input, spec)
@@ -396,4 +672,12 @@ end
 
 function plot_variance_decomposition_boxplot(pooled_table; kwargs...)
     return _call_plotting_extension(:plot_variance_decomposition_boxplot, pooled_table; kwargs...)
+end
+
+function plot_variance_decomposition_by_m(table; kwargs...)
+    return _call_plotting_extension(:plot_variance_decomposition_by_m, table; kwargs...)
+end
+
+function plot_variance_decomposition_year_scenario_boxplots(table; kwargs...)
+    return _call_plotting_extension(:plot_variance_decomposition_year_scenario_boxplots, table; kwargs...)
 end

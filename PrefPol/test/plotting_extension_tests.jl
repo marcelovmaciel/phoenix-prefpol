@@ -123,9 +123,16 @@ end
         fixed_colorrange_limits = (-1.0, 1.0),
         colorbar_label = "median cleaned excess-separation",
     )
-    _, pooled_variance = PrefPol.variance_decomposition_report(
+    fine_variance, pooled_variance = PrefPol.variance_decomposition_report(
         PrefPol.pipeline_variance_decomposition_table(results),
         PrefPol.VarianceDecompositionReportSpec(measures = :paper),
+    )
+    fig_variance_by_m = PrefPol.plot_variance_decomposition_by_m(fine_variance; value_kind = :share)
+    fig_variance_year_box = PrefPol.plot_variance_decomposition_year_scenario_boxplots(
+        fine_variance;
+        year = 2022,
+        scenario_name = "all",
+        value_kind = :share,
     )
     fig_variance = PrefPol.plot_variance_decomposition_dotwhisker(pooled_variance)
     fig_variance_box = PrefPol.plot_variance_decomposition_boxplot(pooled_variance)
@@ -136,6 +143,8 @@ end
     @test fig_group_lines isa pp.Makie.Figure
     @test fig_heatmap isa pp.Makie.Figure
     @test fig_signed_heatmap isa pp.Makie.Figure
+    @test fig_variance_by_m isa pp.Makie.Figure
+    @test fig_variance_year_box isa pp.Makie.Figure
     @test fig_variance isa pp.Makie.Figure
     @test fig_variance_box isa pp.Makie.Figure
 
@@ -146,7 +155,17 @@ end
         saved_heatmap = PrefPol.save_pipeline_plot(fig_heatmap, "plotting_heatmap"; dir = dir)
         saved_signed_heatmap = PrefPol.save_pipeline_plot(fig_signed_heatmap, "plotting_signed_heatmap"; dir = dir)
         variance_save = joinpath(dir, "variance_dotwhisker.png")
+        variance_by_m_save = joinpath(dir, "variance_by_m_share.png")
+        variance_year_box_save = joinpath(dir, "variance_2022_all_share_boxplots.png")
         variance_box_save = joinpath(dir, "variance_boxplot.png")
+        PrefPol.plot_variance_decomposition_by_m(fine_variance; value_kind = :share, outfile = variance_by_m_save)
+        PrefPol.plot_variance_decomposition_year_scenario_boxplots(
+            fine_variance;
+            year = 2022,
+            scenario_name = "all",
+            value_kind = :share,
+            outfile = variance_year_box_save,
+        )
         PrefPol.plot_variance_decomposition_dotwhisker(pooled_variance; outfile = variance_save)
         PrefPol.plot_variance_decomposition_boxplot(pooled_variance; outfile = variance_box_save)
 
@@ -154,6 +173,8 @@ end
         @test isfile(saved_lines)
         @test isfile(saved_heatmap)
         @test isfile(saved_signed_heatmap)
+        @test isfile(variance_by_m_save)
+        @test isfile(variance_year_box_save)
         @test isfile(variance_save)
         @test isfile(variance_box_save)
         @test endswith(saved_lines, ".png")
