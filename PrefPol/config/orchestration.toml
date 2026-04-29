@@ -25,6 +25,13 @@ global = ["Psi", "R", "HHI", "RHHI"]
 group = ["C", "D", "O", "S"]
 o_smoothed_extension = ["O_smoothed"]
 
+[extra_measures]
+run_manifest = "PrefPol/composable_running/output/manifests/run_manifest.csv"
+extra_measure_manifest = "PrefPol/composable_running/output/manifests/extra_measure_manifest.csv"
+output_dir = "PrefPol/composable_running/output/extra_measures"
+analysis_role = "main"
+m_values = [2, 3, 4, 5]
+
 [[targets]]
 wave_id = "2006"
 scenario_name = "main_2006"

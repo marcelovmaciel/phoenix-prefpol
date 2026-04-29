@@ -94,3 +94,17 @@ wave_id = "2022"
 scenario_name = "main_2022"
 m_values = [2, 3, 4, 5]
 paper_filename = "2022_group.png"
+
+[extra_plots]
+extra_plot_root = "PrefPol/composable_running/output/extra_plots"
+table_root = "PrefPol/composable_running/output/tables/effective_rankings"
+extra_plot_manifest = "PrefPol/composable_running/output/manifests/extra_plot_manifest.csv"
+formats = ["png", "svg"]
+effective_rankings_enabled = true
+
+[extra_plots.variance_decomposition]
+enabled = true
+source = "PrefPol/composable_running/output/measures/decomposition_table.csv"
+year = 2022
+scenario_name = "main_2022"
+filename = "variance_decomposition_2022.png"

@@ -17,7 +17,26 @@ enabled = true
 source = "PrefPol/composable_running/output/extra_measures/effective_counts/effective_counts_summary.csv"
 outputs = ["effective_rankings.csv", "effective_rankings.tex", "effective_rankings.md"]
 years = [2006, 2018, 2022]
+backend = "mice"
+linearizer = "pattern_conditional"
+analysis_role = "main"
+m_values = [2, 3, 4, 5]
 metrics = ["ENRP", "EO", "reversal_to_ranking_effective_ratio"]
+
+[[effective_rankings.targets]]
+year = 2006
+wave_id = "2006"
+scenario_name = "main_2006"
+
+[[effective_rankings.targets]]
+year = 2018
+wave_id = "2018"
+scenario_name = "main_2018"
+
+[[effective_rankings.targets]]
+year = 2022
+wave_id = "2022"
+scenario_name = "main_2022"
 
 [lambda_table]
 enabled = true
