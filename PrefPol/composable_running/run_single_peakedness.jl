@@ -190,12 +190,20 @@ function axis_rows(result, base, proportion_source::Symbol)
     best_L1 = Set(result.best_L1_axis_ids)
     total_support = length(result.support)
     for summary in result.axis_summaries
+        max_pairwise_distance = binomial(length(summary.axis), 2)
+        mean_pairwise_distance = summary.L1 * max_pairwise_distance
+        mean_pairwise_distance_non_single_peaked = summary.L0 > 0 ?
+                                                   mean_pairwise_distance / summary.L0 :
+                                                   0.0
         push!(rows, merge(base, (
             proportion_source = String(proportion_source),
             axis_id = summary.axis_id,
             axis_as_string = axis_string(summary.axis),
             L0 = summary.L0,
             L1 = summary.L1,
+            max_pairwise_distance = max_pairwise_distance,
+            mean_pairwise_distance = mean_pairwise_distance,
+            mean_pairwise_distance_non_single_peaked = mean_pairwise_distance_non_single_peaked,
             non_single_peaked_support_count = length(summary.non_single_peaked_support_ids),
             non_single_peaked_mass = summary.non_single_peaked_mass,
             total_support_count = total_support,
@@ -212,23 +220,43 @@ function best_axis_rows(result, base, proportion_source::Symbol)
     summaries = Dict(summary.axis_id => summary for summary in result.axis_summaries)
     for axis_id in result.best_L0_axis_ids
         summary = summaries[axis_id]
+        max_pairwise_distance = binomial(length(summary.axis), 2)
+        mean_pairwise_distance = summary.L1 * max_pairwise_distance
+        mean_pairwise_distance_non_single_peaked = summary.L0 > 0 ?
+                                                   mean_pairwise_distance / summary.L0 :
+                                                   0.0
         push!(rows, merge(base, (
             proportion_source = String(proportion_source),
             measure = "L0",
             value = result.best_L0,
             axis_id = axis_id,
             axis_as_string = axis_string(summary.axis),
+            axis_L0 = summary.L0,
+            axis_L1 = summary.L1,
+            max_pairwise_distance = max_pairwise_distance,
+            mean_pairwise_distance = mean_pairwise_distance,
+            mean_pairwise_distance_non_single_peaked = mean_pairwise_distance_non_single_peaked,
             n_tied_best_axes = length(result.best_L0_axis_ids),
         )))
     end
     for axis_id in result.best_L1_axis_ids
         summary = summaries[axis_id]
+        max_pairwise_distance = binomial(length(summary.axis), 2)
+        mean_pairwise_distance = summary.L1 * max_pairwise_distance
+        mean_pairwise_distance_non_single_peaked = summary.L0 > 0 ?
+                                                   mean_pairwise_distance / summary.L0 :
+                                                   0.0
         push!(rows, merge(base, (
             proportion_source = String(proportion_source),
             measure = "L1",
             value = result.best_L1,
             axis_id = axis_id,
             axis_as_string = axis_string(summary.axis),
+            axis_L0 = summary.L0,
+            axis_L1 = summary.L1,
+            max_pairwise_distance = max_pairwise_distance,
+            mean_pairwise_distance = mean_pairwise_distance,
+            mean_pairwise_distance_non_single_peaked = mean_pairwise_distance_non_single_peaked,
             n_tied_best_axes = length(result.best_L1_axis_ids),
         )))
     end
