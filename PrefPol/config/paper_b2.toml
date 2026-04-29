@@ -58,6 +58,7 @@ enabled = true
 source = "PrefPol/composable_running/output/paper_b2/measures/decomposition_table.csv"
 year = 2022
 scenario_name = "main_2022"
+value_kind = "variance"
 filename = "variance_decomposition_2022.png"
 
 [effective_rankings]

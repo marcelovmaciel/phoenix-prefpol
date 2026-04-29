@@ -208,7 +208,7 @@ Important subfolders:
 - `measures/`: measure tables and decomposition outputs
 - `plots/`: global and group plot outputs
 - `extra_measures/`: ranking support and effective-count diagnostics
-- `extra_plots/`: effective-ranking and variance-decomposition plots
+- `extra_plots/`: effective-ranking plots and the absolute variance-decomposition plot
 - `tables/`: effective-ranking CSV, Markdown, and TeX tables
 - `appendices/`: Lambda appendix CSV, audit, and TeX outputs
 - `paper_artifacts/`: collected manuscript-facing artifacts

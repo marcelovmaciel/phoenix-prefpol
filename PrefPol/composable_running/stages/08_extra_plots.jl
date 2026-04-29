@@ -76,6 +76,7 @@ function extra_plot_settings(cfg, opts)
         variance_year = Int(config_value(variance_cfg, "year", 2022)),
         variance_scenario = String(config_value(variance_cfg, "scenario_name", "main_2022")),
         variance_filename = String(config_value(variance_cfg, "filename", "variance_decomposition_2022.png")),
+        variance_value_kind = Symbol(String(config_value(variance_cfg, "value_kind", "share"))),
         force = Bool(opts["force"]) || Bool(config_value(plot_cfg, "force", false)),
         dry_run = Bool(opts["dry-run"]) || Bool(config_value(plot_cfg, "dry_run", false)),
     )
@@ -173,6 +174,7 @@ function write_variance_plot(settings)
             table;
             year = settings.variance_year,
             scenario_name = settings.variance_scenario,
+            value_kind = settings.variance_value_kind,
         )
     catch err
         @warn "Skipping variance decomposition plot because selected rows are unavailable." exception=(err, catch_backtrace())
@@ -182,6 +184,7 @@ function write_variance_plot(settings)
         table;
         year = settings.variance_year,
         scenario_name = settings.variance_scenario,
+        value_kind = settings.variance_value_kind,
         outfile = output_path,
     )
     data_path = joinpath(out_dir, splitext(settings.variance_filename)[1] * "_plot_data.csv")
