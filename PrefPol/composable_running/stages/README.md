@@ -20,6 +20,7 @@ Current implemented entrypoints:
 - `08_extra_plots.jl`
 - `09_tables.jl`
 - `10_lambda_table.jl`
+- `11_collect_paper_artifacts.jl`
 
 `01_bootstrap.jl`, `02_impute.jl`, and `03_linearize.jl` create their stage
 artifacts independently through `PrefPol.ensure_resamples!`,
@@ -28,11 +29,8 @@ artifacts independently through `PrefPol.ensure_resamples!`,
 tables plus manifests. `05_plot_global.jl` and `06_plot_group.jl` read those
 manifests and cached `PipelineResult`s, then write plots and compact plot CSVs
 through the CairoMakie plotting extension. Phase 8 adds extra diagnostics,
-effective-ranking tables and plots, and Lambda appendix tables.
-
-Later phases should add the remaining planned stage entrypoints:
-
-- `11_collect_paper_artifacts.jl`
+effective-ranking tables and plots, and Lambda appendix tables. Phase 9
+collects paper-facing artifacts configured in `PrefPol/config/paper_artifacts.toml`.
 
 Stage scripts should be thin shell entrypoints around `PrefPol` public APIs.
 Use `CSV.jl` for manifests and tables; do not copy CSV helper functions from

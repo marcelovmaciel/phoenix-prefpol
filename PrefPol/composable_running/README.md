@@ -46,6 +46,7 @@ julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/07_extra_measu
 julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/09_tables.jl --smoke-test --dry-run
 julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/08_extra_plots.jl --smoke-test --dry-run
 julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/10_lambda_table.jl --smoke-test --dry-run
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/11_collect_paper_artifacts.jl --dry-run
 julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --config PrefPol/config/orchestration.toml
 julia +1.11.9 --project=PrefPol PrefPol/composable_running/run_all_smoke.jl --config PrefPol/config/smoke_test.toml
 julia +1.11.9 --project=PrefPol PrefPol/composable_running/run_all_paper.jl --config PrefPol/config/orchestration.toml

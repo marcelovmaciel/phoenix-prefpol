@@ -5,6 +5,10 @@ destination_root = "PrefPol/composable_running/output/paper_artifacts"
 copy_mode = "copy"
 update_writing_imgs = false
 writing_imgs_root = "writing/imgs"
+paper_artifact_manifest = "PrefPol/composable_running/output/manifests/paper_artifact_manifest.csv"
+default_backend = "mice"
+default_linearizer = "pattern_conditional"
+require_all = true
 
 [[artifacts]]
 id = "global_2006_main"
