@@ -23,8 +23,10 @@ Base.get_extension(PrefPol, :PrefPolPlottingExt) === nothing && throw(ArgumentEr
     "PrefPol/composable_running/stages/05_plot_global.jl"
 ))
 
+# TODO(plot_specs.toml): keep only as a smoke-test safeguard if plot specs are absent.
 const DEFAULT_GLOBAL_MEASURES = [:Psi, :R, :HHI, :RHHI]
 const ANALYSIS_ROLE_MAIN = "main"
+const DEFAULT_PLOT_SPECS_PATH = joinpath(DEFAULT_CONFIG_DIR, "plot_specs.toml")
 
 function parse_plot_args(args)
     if any(arg -> arg in ("--help", "-h"), args)
@@ -37,8 +39,8 @@ function parse_plot_args(args)
           writes global plots, compact plot CSVs, and plot_manifest.csv.
 
         Config:
-          Optional [global_plots] keys: measures, formats, write_tables,
-          output_root, plot_root, run_manifest, measure_manifest, analysis_role.
+          Plot settings are read from PrefPol/config/plot_specs.toml by default.
+          Optional [global_plots] keys in --config override that file.
         """)
         exit(0)
     end
@@ -57,9 +59,59 @@ function normalize_format(fmt)
     startswith(text, ".") ? text : "." * text
 end
 
+function load_plot_specs_config()
+    if !isfile(DEFAULT_PLOT_SPECS_PATH)
+        @warn "Plot specs not found at $(DEFAULT_PLOT_SPECS_PATH); using temporary smoke-test fallback defaults. TODO(plot_specs.toml)"
+        return Dict{String,Any}()
+    end
+    return TOML.parsefile(DEFAULT_PLOT_SPECS_PATH)
+end
+
+function merged_plot_section(cfg, name::AbstractString)
+    specs = load_plot_specs_config()
+    section = Dict{String,Any}()
+    haskey(specs, "outputs") && merge!(section, specs["outputs"])
+    haskey(specs, "filters") && merge!(section, specs["filters"])
+    haskey(specs, name) && merge!(section, specs[name])
+    haskey(cfg, name) && merge!(section, cfg[name])
+    isempty(section) && @warn "No [$name] section found; using temporary smoke-test fallback defaults. TODO(plot_specs.toml)"
+    return section
+end
+
+function configured_plot_targets(plot_cfg, key::AbstractString, smoke_test::Bool)
+    raw_targets = get(plot_cfg, key, Any[])
+    isempty(raw_targets) && return NamedTuple[]
+
+    targets = NamedTuple[]
+    for target in raw_targets
+        wave_id = string(config_value(target, "wave_id", config_value(target, "year", "")))
+        scenario_name = string(config_value(target, "scenario_name", ""))
+        isempty(wave_id) && error("Every [global_plots] target needs wave_id or year.")
+        isempty(scenario_name) && error("Every [global_plots] target needs scenario_name.")
+        m_values = if haskey(target, "m_values")
+            Int.(target["m_values"])
+        elseif haskey(target, "m_range")
+            range = Int.(target["m_range"])
+            length(range) == 2 || error("m_range must contain [lo, hi].")
+            collect(range[1]:range[2])
+        else
+            smoke_test ? [2] : collect(2:5)
+        end
+        push!(targets, (wave_id = wave_id, scenario_name = scenario_name, m_values = m_values))
+    end
+    return targets
+end
+
+function selected_filter_values(opts, plot_cfg, key::AbstractString)
+    opts[key[1:end-1]] !== nothing && return [string(opts[key[1:end-1]])]
+    haskey(plot_cfg, key) || return nothing
+    values = string.(collect(plot_cfg[key]))
+    return isempty(values) ? nothing : values
+end
+
 function plot_settings(cfg, opts)
     run_cfg = get(cfg, "run", Dict{String,Any}())
-    plot_cfg = get(cfg, "global_plots", Dict{String,Any}())
+    plot_cfg = merged_plot_section(cfg, "global_plots")
     output_root = resolve_path(String(config_value(plot_cfg, "output_root",
                                  config_value(run_cfg, "output_root", DEFAULT_OUTPUT_ROOT))))
 
@@ -77,6 +129,9 @@ function plot_settings(cfg, opts)
         formats = normalize_format.(config_value(plot_cfg, "formats", ["png"])),
         write_tables = Bool(config_value(plot_cfg, "write_tables", true)),
         analysis_role = String(config_value(plot_cfg, "analysis_role", ANALYSIS_ROLE_MAIN)),
+        targets = configured_plot_targets(plot_cfg, "targets", Bool(opts["smoke-test"])),
+        backend_filter = selected_filter_values(opts, plot_cfg, "backends"),
+        linearizer_filter = selected_filter_values(opts, plot_cfg, "linearizers"),
         force = Bool(opts["force"]) || Bool(config_value(plot_cfg, "force", false)),
         dry_run = Bool(opts["dry-run"]) || Bool(config_value(plot_cfg, "dry_run", false)),
     )
@@ -112,17 +167,17 @@ end
 function successful_run_manifest(path::AbstractString)
     manifest = parse_manifest_columns!(read_manifest(path))
     :status in propertynames(manifest) || return manifest
-    return manifest[String.(manifest.status) .== "success", :]
+    return manifest[string.(manifest.status) .== "success", :]
 end
 
 function plot_targets(manifest::DataFrame, cfg, opts, settings)
     role_mask = :analysis_role in propertynames(manifest) ?
-                String.(manifest.analysis_role) .== settings.analysis_role :
+                string.(manifest.analysis_role) .== settings.analysis_role :
                 trues(nrow(manifest))
     rows = manifest[role_mask, :]
 
-    if haskey(cfg, "targets")
-        targets = configured_targets(cfg, Bool(opts["smoke-test"]))
+    if !isempty(settings.targets)
+        targets = settings.targets
         opts["year"] !== nothing && (targets = [target for target in targets if target.wave_id == string(opts["year"])])
         opts["scenario"] !== nothing && (targets = [target for target in targets if target.scenario_name == string(opts["scenario"])])
         override_m = parse_m_values(opts["m"])
@@ -130,11 +185,13 @@ function plot_targets(manifest::DataFrame, cfg, opts, settings)
             (wave_id = target.wave_id, scenario_name = target.scenario_name, m_values = override_m)
             for target in targets
         ])
+        isempty(targets) && error("No global plot targets selected from plot_specs.toml.")
         return targets
     end
 
-    opts["year"] !== nothing && (rows = rows[String.(rows.wave_id) .== string(opts["year"]), :])
-    opts["scenario"] !== nothing && (rows = rows[String.(rows.scenario_name) .== string(opts["scenario"]), :])
+    @warn "No [global_plots.targets] found; deriving targets from run manifest as temporary smoke-test fallback. TODO(plot_specs.toml)"
+    opts["year"] !== nothing && (rows = rows[string.(rows.wave_id) .== string(opts["year"]), :])
+    opts["scenario"] !== nothing && (rows = rows[string.(rows.scenario_name) .== string(opts["scenario"]), :])
     override_m = parse_m_values(opts["m"])
     override_m !== nothing && (rows = rows[in.(rows.m, Ref(override_m)), :])
 
@@ -235,8 +292,8 @@ function backend_combinations(manifest::DataFrame, target, settings, opts)
         in.(manifest.m, Ref(target.m_values)),
         :,
     ]
-    opts["backend"] !== nothing && (rows = rows[string.(rows.imputer_backend) .== string(opts["backend"]), :])
-    opts["linearizer"] !== nothing && (rows = rows[string.(rows.linearizer_policy) .== string(opts["linearizer"]), :])
+    settings.backend_filter !== nothing && (rows = rows[in.(string.(rows.imputer_backend), Ref(Set(settings.backend_filter))), :])
+    settings.linearizer_filter !== nothing && (rows = rows[in.(string.(rows.linearizer_policy), Ref(Set(settings.linearizer_filter))), :])
     combo_rows = unique(select(rows, :imputer_backend, :linearizer_policy))
     combos = [
         (imputer_backend = Symbol(row.imputer_backend), linearizer_policy = Symbol(row.linearizer_policy))
@@ -324,13 +381,13 @@ function previous_success(existing::DataFrame, artifact_id::AbstractString, sour
         return false
     required = Set(String.(outputs))
     rows = existing[
-        (String.(existing.artifact_id) .== artifact_id) .&
-        (String.(existing.source_manifest_hash) .== source_hash) .&
-        (String.(existing.status) .== "success"),
+        (string.(existing.artifact_id) .== artifact_id) .&
+        (string.(existing.source_manifest_hash) .== source_hash) .&
+        (string.(existing.status) .== "success"),
         :,
     ]
     isempty(rows) && return false
-    existing_outputs = Set(String.(rows.output_path))
+    existing_outputs = Set(string.(rows.output_path))
     return all(path -> path in existing_outputs && isfile(path), required)
 end
 

@@ -1,0 +1,57 @@
+# Paper artifact collection spec.
+
+[collection]
+destination_root = "PrefPol/composable_running/output/paper_artifacts"
+copy_mode = "copy"
+update_writing_imgs = false
+writing_imgs_root = "writing/imgs"
+
+[[artifacts]]
+id = "global_2006_main"
+destination_filename = "2006_global_main.png"
+source_stage = "plot_global"
+
+[[artifacts]]
+id = "global_2018_main"
+destination_filename = "2018_global_main.png"
+source_stage = "plot_global"
+
+[[artifacts]]
+id = "global_2022_main"
+destination_filename = "2022_global_main.png"
+source_stage = "plot_global"
+
+[[artifacts]]
+id = "group_2006_main"
+destination_filename = "2006_group.png"
+source_stage = "plot_group"
+
+[[artifacts]]
+id = "group_2018_main"
+destination_filename = "2018_group.png"
+source_stage = "plot_group"
+
+[[artifacts]]
+id = "group_2022_main"
+destination_filename = "2022_group.png"
+source_stage = "plot_group"
+
+[[artifacts]]
+id = "effective_rankings_evolution"
+destination_filename = "effective_rankings_evolution_1x2.png"
+source_stage = "extra_plots"
+
+[[artifacts]]
+id = "effective_rankings_table"
+destination_filename = "effective_rankings.tex"
+source_stage = "tables"
+
+[[artifacts]]
+id = "variance_decomposition_2022"
+destination_filename = "variance_decomposition_2022.png"
+source_stage = "extra_plots"
+
+[[artifacts]]
+id = "appendix_lambda_grouping_tables"
+destination_filename = "appendix_lambda_grouping_tables.tex"
+source_stage = "lambda_table"

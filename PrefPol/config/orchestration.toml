@@ -1,0 +1,54 @@
+# Composable replication orchestration defaults.
+#
+# Year-level wave definitions live in 2006.toml, 2018.toml, and 2022.toml.
+# This file owns run shape, target selection, cache/output roots, backend
+# choices, and measure sets.
+
+[run]
+# Conservative placeholder for development-scale paper orchestration. Increase
+# after smoke validation and before final paper artifact generation.
+B = 8
+R = 2
+K = 2
+force = false
+dry_run = false
+cache_root = "PrefPol/composable_running/output/cache"
+output_root = "PrefPol/composable_running/output"
+consensus_tie_policy = "average"
+imputer_backends = ["mice", "random"]
+linearizer_policies = ["pattern_conditional", "random_ties"]
+measures = ["Psi", "R", "HHI", "RHHI", "C", "D", "O", "S", "lambda_sep"]
+
+[measure_sets]
+main = ["Psi", "R", "HHI", "RHHI", "C", "D", "O", "S", "lambda_sep"]
+global = ["Psi", "R", "HHI", "RHHI"]
+group = ["C", "D", "O", "S"]
+o_smoothed_extension = ["O_smoothed"]
+
+[[targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[diagnostic_targets]]
+wave_id = "2022"
+scenario_name = "no_forcing"
+m_values = [2, 3, 4, 5]
+analysis_role = "diagnostic"
+groupings = "configured"

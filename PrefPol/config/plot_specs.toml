@@ -1,0 +1,96 @@
+# Plot specification for composable_running.
+#
+# This file is the source of truth for plotting targets, measures, labels,
+# complement rules, output formats, and paper-facing artifact names.
+
+[outputs]
+output_root = "PrefPol/composable_running/output"
+plot_root = "PrefPol/composable_running/output/plots"
+plot_manifest = "PrefPol/composable_running/output/manifests/plot_manifest.csv"
+formats = ["png"]
+
+[filters]
+backends = ["mice"]
+linearizers = ["pattern_conditional"]
+
+[global_plots]
+plot_root = "PrefPol/composable_running/output/plots/global"
+run_manifest = "PrefPol/composable_running/output/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/manifests/plot_manifest.csv"
+analysis_role = "main"
+measures = ["Psi", "R", "HHI", "RHHI"]
+formats = ["png"]
+write_tables = true
+
+[[global_plots.targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3, 4, 5]
+paper_filename = "2006_global_main.png"
+
+[[global_plots.targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3, 4, 5]
+paper_filename = "2018_global_main.png"
+
+[[global_plots.targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
+m_values = [2, 3, 4, 5]
+paper_filename = "2022_global_main.png"
+
+[[global_plots.diagnostic_targets]]
+wave_id = "2022"
+scenario_name = "no_forcing"
+m_values = [2, 3, 4, 5]
+paper_filename = "2022_no_forcing_global_diagnostic.png"
+
+[group_plots]
+plot_root = "PrefPol/composable_running/output/plots/group"
+run_manifest = "PrefPol/composable_running/output/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/manifests/plot_manifest.csv"
+group_plot_manifest = "PrefPol/composable_running/output/manifests/group_plot_manifest.csv"
+analysis_role = "main"
+measures = ["C", "D", "O", "S"]
+measure_labels = { C = "C", D = "D", O = "1 - O", S = "S" }
+complement_measures = ["O"]
+basename = "paper_group_heatmap_panel_C_D_1mO_S"
+formats = ["png"]
+write_tables = true
+statistic = "median"
+backends = ["mice"]
+linearizers = ["pattern_conditional"]
+
+[group_plots.groupings_by_wave]
+2006 = ["Sex", "Ideology", "PT", "Age", "Education", "Income"]
+2018 = ["Sex", "Religion", "Race", "Age", "Education", "Income", "Ideology", "LulaScoreGroup"]
+2022 = ["Sex", "Religion", "Race", "Ideology", "PT", "Abortion", "Age", "Education", "Income"]
+
+[group_plots.o_smoothed]
+enabled = true
+analysis_role = "o_smoothed_extension"
+measures = ["O_smoothed"]
+measure_labels = { O_smoothed = "1 - O_smoothed" }
+complement_measures = ["O_smoothed"]
+basename = "paper_o_smoothed_heatmap"
+
+[[group_plots.targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3, 4, 5]
+paper_filename = "2006_group.png"
+
+[[group_plots.targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3, 4, 5]
+paper_filename = "2018_group.png"
+
+[[group_plots.targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
+m_values = [2, 3, 4, 5]
+paper_filename = "2022_group.png"

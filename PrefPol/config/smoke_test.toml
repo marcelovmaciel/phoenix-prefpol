@@ -1,0 +1,49 @@
+# Small, exact smoke-test orchestration.
+
+[run]
+B = 2
+R = 2
+K = 2
+force = true
+dry_run = false
+cache_root = "PrefPol/composable_running/output/cache_smoke"
+output_root = "PrefPol/composable_running/output"
+consensus_tie_policy = "average"
+# Prefer mice for paper parity when R/RCall dependencies are available. The
+# stage defaults still allow explicit `--backend zero` as a dependency-light
+# fallback.
+imputer_backends = ["mice"]
+linearizer_policies = ["pattern_conditional"]
+measures = ["Psi", "R", "RHHI", "C", "D", "O", "S", "lambda_sep"]
+
+[measure_sets]
+main = ["Psi", "R", "RHHI", "C", "D", "O", "S", "lambda_sep"]
+global = ["Psi", "R", "RHHI"]
+group = ["C", "D", "O", "S"]
+
+[[targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3]
+analysis_role = "main"
+groupings = "configured"
+
+[global_plots]
+backends = ["mice"]
+linearizers = ["pattern_conditional"]
+measures = ["Psi", "R", "RHHI"]
+
+[[global_plots.targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3]
+
+[group_plots]
+backends = ["mice"]
+linearizers = ["pattern_conditional"]
+measures = ["C", "D", "O", "S"]
+
+[[group_plots.targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3]

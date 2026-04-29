@@ -11,6 +11,7 @@ const COMPOSABLE_ROOT = normpath(joinpath(@__DIR__, ".."))
 const DEFAULT_OUTPUT_ROOT = joinpath(COMPOSABLE_ROOT, "output")
 const DEFAULT_CACHE_ROOT = joinpath(DEFAULT_OUTPUT_ROOT, "cache")
 const DEFAULT_CONFIG_DIR = joinpath(pp.project_root, "config")
+const REPOSITORY_ROOT = normpath(joinpath(pp.project_root, ".."))
 const DEFAULT_MAIN_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :O, :S]
 const DEFAULT_SMOKE_MEASURES = [:Psi, :R, :RHHI, :C, :D, :O, :S, :lambda_sep]
 
@@ -82,7 +83,12 @@ function config_value(table, key::AbstractString, default)
 end
 
 function resolve_path(path::AbstractString)
-    return isabspath(path) ? normpath(path) : normpath(joinpath(pp.project_root, path))
+    isabspath(path) && return normpath(path)
+    first_component = first(splitpath(path))
+    if first_component in ("PrefPol", "Preferences", "writing")
+        return normpath(joinpath(REPOSITORY_ROOT, path))
+    end
+    return normpath(joinpath(pp.project_root, path))
 end
 
 function load_orchestration_config(path)

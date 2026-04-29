@@ -1,0 +1,53 @@
+# Table specification placeholders for composable_running.
+# Later table stages should consume this file rather than hard-coding paper
+# table selections.
+
+[outputs]
+output_root = "PrefPol/composable_running/output"
+table_root = "PrefPol/composable_running/output/tables"
+appendix_root = "PrefPol/composable_running/output/appendices"
+formats = ["csv", "tex", "md"]
+
+[display]
+digits = 3
+missing = ""
+
+[effective_rankings]
+enabled = true
+source = "PrefPol/composable_running/output/extra_measures/effective_counts/effective_counts_summary.csv"
+outputs = ["effective_rankings.csv", "effective_rankings.tex", "effective_rankings.md"]
+years = [2006, 2018, 2022]
+metrics = ["ENRP", "EO", "reversal_to_ranking_effective_ratio"]
+
+[lambda_table]
+enabled = true
+backend = "mice"
+linearizer = "pattern_conditional"
+m_values = [2, 3, 4, 5]
+definition = "Lambda = D / W"
+outputs = [
+  "appendix_lambda_table.csv",
+  "appendix_lambda_audit.csv",
+  "appendix_lambda_table.tex",
+  "appendix_lambda_grouping_tables.tex",
+]
+
+[[lambda_table.targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+groupings = ["Sex", "Ideology", "PT", "Age", "Education", "Income"]
+
+[[lambda_table.targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+groupings = ["Sex", "Religion", "Race", "Age", "Education", "Income", "Ideology", "LulaScoreGroup"]
+
+[[lambda_table.targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
+groupings = ["Sex", "Religion", "Race", "Ideology", "PT", "Abortion", "Age", "Education", "Income"]
+
+[appendix_tables]
+enabled = true
+formats = ["csv", "tex", "md"]
+round_digits = 3

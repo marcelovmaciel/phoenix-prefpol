@@ -1594,6 +1594,15 @@ with at least one plot and one table.
 
 ## Migration Strategy
 
+Phase numbers are migration-order labels. Stage numbers are file-order labels.
+They are related, but they are not the same namespace.
+
+Phase 7 means: implement group plotting by creating or completing
+`PrefPol/composable_running/stages/06_plot_group.jl`.
+
+Stage `07_extra_measures.jl` belongs to Phase 8 and must not be implemented as
+part of Phase 7.
+
 Phase 0: Inventory current small scripts in `PrefPol/running/`.
 
 - Done in this planning task.
@@ -1609,6 +1618,17 @@ Phase 2: Identify config/path/manifest utilities already in `PrefPol/src/`.
 - Reuse `load_survey_wave_config`, `build_source_registry`,
   `build_pipeline_spec`, and result table helpers.
 - Avoid duplicated CSV readers/writers across scripts.
+
+Phase 2b: Config schema completion.
+
+- Create `PrefPol/config/orchestration.toml`, `PrefPol/config/smoke_test.toml`,
+  `PrefPol/config/plot_specs.toml`, `PrefPol/config/table_specs.toml`, and
+  `PrefPol/config/paper_artifacts.toml`.
+- Plotting, table, and artifact stages must not rely on permanent fallback
+  defaults.
+- Fallback defaults are allowed only as temporary smoke-test safeguards and
+  must be marked with `TODO(<config-file>.toml)` naming the config that should
+  replace them.
 
 Phase 3: Add minimal missing reusable helpers to `PrefPol/src/` or
 `PrefPol/ext/`.
