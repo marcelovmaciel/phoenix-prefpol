@@ -22,8 +22,22 @@ global = ["Psi", "R", "RHHI"]
 group = ["C", "D", "O", "S"]
 
 [[targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
 wave_id = "2018"
 scenario_name = "main_2018"
+m_values = [2, 3]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
 m_values = [2, 3]
 analysis_role = "main"
 groupings = "configured"
@@ -34,8 +48,18 @@ linearizers = ["pattern_conditional"]
 measures = ["Psi", "R", "RHHI"]
 
 [[global_plots.targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3]
+
+[[global_plots.targets]]
 wave_id = "2018"
 scenario_name = "main_2018"
+m_values = [2, 3]
+
+[[global_plots.targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
 m_values = [2, 3]
 
 [group_plots]
@@ -44,6 +68,16 @@ linearizers = ["pattern_conditional"]
 measures = ["C", "D", "O", "S"]
 
 [[group_plots.targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3]
+
+[[group_plots.targets]]
 wave_id = "2018"
 scenario_name = "main_2018"
+m_values = [2, 3]
+
+[[group_plots.targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
 m_values = [2, 3]

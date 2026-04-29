@@ -1,11 +1,15 @@
 #!/usr/bin/env julia
 
 using Dates
+using CSV
+using DataFrames
 using PrefPol
 using TOML
 import PrefPol as pp
 
 const DEFAULT_CONFIG_DIR = joinpath(pp.project_root, "config")
+const REPOSITORY_ROOT = normpath(joinpath(pp.project_root, ".."))
+const DEFAULT_OUTPUT_ROOT = joinpath(pp.project_root, "composable_running", "output")
 const REQUIRED_SCHEMA_FILES = [
     "plot_specs.toml",
     "table_specs.toml",
@@ -67,6 +71,38 @@ function validate_orchestration_config(path)
     haskey(cfg, "run") || @warn "Config has no [run] table; Phase 4 defaults will be used."
     haskey(cfg, "targets") || @warn "Config has no [[targets]] entries; Phase 4 defaults will be used."
     return cfg
+end
+
+function resolve_path(path::AbstractString)
+    isabspath(path) && return normpath(path)
+    first_component = first(splitpath(path))
+    if first_component in ("PrefPol", "Preferences", "writing")
+        return normpath(joinpath(REPOSITORY_ROOT, path))
+    end
+    return normpath(joinpath(pp.project_root, path))
+end
+
+function config_validation_manifest_path(cfg)
+    run_cfg = cfg isa AbstractDict ? get(cfg, "run", Dict{String,Any}()) : Dict{String,Any}()
+    output_root = resolve_path(string(get(run_cfg, "output_root", DEFAULT_OUTPUT_ROOT)))
+    return joinpath(output_root, "manifests", "config_validation_manifest.csv")
+end
+
+function write_config_validation_manifest(path::AbstractString; timestamp, config_path, waves)
+    mkpath(dirname(path))
+    rows = DataFrame([(
+        stage = "config_validation",
+        artifact_id = "config_validation",
+        config_path = config_path === nothing ? "" : normpath(String(config_path)),
+        output_path = path,
+        wave_count = length(waves),
+        schema_files = join(REQUIRED_SCHEMA_FILES, ";"),
+        status = "success",
+        error = "",
+        timestamp = timestamp,
+    )])
+    CSV.write(path, rows)
+    return path
 end
 
 function required_config_path(name::AbstractString)
@@ -211,7 +247,7 @@ end
 function main(args = ARGS)
     opts = parse_args(args)
     config_dir = DEFAULT_CONFIG_DIR
-    validate_orchestration_config(opts["config"])
+    orchestration_cfg = validate_orchestration_config(opts["config"])
     schema_configs = load_required_schema_configs()
 
     waves = PrefPol.SurveyWaveConfig[]
@@ -251,6 +287,13 @@ function main(args = ARGS)
     end
 
     isempty(registry) && error("Config registry is empty.")
+    manifest_path = write_config_validation_manifest(
+        config_validation_manifest_path(orchestration_cfg);
+        timestamp = timestamp,
+        config_path = opts["config"],
+        waves = waves,
+    )
+    println("Wrote config validation manifest to ", manifest_path)
     return nothing
 end
 

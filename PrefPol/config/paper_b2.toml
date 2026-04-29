@@ -1,0 +1,120 @@
+# Paper-scope low-replication orchestration.
+#
+# This config keeps the paper target set and paper-facing outputs, but uses
+# B = R = K = 2 for operational validation. It is intentionally separate from
+# smoke_test.toml and from the higher-replication orchestration.toml defaults.
+
+[run]
+B = 2
+R = 2
+K = 2
+force = true
+dry_run = false
+cache_root = "PrefPol/composable_running/output/paper_b2/cache"
+output_root = "PrefPol/composable_running/output/paper_b2"
+consensus_tie_policy = "average"
+imputer_backends = ["mice", "random"]
+linearizer_policies = ["pattern_conditional", "random_ties"]
+measures = ["Psi", "R", "HHI", "RHHI", "C", "D", "O", "S", "lambda_sep"]
+
+[measure_sets]
+main = ["Psi", "R", "HHI", "RHHI", "C", "D", "O", "S", "lambda_sep"]
+global = ["Psi", "R", "HHI", "RHHI"]
+group = ["C", "D", "O", "S"]
+o_smoothed_extension = ["O_smoothed"]
+
+[extra_measures]
+run_manifest = "PrefPol/composable_running/output/paper_b2/manifests/run_manifest.csv"
+extra_measure_manifest = "PrefPol/composable_running/output/paper_b2/manifests/extra_measure_manifest.csv"
+output_dir = "PrefPol/composable_running/output/paper_b2/extra_measures"
+analysis_role = "main"
+m_values = [2, 3, 4, 5]
+
+[global_plots]
+output_root = "PrefPol/composable_running/output/paper_b2"
+plot_root = "PrefPol/composable_running/output/paper_b2/plots/global"
+run_manifest = "PrefPol/composable_running/output/paper_b2/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/paper_b2/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/paper_b2/manifests/plot_manifest.csv"
+
+[group_plots]
+output_root = "PrefPol/composable_running/output/paper_b2"
+plot_root = "PrefPol/composable_running/output/paper_b2/plots/group"
+run_manifest = "PrefPol/composable_running/output/paper_b2/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/paper_b2/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/paper_b2/manifests/plot_manifest.csv"
+group_plot_manifest = "PrefPol/composable_running/output/paper_b2/manifests/group_plot_manifest.csv"
+
+[extra_plots]
+output_root = "PrefPol/composable_running/output/paper_b2"
+extra_plot_root = "PrefPol/composable_running/output/paper_b2/extra_plots"
+table_root = "PrefPol/composable_running/output/paper_b2/tables/effective_rankings"
+extra_plot_manifest = "PrefPol/composable_running/output/paper_b2/manifests/extra_plot_manifest.csv"
+formats = ["png", "svg"]
+effective_rankings_enabled = true
+
+[extra_plots.variance_decomposition]
+enabled = true
+source = "PrefPol/composable_running/output/paper_b2/measures/decomposition_table.csv"
+year = 2022
+scenario_name = "main_2022"
+filename = "variance_decomposition_2022.png"
+
+[effective_rankings]
+output_root = "PrefPol/composable_running/output/paper_b2"
+table_root = "PrefPol/composable_running/output/paper_b2/tables"
+source = "PrefPol/composable_running/output/paper_b2/extra_measures/effective_counts/effective_counts_summary.csv"
+table_manifest = "PrefPol/composable_running/output/paper_b2/manifests/table_manifest.csv"
+enabled = true
+outputs = ["effective_rankings.csv", "effective_rankings.tex", "effective_rankings.md"]
+years = [2006, 2018, 2022]
+backend = "mice"
+linearizer = "pattern_conditional"
+analysis_role = "main"
+m_values = [2, 3, 4, 5]
+metrics = ["ENRP", "EO", "reversal_to_ranking_effective_ratio"]
+
+[lambda_table]
+run_manifest = "PrefPol/composable_running/output/paper_b2/manifests/run_manifest.csv"
+appendix_dir = "PrefPol/composable_running/output/paper_b2/appendices/lambda"
+appendix_manifest = "PrefPol/composable_running/output/paper_b2/manifests/lambda_table_manifest.csv"
+
+[paper_artifacts.collection]
+output_root = "PrefPol/composable_running/output/paper_b2"
+destination_root = "PrefPol/composable_running/output/paper_b2/paper_artifacts"
+manifests_root = "PrefPol/composable_running/output/paper_b2/manifests"
+paper_artifact_manifest = "PrefPol/composable_running/output/paper_b2/manifests/paper_artifact_manifest.csv"
+copy_mode = "copy"
+update_writing_imgs = false
+writing_imgs_root = "writing/imgs"
+default_backend = "mice"
+default_linearizer = "pattern_conditional"
+require_all = true
+
+[[targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[diagnostic_targets]]
+wave_id = "2022"
+scenario_name = "no_forcing"
+m_values = [2, 3, 4, 5]
+analysis_role = "diagnostic"
+groupings = "configured"
