@@ -28,6 +28,7 @@ include("PreferenceLinearization.jl")
 include("PreferenceTabularProfiles.jl")
 include("PreferenceAggregationProcedures.jl")
 include("PreferenceMeasures.jl")
+include("single_peakedness.jl")
 include("PreferenceConsensus.jl")
 include("PreferenceAnnotatedProfiles.jl")
 include("PreferenceDisplay.jl")
@@ -91,6 +92,11 @@ export pairwise_majority_counts, pairwise_majority_margins, pairwise_majority_wi
 # Strict-profile measures
 export ranking_signature, ranking_proportions, reversal_pairs
 export kendall_tau_distance, average_normalized_distance
+export axes_up_to_reversal, is_single_peaked, single_peaked_rankings
+export single_peaked_distance, profile_distribution
+export SinglePeakedAxisSummary, SinglePeakedSupportClassification, SinglePeakednessResult
+export single_peakedness_summary, single_peakedness_L0, single_peakedness_L1
+export best_single_peaked_axes
 export can_polarization, total_reversal_component, reversal_hhi, reversal_geometric
 export effective_observed_rankings, effective_reversal_rankings
 export effective_reversal_ranking_diagnostics, ranking_support_diagnostics

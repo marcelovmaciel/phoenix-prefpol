@@ -4,6 +4,8 @@ using DataFrames
 import Preferences
 const pp = Preferences
 
+include("single_peakedness_tests.jl")
+
 @testset "Profile basics" begin
     pool = pp.CandidatePool([:A, :B, :C])
     b1 = pp.StrictRank(pool, [1, 2, 3])
