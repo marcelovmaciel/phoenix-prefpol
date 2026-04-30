@@ -44,10 +44,17 @@ end
     res_all = pp.single_peakedness_summary(all_sp; axes = [axis])
     @test res_all.best_L0 ≈ 0.0
     @test res_all.best_L1 ≈ 0.0
+    @test ismissing(res_all.best_L1_off_axis)
+    @test isempty(res_all.best_L1_off_axis_axis_ids)
+    @test ismissing(only(res_all.axis_summaries).L1_off_axis)
 
     mixed = pp.Profile(pool, [sp1, sp1, sp2, nonsp])
     res_mixed = pp.single_peakedness_summary(mixed; axes = [axis])
+    d = pp.single_peaked_distance(nonsp, axis)
     @test res_mixed.best_L0 ≈ 0.25
+    @test res_mixed.best_L1 ≈ 0.25 * d / 6
+    @test res_mixed.best_L1_off_axis ≈ d / 6
+    @test only(res_mixed.axis_summaries).L1_off_axis ≈ d / 6
     @test length(res_mixed.support) == 3
     @test sum(entry.proportion for entry in res_mixed.support) ≈ 1.0
 
@@ -92,6 +99,21 @@ end
     res = pp.single_peakedness_summary(profile)
     @test res.best_L0_axis_ids isa Vector{Int}
     @test res.best_L1_axis_ids isa Vector{Int}
+    @test res.best_L1_off_axis_axis_ids isa Vector{Int}
     @test hasproperty(res, :best_L0_axis_ids)
     @test hasproperty(res, :best_L1_axis_ids)
+    @test hasproperty(res, :best_L1_off_axis_axis_ids)
+    @test hasproperty(res, :best_L1_off_axis)
+
+    res_l1_off = pp.single_peakedness_summary(profile; classify_axes = :best_L1_off_axis)
+    @test Set(unique(cls.axis_id for cls in res_l1_off.support_classifications)) ==
+          Set(res_l1_off.best_L1_off_axis_axis_ids)
+
+    res_best = pp.single_peakedness_summary(profile; classify_axes = :best)
+    expected_best_axes = Set(vcat(
+        res_best.best_L0_axis_ids,
+        res_best.best_L1_axis_ids,
+        res_best.best_L1_off_axis_axis_ids,
+    ))
+    @test Set(unique(cls.axis_id for cls in res_best.support_classifications)) == expected_best_axes
 end

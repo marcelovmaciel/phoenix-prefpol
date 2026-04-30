@@ -9,6 +9,7 @@ const DEFAULT_PAPER_VARIANCE_MEASURE_LABELS = Dict(
     :D => "D",
     :Sep => "1-O",
     :S => "S",
+    :E => "E",
 )
 
 const _VARIANCE_REPORT_COMPONENTS = (

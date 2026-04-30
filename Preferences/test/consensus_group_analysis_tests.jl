@@ -136,6 +136,13 @@ end
     @test isapprox(D, 1.0; atol = 1e-12)
     @test isapprox(pp.S(0.8, 0.6), 0.5; atol = 1e-12)
     @test isapprox(pp.S(C, D), pp.overall_sstar_from_CD(C, D); atol = 1e-12)
+    @test pp.normalized_consensus_separation(0.0, 0.0) == 0.0
+    @test isapprox(pp.normalized_consensus_separation(0.2, 0.4), 0.5; atol = 1e-12)
+    @test pp.normalized_consensus_separation(0.3, 0.3) == 0.0
+    @test pp.normalized_consensus_separation(0.0, 0.4) == 1.0
+    @test pp.group_E(0.2, 0.4) == pp.normalized_consensus_separation(0.2, 0.4)
+    @test pp.aggregate_E(0.2, 0.4) == pp.normalized_consensus_separation(0.2, 0.4)
+    @test pp.E(0.2, 0.4) == pp.normalized_consensus_separation(0.2, 0.4)
     @test isapprox(pp.S_old(group_profiles, Dict(:A => 4.0, :B => 6.0)), 1.0; atol = 1e-12)
 
     bt_profiles = Dict(:mice => [whole_df, whole_df], :rand => [whole_df])
@@ -148,7 +155,9 @@ end
     @test res[:mice][:O_smoothed] == fill(0.0, 2)
     @test res[:mice][:Sep] == fill(1.0, 2)
     @test res[:mice][:Gsep] == fill(1.0, 2)
+    @test res[:mice][:W] == fill(0.0, 2)
     @test res[:mice][:S] == fill(1.0, 2)
+    @test res[:mice][:E] == fill(1.0, 2)
     @test res[:mice][:S_old] == fill(1.0, 2)
     @test res[:rand][:C] == fill(1.0, 1)
     @test res[:rand][:D] == fill(1.0, 1)
@@ -157,7 +166,9 @@ end
     @test res[:rand][:O_smoothed] == fill(0.0, 1)
     @test res[:rand][:Sep] == fill(1.0, 1)
     @test res[:rand][:Gsep] == fill(1.0, 1)
+    @test res[:rand][:W] == fill(0.0, 1)
     @test res[:rand][:S] == fill(1.0, 1)
+    @test res[:rand][:E] == fill(1.0, 1)
     @test res[:rand][:S_old] == fill(1.0, 1)
 end
 

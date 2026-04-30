@@ -12,6 +12,10 @@
 # configured single_peakedness.output_dir. Row classifications use profile_row_id;
 # if upstream respondent IDs are later preserved in linearized artifacts, they
 # can be joined or emitted from the metadata columns handled below.
+#
+# L0 is off-axis profile mass, single_peaked_mass is 1 - L0, L1 is the
+# unconditional expected normalized Kendall repair cost, and L1_off_axis is the
+# expected normalized repair cost conditional on not being single-peaked.
 
 const PREFPOL_PROJECT_DIR = normpath(joinpath(@__DIR__, ".."))
 PREFPOL_PROJECT_DIR in LOAD_PATH || pushfirst!(LOAD_PATH, PREFPOL_PROJECT_DIR)
@@ -46,8 +50,9 @@ function parse_single_peakedness_args(args)
             Usage:
               julia +1.11.9 --project=PrefPol PrefPol/composable_running/run_single_peakedness.jl [--config PATH] [--year YEAR] [--scenario NAME] [--m VALUE_OR_RANGE] [--backend NAME] [--linearizer NAME] [--b LIST] [--r LIST] [--k LIST] [--force] [--dry-run] [--smoke-test]
 
-            Computes Preferences single-peakedness L0 and normalized L1 for
-            selected linearized BRK profiles and writes CSV outputs.
+            Computes Preferences single-peakedness L0, unconditional normalized
+            L1, and conditional off-axis L1_off_axis for selected linearized BRK
+            profiles and writes CSV outputs.
             """)
             exit(0)
         else
@@ -188,6 +193,7 @@ function axis_rows(result, base, proportion_source::Symbol)
     rows = NamedTuple[]
     best_L0 = Set(result.best_L0_axis_ids)
     best_L1 = Set(result.best_L1_axis_ids)
+    best_L1_off_axis = Set(result.best_L1_off_axis_axis_ids)
     total_support = length(result.support)
     for summary in result.axis_summaries
         max_pairwise_distance = binomial(length(summary.axis), 2)
@@ -200,7 +206,9 @@ function axis_rows(result, base, proportion_source::Symbol)
             axis_id = summary.axis_id,
             axis_as_string = axis_string(summary.axis),
             L0 = summary.L0,
+            single_peaked_mass = 1 - summary.L0,
             L1 = summary.L1,
+            L1_off_axis = summary.L1_off_axis,
             max_pairwise_distance = max_pairwise_distance,
             mean_pairwise_distance = mean_pairwise_distance,
             mean_pairwise_distance_non_single_peaked = mean_pairwise_distance_non_single_peaked,
@@ -210,6 +218,7 @@ function axis_rows(result, base, proportion_source::Symbol)
             total_mass = summary.total_mass,
             is_best_L0_axis = summary.axis_id in best_L0,
             is_best_L1_axis = summary.axis_id in best_L1,
+            is_best_L1_off_axis = summary.axis_id in best_L1_off_axis,
         )))
     end
     return rows
@@ -233,6 +242,7 @@ function best_axis_rows(result, base, proportion_source::Symbol)
             axis_as_string = axis_string(summary.axis),
             axis_L0 = summary.L0,
             axis_L1 = summary.L1,
+            axis_L1_off_axis = summary.L1_off_axis,
             max_pairwise_distance = max_pairwise_distance,
             mean_pairwise_distance = mean_pairwise_distance,
             mean_pairwise_distance_non_single_peaked = mean_pairwise_distance_non_single_peaked,
@@ -254,10 +264,33 @@ function best_axis_rows(result, base, proportion_source::Symbol)
             axis_as_string = axis_string(summary.axis),
             axis_L0 = summary.L0,
             axis_L1 = summary.L1,
+            axis_L1_off_axis = summary.L1_off_axis,
             max_pairwise_distance = max_pairwise_distance,
             mean_pairwise_distance = mean_pairwise_distance,
             mean_pairwise_distance_non_single_peaked = mean_pairwise_distance_non_single_peaked,
             n_tied_best_axes = length(result.best_L1_axis_ids),
+        )))
+    end
+    for axis_id in result.best_L1_off_axis_axis_ids
+        summary = summaries[axis_id]
+        max_pairwise_distance = binomial(length(summary.axis), 2)
+        mean_pairwise_distance = summary.L1 * max_pairwise_distance
+        mean_pairwise_distance_non_single_peaked = summary.L0 > 0 ?
+                                                   mean_pairwise_distance / summary.L0 :
+                                                   missing
+        push!(rows, merge(base, (
+            proportion_source = String(proportion_source),
+            measure = "L1_off_axis",
+            value = result.best_L1_off_axis,
+            axis_id = axis_id,
+            axis_as_string = axis_string(summary.axis),
+            axis_L0 = summary.L0,
+            axis_L1 = summary.L1,
+            axis_L1_off_axis = summary.L1_off_axis,
+            max_pairwise_distance = max_pairwise_distance,
+            mean_pairwise_distance = mean_pairwise_distance,
+            mean_pairwise_distance_non_single_peaked = mean_pairwise_distance_non_single_peaked,
+            n_tied_best_axes = length(result.best_L1_off_axis_axis_ids),
         )))
     end
     return rows
@@ -266,6 +299,8 @@ end
 function support_rows(result, base, proportion_source::Symbol)
     rows = NamedTuple[]
     for cls in result.support_classifications
+        summary = result.axis_summaries[cls.axis_id]
+        max_pairwise_distance = binomial(length(summary.axis), 2)
         push!(rows, merge(base, (
             proportion_source = String(proportion_source),
             axis_id = cls.axis_id,
@@ -276,6 +311,7 @@ function support_rows(result, base, proportion_source::Symbol)
             survey_weight_sum = cls.survey_weight_sum === nothing ? missing : cls.survey_weight_sum,
             is_single_peaked = cls.is_single_peaked,
             distance_to_SP_axis = cls.distance,
+            normalized_distance_to_SP_axis = cls.distance / max_pairwise_distance,
         )))
     end
     return rows
@@ -312,6 +348,8 @@ function row_classification_rows(result, bundle, artifact_df::DataFrame, base, p
         row_meta = artifact_row_metadata(artifact_df, row_id)
         for axis_id in result.best_L0_axis_ids
             cls = class_by_axis_rank[(axis_id, key)]
+            summary = result.axis_summaries[axis_id]
+            max_pairwise_distance = binomial(length(summary.axis), 2)
             push!(rows, merge(base, (
                 proportion_source = String(proportion_source),
                 axis_id = axis_id,
@@ -320,6 +358,8 @@ function row_classification_rows(result, bundle, artifact_df::DataFrame, base, p
                 unique_ranking_id = unique_id,
                 ranking_as_string = ranking_string(ranking),
                 is_single_peaked = cls.is_single_peaked,
+                distance_to_SP_axis = cls.distance,
+                normalized_distance_to_SP_axis = cls.distance / max_pairwise_distance,
             ), row_meta))
         end
     end

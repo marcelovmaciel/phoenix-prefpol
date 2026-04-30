@@ -96,6 +96,7 @@ export axes_up_to_reversal, is_single_peaked, single_peaked_rankings
 export single_peaked_distance, profile_distribution
 export SinglePeakedAxisSummary, SinglePeakedSupportClassification, SinglePeakednessResult
 export single_peakedness_summary, single_peakedness_L0, single_peakedness_L1
+export single_peakedness_L1_off_axis
 export best_single_peaked_axes
 export can_polarization, total_reversal_component, reversal_hhi, reversal_geometric
 export effective_observed_rankings, effective_reversal_rankings
@@ -109,6 +110,8 @@ export smoothed_overlap, overall_overlap, overall_overlap_smoothed
 export overall_overlaps, overall_overlaps_smoothed
 export overall_divergence_median, overall_divergences_median
 export overall_separation, overall_separations, grouped_gsep
+export normalized_consensus_separation, consensus_excess_separation
+export group_E, aggregate_E, E
 export S, S_old
 export compute_group_metrics, bootstrap_group_metrics
 

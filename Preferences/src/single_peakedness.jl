@@ -15,6 +15,7 @@ struct SinglePeakedAxisSummary{A}
     axis::Vector{A}
     L0::Float64
     L1::Float64
+    L1_off_axis::Union{Missing,Float64}
     non_single_peaked_support_ids::Vector{Int}
     non_single_peaked_mass::Float64
     total_mass::Float64
@@ -35,8 +36,10 @@ end
 struct SinglePeakednessResult{A}
     best_L0::Float64
     best_L1::Float64
+    best_L1_off_axis::Union{Missing,Float64}
     best_L0_axis_ids::Vector{Int}
     best_L1_axis_ids::Vector{Int}
+    best_L1_off_axis_axis_ids::Vector{Int}
     axis_summaries::Vector{SinglePeakedAxisSummary{A}}
     support_classifications::Vector{SinglePeakedSupportClassification{A}}
     support::Vector
@@ -261,17 +264,19 @@ function profile_distribution(profile::Union{Profile,WeightedProfile};
 end
 
 function _selected_axis_ids(result_axis_summaries, best_L0_axis_ids, best_L1_axis_ids,
-                            classify_axes)
+                            best_L1_off_axis_axis_ids, classify_axes)
     if classify_axes === :best_L0
         return best_L0_axis_ids
     elseif classify_axes === :best_L1
         return best_L1_axis_ids
+    elseif classify_axes === :best_L1_off_axis
+        return best_L1_off_axis_axis_ids
     elseif classify_axes === :best
-        return sort!(unique(vcat(best_L0_axis_ids, best_L1_axis_ids)))
+        return sort!(unique(vcat(best_L0_axis_ids, best_L1_axis_ids, best_L1_off_axis_axis_ids)))
     elseif classify_axes === :all
         return [summary.axis_id for summary in result_axis_summaries]
     else
-        throw(ArgumentError("classify_axes must be :best_L0, :best_L1, :best, or :all."))
+        throw(ArgumentError("classify_axes must be :best_L0, :best_L1, :best_L1_off_axis, :best, or :all."))
     end
 end
 
@@ -291,22 +296,26 @@ end
 """
     single_peakedness_summary(profile; axes=nothing, proportion_source=:auto, classify_axes=:best)
 
-Compute two deviation-from-single-peakedness measures over a probability
+Compute deviation-from-single-peakedness measures over a probability
 distribution of unique strict rankings:
 
 * `best_L0` is the minimal profile mass incompatible with single-peakedness on
   the best-fitting axis.
-* `best_L1` is the minimal expected Kendall distance to the single-peaked domain,
-  normalized by `binomial(m, 2)`, on the best-fitting axis.
+* `best_L1` is the minimal unconditional expected Kendall distance to the
+  single-peaked domain, normalized by `binomial(m, 2)`, on the best-fitting axis.
+* `best_L1_off_axis` is the minimal conditional expected normalized Kendall
+  distance among rankings that are not single-peaked on the axis. It is
+  `missing` when no evaluated axis has positive off-axis mass.
 
-Axes are evaluated up to reversal. `L0` and normalized `L1` may have different
-best axes, and the result stores their tied minimizers separately. Inputs must
-be strict complete linear orders; weak orders, ties, missing alternatives, and
-inconsistent candidate sets are rejected. Axis scoring is computed over unique
-rankings and their `proportion`; raw counts and survey-weight sums are returned
-only as metadata. Support indices refer to unique ranking rows, not original
-respondents. Respondent-level classification requires callers, such as PrefPol,
-to supply row identifiers or a row-to-ranking mapping.
+Axes are evaluated up to reversal. `L0`, unconditional normalized `L1`, and
+conditional normalized `L1_off_axis` may have different best axes, and the result
+stores their tied minimizers separately. Inputs must be strict complete linear
+orders; weak orders, ties, missing alternatives, and inconsistent candidate sets
+are rejected. Axis scoring is computed over unique rankings and their
+`proportion`; raw counts and survey-weight sums are returned only as metadata.
+Support indices refer to unique ranking rows, not original respondents.
+Respondent-level classification requires callers, such as PrefPol, to supply row
+identifiers or a row-to-ranking mapping.
 """
 function single_peakedness_summary(profile::Union{Profile,WeightedProfile};
                                    axes = nothing,
@@ -329,24 +338,29 @@ function single_peakedness_summary(profile::Union{Profile,WeightedProfile};
         non_sp_ids = Int[]
         L0 = 0.0
         L1 = 0.0
+        off_axis_distortion_mass = 0.0
         total_mass = 0.0
 
         for entry in support
             sp = is_single_peaked(to_perm(entry.ballot), axis)
             dist = _single_peaked_distance_strict_ids(entry.ballot, axis)
+            normalized_dist = dist / norm_factor
             total_mass += entry.proportion
             if !sp
                 push!(non_sp_ids, entry.unique_ranking_id)
                 L0 += entry.proportion
+                off_axis_distortion_mass += entry.proportion * normalized_dist
             end
-            L1 += entry.proportion * dist / norm_factor
+            L1 += entry.proportion * normalized_dist
         end
+        L1_off_axis = L0 > atol ? off_axis_distortion_mass / L0 : missing
 
         push!(summaries, SinglePeakedAxisSummary(
             axis_id,
             axis_symbols,
             L0,
             L1,
+            L1_off_axis,
             non_sp_ids,
             L0,
             total_mass,
@@ -357,8 +371,25 @@ function single_peakedness_summary(profile::Union{Profile,WeightedProfile};
     best_L1 = minimum(summary.L1 for summary in summaries)
     best_L0_axis_ids = [summary.axis_id for summary in summaries if isapprox(summary.L0, best_L0; atol = atol, rtol = atol)]
     best_L1_axis_ids = [summary.axis_id for summary in summaries if isapprox(summary.L1, best_L1; atol = atol, rtol = atol)]
+    finite_off_axis_summaries = [summary for summary in summaries if !ismissing(summary.L1_off_axis)]
+    if isempty(finite_off_axis_summaries)
+        best_L1_off_axis = missing
+        best_L1_off_axis_axis_ids = Int[]
+    else
+        best_L1_off_axis = minimum(summary.L1_off_axis for summary in finite_off_axis_summaries)
+        best_L1_off_axis_axis_ids = [
+            summary.axis_id for summary in finite_off_axis_summaries
+            if isapprox(summary.L1_off_axis, best_L1_off_axis; atol = atol, rtol = atol)
+        ]
+    end
 
-    selected_axis_ids = _selected_axis_ids(summaries, best_L0_axis_ids, best_L1_axis_ids, classify_axes)
+    selected_axis_ids = _selected_axis_ids(
+        summaries,
+        best_L0_axis_ids,
+        best_L1_axis_ids,
+        best_L1_off_axis_axis_ids,
+        classify_axes,
+    )
     axis_by_id = Dict(summary.axis_id => axis_ids[summary.axis_id] for summary in summaries)
     classifications = SinglePeakedSupportClassification{Symbol}[]
     for axis_id in selected_axis_ids
@@ -381,8 +412,10 @@ function single_peakedness_summary(profile::Union{Profile,WeightedProfile};
     return SinglePeakednessResult(
         best_L0,
         best_L1,
+        best_L1_off_axis,
         best_L0_axis_ids,
         best_L1_axis_ids,
+        best_L1_off_axis_axis_ids,
         summaries,
         classifications,
         support,
@@ -391,4 +424,5 @@ end
 
 single_peakedness_L0(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L0
 single_peakedness_L1(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L1
+single_peakedness_L1_off_axis(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L1_off_axis
 best_single_peaked_axes(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L0_axis_ids

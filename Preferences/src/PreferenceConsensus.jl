@@ -948,6 +948,42 @@ end
 
 S(C::Real, D::Real) = overall_sstar_from_CD(C, D)
 
+"""
+    normalized_consensus_separation(W, D; atol = 1e-10)
+
+Return the normalized consensus-separation statistic
+
+    E = 1 - W / D
+
+where `W` is within-group dispersion and `D` is distance to outgroup
+consensuses. If `D == 0`, returns `0.0`, the no-separation convention.
+Tiny numerical excursions outside `[0, 1]` are clamped; larger violations
+throw an error.
+"""
+function normalized_consensus_separation(W::Real, D::Real; atol::Real = 1.0e-10)
+    w = Float64(W)
+    d = Float64(D)
+    tol = Float64(atol)
+
+    w < -tol && throw(ArgumentError("W must be nonnegative, got $w."))
+    d < -tol && throw(ArgumentError("D must be nonnegative, got $d."))
+
+    d <= tol && return 0.0
+
+    E = 1.0 - (w / d)
+    if E < -tol || E > 1.0 + tol
+        throw(ArgumentError("E outside [0, 1]: E=$E, W=$w, D=$d."))
+    end
+
+    return clamp(E, 0.0, 1.0)
+end
+
+consensus_excess_separation(W::Real, D::Real; kwargs...) =
+    normalized_consensus_separation(W, D; kwargs...)
+group_E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
+aggregate_E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
+E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
+
 function _within_group_average_normalized_kendall(profile)
     strict = strict_profile(profile)
     ballots = strict.ballots
@@ -1172,10 +1208,13 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
         group_sizes[group] = Float64(_profile_mass(profile))
     end
 
+    W = (1.0 - C) / 2.0
     cleaned_S = overall_sstar_from_CD(C, D)
+    normalized_S = normalized_consensus_separation(W, D)
     support_separation_S_old = overall_support_separation_old(group_profiles, group_sizes)
     return (
         C = C,
+        W = W,
         D = D,
         D_median = D_median,
         O = O,
@@ -1183,6 +1222,7 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
         Sep = Sep,
         Gsep = Gsep,
         S = cleaned_S,
+        E = normalized_S,
         S_old = support_separation_S_old,
     )
 end
@@ -1214,7 +1254,9 @@ function bootstrap_group_metrics(bt_profiles, demo;
         Osmoothedvals = Float64[]
         Sepvals = Float64[]
         Gsepvals = Float64[]
+        Wvals = Float64[]
         Svals = Float64[]
+        Evals = Float64[]
         Soldvals = Float64[]
 
         for (rep_idx, rep) in enumerate(reps)
@@ -1235,7 +1277,9 @@ function bootstrap_group_metrics(bt_profiles, demo;
             push!(Osmoothedvals, details.O_smoothed)
             push!(Sepvals, details.Sep)
             push!(Gsepvals, details.Gsep)
+            push!(Wvals, details.W)
             push!(Svals, details.S)
+            push!(Evals, details.E)
             push!(Soldvals, details.S_old)
         end
 
@@ -1247,7 +1291,9 @@ function bootstrap_group_metrics(bt_profiles, demo;
             :O_smoothed => Osmoothedvals,
             :Sep => Sepvals,
             :Gsep => Gsepvals,
+            :W => Wvals,
             :S => Svals,
+            :E => Evals,
             :S_old => Soldvals,
         )
     end

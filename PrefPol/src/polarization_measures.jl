@@ -92,6 +92,11 @@ overall_divergences_median(args...; kwargs...) = Preferences.overall_divergences
 overall_separation(args...; kwargs...) = Preferences.overall_separation(args...; kwargs...)
 overall_separations(args...; kwargs...) = Preferences.overall_separations(args...; kwargs...)
 grouped_gsep(args...; kwargs...) = Preferences.grouped_gsep(args...; kwargs...)
+normalized_consensus_separation(args...; kwargs...) = Preferences.normalized_consensus_separation(args...; kwargs...)
+consensus_excess_separation(args...; kwargs...) = Preferences.consensus_excess_separation(args...; kwargs...)
+group_E(args...; kwargs...) = Preferences.group_E(args...; kwargs...)
+aggregate_E(args...; kwargs...) = Preferences.aggregate_E(args...; kwargs...)
+E(args...; kwargs...) = Preferences.E(args...; kwargs...)
 S(args...; kwargs...) = Preferences.S(args...; kwargs...)
 S_old(args...; kwargs...) = Preferences.S_old(args...; kwargs...)
 

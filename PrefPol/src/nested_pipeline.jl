@@ -10,7 +10,7 @@ const SUPPORTED_LINEARIZER_POLICIES = (:random_ties, :pattern_conditional)
 const SUPPORTED_CONSENSUS_TIE_POLICIES = (:average, :hash, :interval)
 const SUPPORTED_GLOBAL_NESTED_MEASURES = (:Psi, :R, :HHI, :RHHI)
 const SUPPORTED_GROUPED_NESTED_MEASURES = (
-    :C, :W, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :S_old,
+    :C, :W, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :E, :S_old,
     :lambda_sep,
 )
 
@@ -806,6 +806,8 @@ end
 @inline _normalize_group_coherence(raw_C::Real) = (2.0 * Float64(raw_C)) - 1.0
 @inline _within_dispersion_from_normalized_C(C::Real) = (1.0 - Float64(C)) / 2.0
 @inline _separation_ratio(D::Real, W::Real) = Float64(D) / Float64(W)
+@inline _normalized_consensus_separation(W::Real, D::Real) =
+    Preferences.normalized_consensus_separation(W, D)
 @inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
     Preferences.kendall_tau_distance(ballot_i, ballot_j) / norm_factor
 
@@ -966,6 +968,9 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     cleaned_S = Preferences.overall_sstar_from_CD(C, D)
     cleaned_S_lo = Preferences.overall_sstar_from_CD(C, D_lo)
     cleaned_S_hi = Preferences.overall_sstar_from_CD(C, D_hi)
+    E = _normalized_consensus_separation(W, D)
+    E_lo = _normalized_consensus_separation(W, D_lo)
+    E_hi = _normalized_consensus_separation(W, D_hi)
     lambda_sep = _separation_ratio(D, W)
     lambda_sep_lo = _separation_ratio(D_lo, W)
     lambda_sep_hi = _separation_ratio(D_hi, W)
@@ -992,6 +997,9 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
             S = group_D[group] - group_W[group],
             S_lo = group_D_lo[group] - group_W[group],
             S_hi = group_D_hi[group] - group_W[group],
+            E = _normalized_consensus_separation(group_W[group], group_D[group]),
+            E_lo = _normalized_consensus_separation(group_W[group], group_D_lo[group]),
+            E_hi = _normalized_consensus_separation(group_W[group], group_D_hi[group]),
             lambda_sep = _separation_ratio(group_D[group], group_W[group]),
             lambda_sep_lo = _separation_ratio(group_D_lo[group], group_W[group]),
             lambda_sep_hi = _separation_ratio(group_D_hi[group], group_W[group]),
@@ -1038,6 +1046,9 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         S = cleaned_S,
         S_lo = cleaned_S_lo,
         S_hi = cleaned_S_hi,
+        E = E,
+        E_lo = E_lo,
+        E_hi = E_hi,
         lambda_sep = lambda_sep,
         lambda_sep_lo = lambda_sep_lo,
         lambda_sep_hi = lambda_sep_hi,
@@ -1214,6 +1225,20 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                     details.S,
                     details.S_lo,
                     details.S_hi,
+                    details.diagnostics,
+                ))
+            end
+
+            if :E in spec.measures
+                push!(results, MeasureResult(
+                    profile.b,
+                    profile.r,
+                    profile.k,
+                    :E,
+                    grouping,
+                    details.E,
+                    details.E_lo,
+                    details.E_hi,
                     details.diagnostics,
                 ))
             end
@@ -1462,6 +1487,70 @@ function _grouped_lambda_sep_measure_rows(measure_cube::AbstractDataFrame)
     return DataFrame(rows)
 end
 
+function _grouped_e_measure_rows(measure_cube::AbstractDataFrame)
+    required_cols = [:b, :r, :k, :measure, :grouping, :value, :value_lo, :value_hi, :diagnostics]
+    missing_cols = setdiff(required_cols, propertynames(measure_cube))
+    isempty(missing_cols) || throw(ArgumentError(
+        "measure_cube is missing required columns for grouped E derivation: $(missing_cols).",
+    ))
+
+    grouped = measure_cube[
+        ((measure_cube.measure .== :W) .| (measure_cube.measure .== :C) .| (measure_cube.measure .== :D)) .&
+        .!ismissing.(measure_cube.grouping),
+        required_cols,
+    ]
+    isempty(grouped) && return DataFrame(measure_cube[1:0, :])
+
+    grouped_d = grouped[grouped.measure .== :D, :]
+    isempty(grouped_d) && return DataFrame(measure_cube[1:0, :])
+
+    grouped_w = grouped[grouped.measure .== :W, :]
+    if isempty(grouped_w)
+        grouped_w = _grouped_w_measure_rows(measure_cube)
+    end
+    isempty(grouped_w) && return DataFrame(measure_cube[1:0, :])
+
+    key_cols = [:b, :r, :k, :grouping]
+    counts = combine(groupby(vcat(grouped_w, grouped_d; cols = :setequal), vcat(key_cols, :measure)), nrow => :nrows)
+    bad_counts = counts[counts.nrows .!= 1, :]
+    isempty(bad_counts) || throw(ArgumentError(
+        "Cannot derive grouped E because grouped W/D rows are not unique per (b, r, k, grouping, measure).",
+    ))
+
+    w_rows = select(grouped_w, :b, :r, :k, :grouping, :value, :diagnostics)
+    rename!(w_rows, :value => :w_value, :diagnostics => :w_diagnostics)
+    d_rows = select(grouped_d, :b, :r, :k, :grouping, :value, :value_lo, :value_hi, :diagnostics)
+    rename!(d_rows, :value => :d_value, :value_lo => :d_value_lo, :value_hi => :d_value_hi, :diagnostics => :d_diagnostics)
+
+    joined = innerjoin(w_rows, d_rows; on = key_cols)
+    nrow(joined) == nrow(grouped_w) == nrow(grouped_d) || throw(ArgumentError(
+        "Cannot derive grouped E because grouped W and D draw keys do not align exactly.",
+    ))
+
+    rows = NamedTuple[]
+    for row in eachrow(joined)
+        W = Float64(row.w_value)
+        value_lo = ismissing(row.d_value_lo) ? missing :
+                   _normalized_consensus_separation(W, Float64(row.d_value_lo))
+        value_hi = ismissing(row.d_value_hi) ? missing :
+                   _normalized_consensus_separation(W, Float64(row.d_value_hi))
+
+        push!(rows, (
+            b = Int(row.b),
+            r = Int(row.r),
+            k = Int(row.k),
+            measure = :E,
+            grouping = row.grouping,
+            value = _normalized_consensus_separation(W, Float64(row.d_value)),
+            value_lo = value_lo,
+            value_hi = value_hi,
+            diagnostics = row.w_diagnostics,
+        ))
+    end
+
+    return DataFrame(rows)
+end
+
 function _with_grouped_s_measure_list(measures::AbstractVector{<:Symbol})
     :S in measures && return collect(measures)
     updated = collect(measures)
@@ -1474,6 +1563,14 @@ function _with_grouped_lambda_measure_list(measures::AbstractVector{<:Symbol};
     updated = collect(measures)
     include_w && !(:W in updated) && push!(updated, :W)
     !(:lambda_sep in updated) && push!(updated, :lambda_sep)
+    return updated
+end
+
+function _with_grouped_e_measure_list(measures::AbstractVector{<:Symbol};
+                                      include_w::Bool = true)
+    updated = collect(measures)
+    include_w && !(:W in updated) && push!(updated, :W)
+    !(:E in updated) && push!(updated, :E)
     return updated
 end
 
@@ -1591,6 +1688,80 @@ function augment_pipeline_result_with_lambda_sep(result::PipelineResult;
     message = something(
         audit_message,
         "Appended grouped W/lambda_sep rows from cached grouped C and D, and recomputed pooled summaries and variance decomposition.",
+    )
+    audit_entry = DataFrame(
+        stage = Symbol[:result],
+        b = [0],
+        r = [0],
+        k = [0],
+        message = [message],
+    )
+    updated_audit = vcat(copy(result.audit_log), audit_entry; cols = :setequal)
+
+    return PipelineResult(
+        updated_spec,
+        result.cache_dir,
+        copy(result.stage_manifest),
+        augmented_cube,
+        pooled_summaries,
+        decomposition,
+        updated_audit,
+    )
+end
+
+function augment_pipeline_result_with_E(result::PipelineResult;
+                                        include_w::Bool = true,
+                                        audit_message::Union{Nothing,AbstractString} = nothing)
+    cube = result.measure_cube
+    any(cube.measure .== :E) && throw(ArgumentError(
+        "PipelineResult already contains grouped E rows.",
+    ))
+    :E in result.spec.measures && throw(ArgumentError(
+        "PipelineResult spec already lists :E even though the measure cube does not.",
+    ))
+
+    rows_to_add = DataFrame[]
+    if include_w && !any(cube.measure .== :W)
+        w_rows = _grouped_w_measure_rows(cube)
+        isempty(w_rows) && throw(ArgumentError(
+            "PipelineResult does not contain grouped C rows required to derive grouped W.",
+        ))
+        push!(rows_to_add, w_rows)
+    end
+
+    e_input = isempty(rows_to_add) ? cube : vcat(cube, rows_to_add...; cols = :setequal)
+    e_rows = _grouped_e_measure_rows(e_input)
+    isempty(e_rows) && throw(ArgumentError(
+        "PipelineResult does not contain grouped C/W and D rows required to derive grouped E.",
+    ))
+    push!(rows_to_add, e_rows)
+
+    augmented_cube = vcat(cube, rows_to_add...; cols = :setequal)
+    decomposition = compute_variance_decomposition(augmented_cube)
+    pooled_summaries = decomposition_table(decomposition)
+
+    spec = result.spec
+    updated_spec = PipelineSpec(
+        spec.wave_id,
+        copy(spec.active_candidates),
+        copy(spec.groupings),
+        _with_grouped_e_measure_list(spec.measures; include_w = include_w),
+        spec.B,
+        spec.R,
+        spec.K,
+        spec.resample_policy,
+        spec.imputer_backend,
+        spec.imputer_options,
+        spec.linearizer_policy,
+        spec.consensus_tie_policy,
+        spec.seed_namespace,
+        spec.schema_version,
+        spec.code_version,
+    )
+
+    message = something(
+        audit_message,
+        "Appended grouped W/E rows from cached grouped C and D, and recomputed pooled summaries and variance decomposition.",
     )
     audit_entry = DataFrame(
         stage = Symbol[:result],

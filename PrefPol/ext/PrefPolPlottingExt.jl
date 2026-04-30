@@ -84,6 +84,7 @@ end
 function _normalized_measure_set(measures)
     measures === nothing && return Set{Symbol}()
     raw = measures isa Symbol || measures isa AbstractString ? (measures,) : Tuple(measures)
+    isempty(raw) && return Set{Symbol}()
     return Set(Symbol(measure) for measure in raw)
 end
 
@@ -1180,7 +1181,8 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
                                            colorbar_label = nothing,
                                            clist_size = 60,
                                            wrap_candidates::Bool = false,
-                                           candidate_wrap_width::Int = clist_size)
+                                           candidate_wrap_width::Int = clist_size,
+                                           title = nothing)
     data = PrefPol.pipeline_group_heatmap_values(
         result_or_results;
         year = year,
@@ -1221,7 +1223,7 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
     n_panels >= 1 || error("plot_pipeline_group_paper_heatmap requires at least one measure.")
     ncol = min(maxcols, n_panels)
     nrow = ceil(Int, n_panels / ncol)
-    title_txt = _plot_paper_title(rows; year = year, wave_id = wave_id)
+    title_txt = title === nothing ? _plot_paper_title(rows; year = year, wave_id = wave_id) : String(title)
 
     fig_width = max(980, 360 * ncol + 160)
     fig_height = max(540, 220 + 210 * nrow + 30 * length(group_syms))
