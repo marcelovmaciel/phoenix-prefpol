@@ -29,6 +29,7 @@ include("PreferenceTabularProfiles.jl")
 include("PreferenceAggregationProcedures.jl")
 include("PreferenceMeasures.jl")
 include("PreferenceMajorityGraphSupport.jl")
+include("PreferenceMajorityGraphRoles.jl")
 include("PreferencePluralitySwitchTables.jl")
 include("single_peakedness.jl")
 include("PreferenceConsensus.jl")
@@ -110,6 +111,11 @@ export boundary_distance_to_reverse, amenability_weight
 export type_breaker_table, minimal_breaking_coalition_table
 export GroupMajorityGraphSupportResult, group_majority_graph_support
 export group_edge_power_table, group_breaker_table, group_anchor_table
+export MajorityGraphRoleThresholds
+export voter_type_role_table, edge_type_role_table
+export role_mass_summary, primary_role_mass_summary, selected_edge_role_summary
+export group_role_table, group_primary_role_table, group_role_power_table
+export graph_role_summary, group_graph_role_summary
 export plurality_scores_table, pairwise_vs_plurality_decomposition_table
 export candidate_position_by_current_first_table, one_swap_target_table
 export plurality_swing_value_table, exact_type_switch_table, group_target_switch_table

@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "1298a8160731e230cc6e168a247bc4d371b61413"
+project_hash = "4b37d7afa1592a3010c7bb19688217ed94d385be"
 
 [[deps.AliasTables]]
 deps = ["PtrArrays", "Random"]
@@ -240,7 +240,7 @@ git-tree-sha1 = "0f27480397253da18fe2c12a4ba4eb9eb208bf3d"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.5.0"
 [[deps.Preferences]]
-deps = ["Combinatorics", "Crayons", "DataFrames", "OrderedCollections", "PrettyTables", "Printf", "Random", "Revise", "SHA", "StaticArrays", "StatsBase"]
+deps = ["Combinatorics", "Crayons", "DataFrames", "OrderedCollections", "PooledArrays", "PrettyTables", "Printf", "Random", "Revise", "SHA", "StaticArrays", "Statistics", "StatsBase"]
 path = "."
 uuid = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
 version = "0.1.0"

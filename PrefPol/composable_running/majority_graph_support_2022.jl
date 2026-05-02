@@ -33,6 +33,11 @@ const TARGET = :Lu
 const OPPONENT = :Bo
 const CURRENT_FIRST_CANDIDATES = [:Te, :Ci, :Bo]
 const PARTITIONS = [:Sex, :Religion, :Race, :Ideology, :PT, :Abortion, :Age, :Education, :Income]
+const ROLE_REPORT_PARTITIONS = [:Ideology, :PT, :Sex, :Religion, :Education, :Income, :Abortion]
+const ROLE_THRESHOLDS = MajorityGraphRoleThresholds()
+const ROLE_AMENABILITY = :inverse
+const ROLE_LAMBDA = 1.0
+const EXPECTED_2022_WEAKEST_EDGE = "Lu>Te"
 
 const DEFAULT_INPUT = joinpath(SCRIPT_DIR, "input", "m04_mice_pattern_conditional_2022_augmented_linearized_profile.csv")
 const BUNDLE_INPUT = joinpath(REPO_ROOT, "majority_graph_support_2022_report_bundle",
@@ -85,6 +90,12 @@ function write_table(path, df::DataFrame)
     CSV.write(path, df)
 end
 
+function write_role_table!(tables::Dict{String,DataFrame}, name::AbstractString, table::DataFrame,
+                           roles_dir::AbstractString)
+    tables[name] = table
+    write_table(joinpath(roles_dir, "$name.csv"), table)
+end
+
 function write_plot_pair(f, basename; kwargs...)
     f(; output_path=basename * ".png", kwargs...)
     f(; output_path=basename * ".pdf", kwargs...)
@@ -99,6 +110,30 @@ function add_edge_label!(df::DataFrame)
         df.edge = string.(df.winner, ">", df.loser)
     end
     return df
+end
+
+function compact_edge_label(x)
+    x === missing && return missing
+    return replace(string(x), " -> " => ">", " > " => ">")
+end
+
+function compact_role_edge_labels!(df::DataFrame)
+    for col in (:edge, :max_breaking_edge)
+        col in propertynames(df) || continue
+        df[!, col] = compact_edge_label.(df[!, col])
+    end
+    return df
+end
+
+function selected_columns(df::DataFrame, cols)
+    keep = [Symbol(c) for c in cols if Symbol(c) in propertynames(df)]
+    return df[:, keep]
+end
+
+function add_partition_column(df::DataFrame, partition::Symbol)
+    out = copy(df)
+    out.partition = fill(string(partition), nrow(out))
+    return select(out, :partition, Not(:partition))
 end
 
 function psi_from_edges(edges::DataFrame)
@@ -160,6 +195,132 @@ function validate_known_values(profile, tables)
     assert_close("total swing", sum(swing.plurality_swing_value), 323)
     assert_close("counterfactual Lu-Bo margin", swing.target_opponent_margin_before[1] + sum(swing.plurality_swing_value), 352)
     return true
+end
+
+function weakest_edge_label(result::MajorityGraphSupportResult)
+    idx = argmin([edge.normalized_margin for edge in result.edges])
+    edge = result.edges[idx]
+    return string(result.pool[edge.winner], ">", result.pool[edge.loser])
+end
+
+function validate_role_outputs(tables, group_partitions)
+    required = [
+        "voter_type_roles",
+        "role_mass_summary",
+        "primary_role_mass_summary",
+        "edge_type_roles",
+        "weakest_edge_role_summary",
+    ]
+    for key in required
+        haskey(tables, key) || error("Role validation failed: missing table $key")
+        nrow(tables[key]) > 0 || error("Role validation failed: empty table $key")
+    end
+    for partition in group_partitions
+        for stem in ("group_roles", "group_primary_roles", "group_role_power")
+            key = "$(stem)_$(partition)"
+            haskey(tables, key) || error("Role validation failed: missing table $key")
+            nrow(tables[key]) > 0 || error("Role validation failed: empty table $key")
+        end
+    end
+
+    roles = tables["voter_type_roles"]
+    anchor = roles[(roles.ranking .== "Lu > Te > Ci > Bo") .& (roles.anchor .| occursin.("anchor", roles.primary_role)), :]
+    nrow(anchor) > 0 || error("Role validation failed: Lu > Te > Ci > Bo was not anchor-related")
+    counter = roles[(roles.ranking .== "Bo > Ci > Te > Lu") .& roles.counter_graph, :]
+    nrow(counter) > 0 || error("Role validation failed: Bo > Ci > Te > Lu was not counter-graph")
+
+    weakest = tables["weakest_edge_role_summary"]
+    nrow(weakest) > 0 || error("Role validation failed: weakest edge summary is empty")
+    selected_edge = string(weakest.edge[1])
+    selected_edge == EXPECTED_2022_WEAKEST_EDGE ||
+        error("Role validation failed: weakest edge was $selected_edge, expected $EXPECTED_2022_WEAKEST_EDGE")
+    for partition in (:Ideology, :PT)
+        key = "group_role_power_$(partition)"
+        haskey(tables, key) && nrow(tables[key]) > 0 ||
+            error("Role validation failed: $key is missing or empty")
+    end
+    return true
+end
+
+function top_voter_type_roles(role_table::DataFrame; max_rows=24)
+    mask = role_table.anchor .| role_table.counter_graph .| role_table.edge_breaker
+    selected = role_table[mask, :]
+    sorted = sort(selected, [:primary_role, order(:proportion, rev=true),
+                            order(:max_breaking_score, rev=true), :type_index])
+    nrow(sorted) <= max_rows && return sorted
+    return first(sorted, max_rows)
+end
+
+function stack_partition_tables(tables, group_partitions, stem, cols)
+    rows = DataFrame[]
+    for partition in ROLE_REPORT_PARTITIONS
+        partition in group_partitions || continue
+        key = "$(stem)_$(partition)"
+        haskey(tables, key) || continue
+        push!(rows, selected_columns(add_partition_column(tables[key], partition), cols))
+    end
+    return isempty(rows) ? DataFrame() : vcat(rows...; cols=:union)
+end
+
+function write_role_report_selected_outputs!(tables, roles_dir, group_partitions)
+    report_dir = joinpath(roles_dir, "report_selected")
+    mkpath(report_dir)
+
+    selected = top_voter_type_roles(tables["voter_type_roles"])
+    write_role_table!(tables, "report_selected/top_voter_type_roles", selected, roles_dir)
+    write_role_table!(tables, "report_selected/role_mass_summary_report",
+                      copy(tables["role_mass_summary"]), roles_dir)
+    write_role_table!(tables, "report_selected/primary_role_mass_summary_report",
+                      copy(tables["primary_role_mass_summary"]), roles_dir)
+    write_role_table!(tables, "report_selected/weakest_edge_breakers_report",
+                      first(tables["weakest_edge_role_summary"],
+                            min(10, nrow(tables["weakest_edge_role_summary"]))), roles_dir)
+
+    power_cols = [
+        :partition, :group, :group_mass, :anchoring, :conditional_anchoring,
+        :edge, :edge_margin_contribution, :edge_support, :edge_support_share,
+        :edge_breaking_score,
+    ]
+    primary_cols = [
+        :partition, :group, :group_mass, :primary_role, :role_mass,
+        :conditional_role_share,
+    ]
+    write_role_table!(tables, "report_selected/group_role_power_weakest_edge_report",
+                      stack_partition_tables(tables, group_partitions, "group_role_power", power_cols),
+                      roles_dir)
+    write_role_table!(tables, "report_selected/group_primary_roles_report",
+                      stack_partition_tables(tables, group_partitions, "group_primary_roles", primary_cols),
+                      roles_dir)
+end
+
+function run_majority_graph_roles!(tables::Dict{String,DataFrame}, result::MajorityGraphSupportResult,
+                                   group_results, group_partitions, roles_dir::AbstractString)
+    mkpath(roles_dir)
+    role_summary = graph_role_summary(result; thresholds=ROLE_THRESHOLDS,
+                                      amenability=ROLE_AMENABILITY,
+                                      lambda=ROLE_LAMBDA)
+    role_table = compact_role_edge_labels!(role_summary.role_table)
+    role_mass = role_summary.role_mass_summary
+    primary_role_mass = role_summary.primary_role_mass_summary
+    edge_roles = compact_role_edge_labels!(role_summary.edge_role_table)
+    weakest_edge_roles = compact_role_edge_labels!(role_summary.weakest_edge_breakers)
+    write_role_table!(tables, "voter_type_roles", role_table, roles_dir)
+    write_role_table!(tables, "role_mass_summary", role_mass, roles_dir)
+    write_role_table!(tables, "primary_role_mass_summary", primary_role_mass, roles_dir)
+    write_role_table!(tables, "edge_type_roles", edge_roles, roles_dir)
+    write_role_table!(tables, "weakest_edge_role_summary", weakest_edge_roles, roles_dir)
+
+    for partition in group_partitions
+        gsummary = group_graph_role_summary(group_results[partition], role_table;
+                                            amenability=ROLE_AMENABILITY,
+                                            lambda=ROLE_LAMBDA)
+        write_role_table!(tables, "group_roles_$(partition)", gsummary.group_role_table, roles_dir)
+        write_role_table!(tables, "group_primary_roles_$(partition)", gsummary.group_primary_role_table, roles_dir)
+        write_role_table!(tables, "group_role_power_$(partition)",
+                          compact_role_edge_labels!(gsummary.group_role_power_table), roles_dir)
+    end
+    write_role_report_selected_outputs!(tables, roles_dir, group_partitions)
+    return role_summary
 end
 
 function latex_escape(x)
@@ -305,6 +466,25 @@ function group_table_sections(tables, group_partitions, stem; caption_prefix, se
     return join(parts, "\n\n")
 end
 
+function ranking_list(df::DataFrame; n=4)
+    nrow(df) == 0 && return "none"
+    return join(latex_escape.(string.(first(df.ranking, min(n, nrow(df))))), "; ")
+end
+
+function role_interpretation_text(tables)
+    roles = tables["voter_type_roles"]
+    anchors = sort(roles[roles.anchor, :], [order(:proportion, rev=true), :type_index])
+    counters = sort(roles[roles.counter_graph, :], [order(:proportion, rev=true), :type_index])
+    weakest = tables["weakest_edge_role_summary"]
+    weakest_edge = nrow(weakest) == 0 ? "NA" : string(weakest.edge[1])
+    breakers = :edge_breaker_for_edge in propertynames(weakest) ?
+        weakest[weakest.edge_breaker_for_edge, :] : weakest
+    nrow(breakers) == 0 && (breakers = weakest)
+    return """
+The largest anchor type is $(ranking_list(anchors; n=1)). The largest counter-graph type is $(ranking_list(counters; n=1)). The default weakest-edge selector identifies $(latex_escape(weakest_edge)); its top local edge-breaker rows include $(ranking_list(breakers; n=4)).
+"""
+end
+
 function generate_report(report_path, output_dir, input_path, tables, group_partitions)
     mkpath(dirname(report_path))
     edges = tables["majority_edges"]
@@ -328,6 +508,10 @@ function generate_report(report_path, output_dir, input_path, tables, group_part
     exact_switch = sort(tables["exact_type_switch"], [:current_first, :target_position, :type_index])
     main_group_partitions = [p for p in [:Ideology, :PT, :Sex, :Education, :Income] if p in group_partitions]
     switch_group_partitions = [p for p in [:Ideology, :PT, :Sex, :Religion, :Education, :Income, :Abortion] if p in group_partitions]
+    role_selected = tables["report_selected/top_voter_type_roles"]
+    weakest_edge_roles = tables["report_selected/weakest_edge_breakers_report"]
+    group_role_power_report = tables["report_selected/group_role_power_weakest_edge_report"]
+    group_primary_roles_report = tables["report_selected/group_primary_roles_report"]
 
     plurality_cols, plurality_heads = table_columns(plurality, [
         (:candidate, "candidate"), (:first_place_count, "count"), (:first_place_share, "share")
@@ -382,6 +566,36 @@ function generate_report(report_path, output_dir, input_path, tables, group_part
     exact_cols, exact_heads = table_columns(exact_switch, [
         (:type_index, "type"), (:ranking, "ranking"), (:current_first, "current first"),
         (:target_position, "Lu position"), (:mass, "count"), (:share, "share")
+    ])
+    role_mass_cols, role_mass_heads = table_columns(tables["role_mass_summary"], [
+        (:role, "role"), (:n_types, "types"), (:mass, "mass"), (:share, "share")
+    ])
+    primary_role_cols, primary_role_heads = table_columns(tables["primary_role_mass_summary"], [
+        (:primary_role, "primary role"), (:n_types, "types"), (:mass, "mass"), (:share, "share")
+    ])
+    role_selected_cols, role_selected_heads = table_columns(role_selected, [
+        (:type_index, "type"), (:ranking, "ranking"), (:proportion, "share"),
+        (:coverage, "K"), (:anchoring, "anchoring"),
+        (:max_breaking_score, "max breaker"), (:max_breaking_edge, "max edge"),
+        (:roles, "roles"), (:primary_role, "primary role")
+    ])
+    weakest_role_cols, weakest_role_heads = table_columns(weakest_edge_roles, [
+        (:edge, "edge"), (:type_index, "type"), (:ranking, "ranking"),
+        (:type_proportion, "share"), (:coverage, "K"),
+        (:boundary_distance, "distance"), (:breaking_score, "breaker score"),
+        (:edge_breaker_for_edge, "selected")
+    ])
+    group_role_power_cols, group_role_power_heads = table_columns(group_role_power_report, [
+        (:partition, "partition"), (:group, "group"), (:group_mass, "group share"),
+        (:anchoring, "anchoring"), (:conditional_anchoring, "cond. anchoring"),
+        (:edge, "edge"), (:edge_margin_contribution, "margin contrib."),
+        (:edge_support, "support"), (:edge_support_share, "support share"),
+        (:edge_breaking_score, "breaker")
+    ])
+    group_primary_role_cols, group_primary_role_heads = table_columns(group_primary_roles_report, [
+        (:partition, "partition"), (:group, "group"), (:group_mass, "group share"),
+        (:primary_role, "primary role"), (:role_mass, "role mass"),
+        (:conditional_role_share, "conditional share")
     ])
 
     tex = """
@@ -481,6 +695,28 @@ $(figure_tex("type_breakers_LuTe.png", "Type breakers for Lu>Te."; width="0.86\\
 
 $(figure_tex("type_breakers_LuBo.png", "Type breakers for Lu>Bo."; width="0.86\\linewidth"))
 
+\\section{Majority-graph role decomposition}
+
+Voter types are classified relative to the induced majority graph. Roles are non-exclusive: anchors stabilize the graph; peripheral supporters align with it but carry less mass; edge breakers are locally close to reversing at least one edge; counter-graph types oppose much of the graph.
+
+$(role_interpretation_text(tables))
+
+$(latex_table(tables["role_mass_summary"]; caption="Non-exclusive majority-graph role mass summary", label="tab:role-mass-summary", columns=role_mass_cols, headers=role_mass_heads))
+
+$(latex_table(tables["primary_role_mass_summary"]; caption="Primary majority-graph role mass summary", label="tab:primary-role-mass-summary", columns=primary_role_cols, headers=primary_role_heads))
+
+$(latex_table(role_selected; caption="Selected voter-type roles", label="tab:selected-voter-type-roles", columns=role_selected_cols, headers=role_selected_heads, longtable=true, fontsize="scriptsize", landscape=true))
+
+$(latex_table(weakest_edge_roles; caption="Weakest-edge role summary", label="tab:weakest-edge-role-summary", columns=weakest_role_cols, headers=weakest_role_heads, resize=true))
+
+\\subsection{Group roles on the weakest edge}
+
+Group power is decomposed into graph anchoring, support for the weakest edge, net contribution to that edge, and edge-breaking capacity. These columns should be read together rather than reduced to a single scalar.
+
+$(latex_table(group_role_power_report; caption="Group role power on the weakest edge", label="tab:group-role-power-weakest-edge", columns=group_role_power_cols, headers=group_role_power_heads, longtable=true, fontsize="scriptsize", landscape=true))
+
+The stacked group primary-role table is written as a report-ready CSV and left out of the main report because it is too long for this compact section.
+
 \\section{Minimal breaking coalitions}
 
 The table reports the first cumulative coalition, ordered by amenability, that exceeds each edge's flip threshold. For Lu>Te, the threshold is tiny, so a very small coalition can reverse the edge even though the majority graph as a whole remains broadly supported.
@@ -573,9 +809,11 @@ function main(args=ARGS)
     opts = parse_args(args)
     isfile(opts.input) || error("Input CSV not found: $(opts.input)")
     tables_dir = joinpath(opts.output, "tables")
+    roles_dir = joinpath(tables_dir, "roles")
     figures_dir = joinpath(opts.output, "figures")
     report_dir = joinpath(opts.output, "report")
     mkpath(tables_dir)
+    mkpath(roles_dir)
     mkpath(figures_dir)
     mkpath(report_dir)
 
@@ -600,11 +838,13 @@ function main(args=ARGS)
     tables["exact_type_switch"] = exact_type_switch_table(profile, TARGET; current_first_candidates=CURRENT_FIRST_CANDIDATES, basis=basis)
 
     group_partitions = Symbol[]
+    group_results = Dict{Symbol,GroupMajorityGraphSupportResult}()
     for partition in PARTITIONS
         partition in propertynames(df) || continue
         push!(group_partitions, partition)
         labels = safe_partition_labels(df, partition)
         gresult = group_majority_graph_support(profile, labels; basis=basis)
+        group_results[partition] = gresult
         tables["group_edge_power_$(partition)"] = add_edge_label!(group_edge_power_table(gresult))
         tables["group_breakers_$(partition)"] = add_edge_label!(group_breaker_table(gresult))
         tables["group_anchor_$(partition)"] = group_anchor_table(gresult)
@@ -612,6 +852,8 @@ function main(args=ARGS)
                                                                                current_first_candidates=CURRENT_FIRST_CANDIDATES,
                                                                                basis=basis)
     end
+
+    run_majority_graph_roles!(tables, result, group_results, group_partitions, roles_dir)
 
     tables["pairwise_edges"] = tables["majority_edges"]
     tables["pairwise_vs_plurality_decomposition"] = tables["pairwise_vs_plurality"]
@@ -634,6 +876,8 @@ function main(args=ARGS)
     if opts.validate_known
         did_validate = validate_known_values(profile, tables)
         did_validate && println("Known 2022 validation checks passed.")
+        did_validate_roles = validate_role_outputs(tables, group_partitions)
+        did_validate_roles && println("2022 role validation checks passed.")
     end
 
     for (name, table) in sort(collect(tables); by=first)
@@ -687,6 +931,27 @@ function main(args=ARGS)
         "target" => string(TARGET),
         "opponent" => string(OPPONENT),
         "partitions" => string.(group_partitions),
+        "roles" => Dict(
+            "high_mass_quantile" => ROLE_THRESHOLDS.high_mass_quantile,
+            "high_coverage_slack" => ROLE_THRESHOLDS.high_coverage_slack,
+            "counter_coverage_max" => ROLE_THRESHOLDS.counter_coverage_max,
+            "breaker_quantile" => ROLE_THRESHOLDS.breaker_quantile,
+            "fragile_edge_quantile" => ROLE_THRESHOLDS.fragile_edge_quantile,
+            "amenability" => string(ROLE_AMENABILITY),
+            "lambda" => ROLE_LAMBDA,
+            "selected_weakest_edge" => weakest_edge_label(result),
+            "tables_dir" => abspath(roles_dir),
+            "tables" => [
+                abspath(joinpath(roles_dir, "voter_type_roles.csv")),
+                abspath(joinpath(roles_dir, "role_mass_summary.csv")),
+                abspath(joinpath(roles_dir, "primary_role_mass_summary.csv")),
+                abspath(joinpath(roles_dir, "edge_type_roles.csv")),
+                abspath(joinpath(roles_dir, "weakest_edge_role_summary.csv")),
+                abspath(joinpath(roles_dir, "report_selected", "top_voter_type_roles.csv")),
+                abspath(joinpath(roles_dir, "report_selected", "group_role_power_weakest_edge_report.csv")),
+                abspath(joinpath(roles_dir, "report_selected", "group_primary_roles_report.csv")),
+            ],
+        ),
     )
     open(joinpath(opts.output, "manifest.toml"), "w") do io
         TOML.print(io, manifest)

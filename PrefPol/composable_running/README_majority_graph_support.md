@@ -27,4 +27,12 @@ Outputs are written under the output directory:
 - `report/majority_graph_support_2022.tex`: lightweight LaTeX report, compiled to PDF when `latexmk` or `tectonic` is available.
 - `manifest.toml`: input path, candidate mapping, partitions, and generation metadata.
 
+## Role decomposition step
+
+Role classification is implemented generically in `Preferences`. `PrefPol` only runs it for the 2022 linearized profile, project candidate labels, selected partitions, output paths, and report-ready table formatting.
+
+The role outputs are written under `output/majority_graph_support_2022/tables/roles/`. The voter-type role tables preserve stable `type_index` values from the majority-graph support basis. Roles are non-exclusive, so a type can simultaneously anchor the majority graph and be locally close to breaking an edge.
+
+Group role power decomposes graph anchoring, weakest-edge support, net margin contribution, and edge-breaking capacity. The 2022 step records the role thresholds, amenability mode, lambda, selected weakest edge, and role table paths in `manifest.toml`.
+
 The old `make_report.py` is treated as a prototype/reference only. The Julia workflow does not call it, does not recompute analysis in Python, and keeps generic preference logic, plotting logic, and project-specific 2022 wiring in separate packages/scripts.
