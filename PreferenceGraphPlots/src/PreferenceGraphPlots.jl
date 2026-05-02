@@ -10,6 +10,7 @@ export plot_plurality_scores, plot_pairwise_margins, plot_shell_masses
 export plot_edge_overlap_heatmap, plot_support_matrix, plot_type_anchoring
 export plot_type_breakers, plot_group_contributions
 export plot_candidate_position_by_current_first, plot_plurality_swing_values
+export plot_group_target_switch
 
 function _savefig(fig, output_path)
     path = String(output_path)
@@ -173,11 +174,34 @@ function plot_group_contributions(group_edge_power_table; output_path, value=:gr
     end
 
     fig, ax = subplots(figsize=(8, max(3, 0.35 * length(groups) + 1.5)))
-    im = ax.imshow(mat, aspect="auto")
+    vmax = maximum(abs.(mat))
+    im = ax.imshow(mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
     fig.colorbar(im, ax=ax, label=String(value))
     ax.set_yticks(0:(length(groups)-1), string.(groups))
     ax.set_xticks(0:(length(edges)-1), labels, rotation=35, ha="right")
     ax.set_title("Group contributions")
+    return _savefig(fig, output_path)
+end
+
+function plot_group_target_switch(group_target_switch_table; output_path, value=:target_second_mass,
+                                  title="Target switch by group and current first")
+    value in propertynames(group_target_switch_table) || throw(ArgumentError("group_target_switch_table must contain column :$value"))
+    groups = unique(group_target_switch_table.group)
+    firsts = unique(group_target_switch_table.current_first)
+    gidx = Dict(g => i for (i, g) in enumerate(groups))
+    fidx = Dict(f => i for (i, f) in enumerate(firsts))
+    mat = zeros(Float64, length(groups), length(firsts))
+    for row in eachrow(group_target_switch_table)
+        mat[gidx[row.group], fidx[row.current_first]] = Float64(row[value])
+    end
+
+    fig, ax = subplots(figsize=(7, max(3, 0.35 * length(groups) + 1.5)))
+    im = ax.imshow(mat, aspect="auto", cmap="YlGnBu")
+    fig.colorbar(im, ax=ax, label=String(value))
+    ax.set_yticks(0:(length(groups)-1), string.(groups))
+    ax.set_xticks(0:(length(firsts)-1), string.(firsts), rotation=25, ha="right")
+    ax.set_xlabel("Current first")
+    ax.set_title(title)
     return _savefig(fig, output_path)
 end
 

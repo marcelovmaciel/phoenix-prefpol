@@ -469,6 +469,7 @@ function type_breaker_table(
     loser = Symbol[]
     type_index = Int[]
     ranking = String[]
+    type_mass = Float64[]
     type_proportion = Float64[]
     supports = Bool[]
     boundary_distance = Union{Missing,Int}[]
@@ -490,6 +491,7 @@ function type_breaker_table(
             push!(loser, result.pool[edge.loser])
             push!(type_index, ridx)
             push!(ranking, _ranking_label(result.pool, result.basis.perms[ridx]))
+            push!(type_mass, result.type_mass[ridx])
             push!(type_proportion, result.type_proportion[ridx])
             push!(supports, supp)
             push!(boundary_distance, delta)
@@ -501,6 +503,7 @@ function type_breaker_table(
 
     return DataFrame(edge_index = edge_index, winner = winner, loser = loser,
                      type_index = type_index, ranking = ranking,
+                     type_mass = type_mass,
                      type_proportion = type_proportion, supports = supports,
                      boundary_distance = boundary_distance,
                      amenability = amenability_col,
@@ -523,6 +526,7 @@ function minimal_breaking_coalition_table(
     rank_in_coalition = Int[]
     type_index = Int[]
     ranking = String[]
+    type_mass = Float64[]
     type_proportion = Float64[]
     boundary_distance = Int[]
     amenability_col = Float64[]
@@ -560,6 +564,7 @@ function minimal_breaking_coalition_table(
             push!(rank_in_coalition, rank_idx)
             push!(type_index, ridx)
             push!(ranking, _ranking_label(result.pool, result.basis.perms[ridx]))
+            push!(type_mass, result.type_mass[ridx])
             push!(type_proportion, prop)
             push!(boundary_distance, delta)
             push!(amenability_col, aw)
@@ -572,7 +577,7 @@ function minimal_breaking_coalition_table(
     return DataFrame(edge_index = edge_index, winner = winner, loser = loser,
                      threshold = threshold, rank_in_coalition = rank_in_coalition,
                      type_index = type_index, ranking = ranking,
-                     type_proportion = type_proportion,
+                     type_mass = type_mass, type_proportion = type_proportion,
                      boundary_distance = boundary_distance,
                      amenability = amenability_col,
                      cumulative_mass = cumulative_mass,
