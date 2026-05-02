@@ -5,6 +5,7 @@ import Preferences
 const pp = Preferences
 
 include("single_peakedness_tests.jl")
+include("test_majority_graph_support.jl")
 
 @testset "Profile basics" begin
     pool = pp.CandidatePool([:A, :B, :C])
