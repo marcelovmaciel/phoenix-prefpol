@@ -29,6 +29,7 @@ include("PreferenceTabularProfiles.jl")
 include("PreferenceAggregationProcedures.jl")
 include("PreferenceMeasures.jl")
 include("PreferenceMajorityGraphSupport.jl")
+include("PreferencePluralitySwitchTables.jl")
 include("single_peakedness.jl")
 include("PreferenceConsensus.jl")
 include("PreferenceAnnotatedProfiles.jl")
@@ -109,6 +110,9 @@ export boundary_distance_to_reverse, amenability_weight
 export type_breaker_table, minimal_breaking_coalition_table
 export GroupMajorityGraphSupportResult, group_majority_graph_support
 export group_edge_power_table, group_breaker_table, group_anchor_table
+export plurality_scores_table, pairwise_vs_plurality_decomposition_table
+export candidate_position_by_current_first_table, one_swap_target_table
+export plurality_swing_value_table, exact_type_switch_table, group_target_switch_table
 export strict_profile, ConsensusResult
 export consensus_kendall, get_consensus_ranking, kendall_tau_dict
 export consensus_for_group, group_avg_distance, weighted_coherence

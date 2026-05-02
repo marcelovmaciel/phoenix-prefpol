@@ -350,10 +350,15 @@ function _ranking_label(pool::CandidatePool, perm::AbstractVector{Int})
 end
 
 function voter_type_table(result::MajorityGraphSupportResult)
+    shell = result.basis.reference_perm === nothing ?
+        fill(missing, length(result.basis.perms)) :
+        [_kendall_distance_perm(p, result.basis.reference_perm) for p in result.basis.perms]
+
     return DataFrame(
         type_index = collect(1:length(result.basis.types)),
         ranking = [_ranking_label(result.pool, p) for p in result.basis.perms],
         perm = copy(result.basis.perms),
+        shell = shell,
         mass = result.type_mass,
         proportion = result.type_proportion,
         coverage = result.coverage,
@@ -579,7 +584,7 @@ function _group_symbols(group_labels::AbstractVector)
     group_index = Dict{Symbol,Int}()
     labels = Vector{Symbol}(undef, length(group_labels))
     for (i, label) in enumerate(group_labels)
-        sym = Symbol(String(label))
+        sym = ismissing(label) ? :NA : Symbol(string(label))
         labels[i] = sym
         if !haskey(group_index, sym)
             group_index[sym] = length(groups) + 1
