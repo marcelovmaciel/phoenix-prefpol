@@ -242,6 +242,228 @@ function validate_role_outputs(tables, group_partitions)
     return true
 end
 
+function validate_effective_type_diagnostics(result::MajorityGraphSupportResult, tables)
+    edges = tables["edge_effective_types"]
+    for row in eachrow(edges)
+        assert_close("effective edge shares $(row.edge_index)",
+                     row.support_share_total + row.opposition_share_total, 1.0)
+        assert_close("support effective threshold $(row.edge)",
+                     row.support_effective_threshold, 1.0 / row.support_effective_types)
+        assert_close("opposition effective threshold $(row.edge)",
+                     row.opposition_effective_threshold, 1.0 / row.opposition_effective_types)
+    end
+
+    edge_comp = tables["edge_effective_type_composition"]
+    for sub in groupby(edge_comp, [:edge_index, :side])
+        key = first(sub)
+        assert_close("effective edge composition $(key.edge_index) $(key.side)",
+                     sum(sub.conditional_share), 1.0)
+        summary = edges[edges.edge_index .== key.edge_index, :]
+        nrow(summary) == 1 || error("Validation failed: missing edge summary for edge $(key.edge_index)")
+        expected_eff = key.side == "support" ?
+            summary.support_effective_types[1] : summary.opposition_effective_types[1]
+        expected_threshold = 1.0 / expected_eff
+        assert_close("effective edge threshold $(key.edge_index) $(key.side)",
+                     key.effective_threshold, expected_threshold)
+        expected_count = key.side == "support" ?
+            summary.support_n_above_effective_threshold[1] :
+            summary.opposition_n_above_effective_threshold[1]
+        actual_count = count(sub.above_effective_threshold)
+        expected_count == actual_count ||
+            error("Validation failed for above-threshold edge count $(key.edge_index) $(key.side): got $actual_count, expected $expected_count")
+    end
+    for row in eachrow(edge_comp)
+        if !isnan(row.effective_threshold)
+            assert_close("effective edge row weight $(row.edge_index) $(row.side) type $(row.type_index)",
+                         row.effective_weight, row.conditional_share / row.effective_threshold)
+            row.above_effective_threshold == (row.effective_weight > 1.0) ||
+                error("Validation failed for effective edge flag $(row.edge_index) $(row.side) type $(row.type_index)")
+        else
+            row.above_effective_threshold == false ||
+                error("Validation failed: NaN threshold row marked above effective threshold")
+        end
+    end
+
+    cores = tables["core_effective_types"]
+    for row in eachrow(cores)
+        assert_close("effective core mass k=$(row.k)", row.core_mass, result.core_mass_by_k[row.k])
+        assert_close("effective core threshold k=$(row.k)", row.effective_threshold, 1.0 / row.effective_types)
+    end
+
+    reverse_cores = tables["reverse_core_effective_types"]
+    nedges = length(result.edges)
+    for row in eachrow(reverse_cores)
+        expected = sum(result.type_proportion[r] for r in eachindex(result.type_proportion)
+                       if nedges - result.coverage[r] >= row.k)
+        assert_close("effective reverse core mass k=$(row.k)", row.reverse_core_mass, expected)
+        assert_close("effective reverse core threshold k=$(row.k)", row.effective_threshold, 1.0 / row.effective_types)
+    end
+
+    for key in ("core_effective_type_composition", "reverse_core_effective_type_composition")
+        comp = tables[key]
+        summary = key == "core_effective_type_composition" ? cores : reverse_cores
+        for sub in groupby(comp, [:k, :core_kind])
+            included = sub[sub.included, :]
+            isempty(included) && continue
+            mass = sum(included.type_proportion)
+            mass == 0.0 && continue
+            firstrow = first(sub)
+            assert_close("effective core composition $(firstrow.core_kind) k=$(firstrow.k)",
+                         sum(included.conditional_share), 1.0)
+            summary_row = summary[summary.k .== firstrow.k, :]
+            nrow(summary_row) == 1 || error("Validation failed: missing $(firstrow.core_kind) core summary k=$(firstrow.k)")
+            assert_close("effective core composition threshold $(firstrow.core_kind) k=$(firstrow.k)",
+                         firstrow.effective_threshold, 1.0 / summary_row.effective_types[1])
+            actual_count = count(sub.above_effective_threshold)
+            expected_count = summary_row.n_above_effective_threshold[1]
+            actual_count == expected_count ||
+                error("Validation failed for above-threshold $(firstrow.core_kind) core count k=$(firstrow.k): got $actual_count, expected $expected_count")
+            for row in eachrow(sub)
+                if row.included && !isnan(row.effective_threshold)
+                    assert_close("effective core row weight $(firstrow.core_kind) k=$(row.k) type $(row.type_index)",
+                                 row.effective_weight, row.conditional_share / row.effective_threshold)
+                    row.above_effective_threshold == (row.effective_weight > 1.0) ||
+                        error("Validation failed for effective core flag $(firstrow.core_kind) k=$(row.k) type $(row.type_index)")
+                elseif !row.included
+                    assert_close("non-included effective core row weight $(firstrow.core_kind) k=$(row.k) type $(row.type_index)",
+                                 row.effective_weight, 0.0)
+                    row.above_effective_threshold == false ||
+                        error("Validation failed: non-included row marked above effective threshold")
+                end
+            end
+        end
+    end
+    return true
+end
+
+function top_edge_effective_composition(df::DataFrame; n_per_side=5)
+    rows = DataFrame[]
+    for sub in groupby(df, [:edge_index, :side])
+        sorted = sort(sub, [order(:conditional_share, rev=true), :type_index])
+        push!(rows, first(sorted, min(n_per_side, nrow(sorted))))
+    end
+    return isempty(rows) ? DataFrame() : vcat(rows...; cols=:union)
+end
+
+function core_composition_selected(df::DataFrame; ks=(6, 5, 4))
+    return sort(df[(in.(df.k, Ref(collect(ks)))) .& df.included, :],
+                [:k, order(:conditional_share, rev=true), :type_index])
+end
+
+reverse_core_composition_selected(df::DataFrame; ks=(6, 5, 4)) =
+    core_composition_selected(df; ks=ks)
+
+above_edge_effective_composition(df::DataFrame) =
+    sort(df[df.above_effective_threshold, :],
+         [:edge_index, :side, order(:conditional_share, rev=true), :type_index])
+
+function above_core_composition_selected(df::DataFrame; ks=(6, 5, 4))
+    return sort(df[(in.(df.k, Ref(collect(ks)))) .& df.included .& df.above_effective_threshold, :],
+                [:k, order(:conditional_share, rev=true), :type_index])
+end
+
+function edge_eff_row(df::DataFrame, winner::Symbol, loser::Symbol)
+    rows = df[(df.winner .== winner) .& (df.loser .== loser), :]
+    nrow(rows) == 1 || error("Expected exactly one effective edge row for $winner>$loser, found $(nrow(rows))")
+    return rows[1, :]
+end
+
+function weak_edge_effective_type_text(tables)
+    eff = tables["edge_effective_types"]
+    lubo = edge_eff_row(eff, :Lu, :Bo)
+    lute = edge_eff_row(eff, :Lu, :Te)
+    if lute.opposition_effective_types > lubo.opposition_effective_types
+        interpretation = "The contestation of Lu>Te is more type-plural than the contestation of Lu>Bo in this run. This supports the interpretation that the weak edge is not merely opposed by a single counter-graph bloc, but by a more heterogeneous collection of rankings."
+    else
+        interpretation = "In this run, the contestation of Lu>Te is not more type-plural than the contestation of Lu>Bo. The weak edge is therefore fragile mainly by margin, not by greater type diversity on the counter-majority side."
+    end
+    return """
+For Lu>Bo, \\(N^+_{\\mathrm{eff}}\\) is $(@sprintf("%.3f", lubo.support_effective_types)) and \\(N^-_{\\mathrm{eff}}\\) is $(@sprintf("%.3f", lubo.opposition_effective_types)). For Lu>Te, \\(N^+_{\\mathrm{eff}}\\) is $(@sprintf("%.3f", lute.support_effective_types)) and \\(N^-_{\\mathrm{eff}}\\) is $(@sprintf("%.3f", lute.opposition_effective_types)). $(latex_escape(interpretation))
+"""
+end
+
+function write_effective_report_selected_outputs!(tables, eff_dir)
+    report_dir = joinpath(eff_dir, "report_selected")
+    mkpath(report_dir)
+
+    tables["report_selected/edge_effective_types_report"] =
+        selected_columns(tables["edge_effective_types"], [
+            :edge, :support_share_total, :support_effective_types,
+            :support_effective_threshold, :support_n_above_effective_threshold,
+            :opposition_share_total, :opposition_effective_types,
+            :opposition_effective_threshold, :opposition_n_above_effective_threshold,
+        ])
+    tables["report_selected/core_effective_types_report"] =
+        selected_columns(tables["core_effective_types"], [
+            :k, :core_mass, :hhi, :effective_types, :effective_threshold,
+            :n_above_effective_threshold, :above_effective_rankings,
+        ])
+    tables["report_selected/reverse_core_effective_types_report"] =
+        selected_columns(tables["reverse_core_effective_types"], [
+            :k, :reverse_core_mass, :hhi, :effective_types, :effective_threshold,
+            :n_above_effective_threshold, :above_effective_rankings,
+        ])
+    tables["report_selected/edge_above_effective_threshold_types_report"] =
+        selected_columns(above_edge_effective_composition(tables["edge_effective_type_composition"]), [
+            :edge, :side, :type_index, :ranking, :conditional_share,
+            :effective_threshold, :effective_weight,
+        ])
+    for key in ("report_selected/edge_effective_types_report",
+                "report_selected/edge_above_effective_threshold_types_report")
+        tables[key].edge = compact_edge_label.(tables[key].edge)
+    end
+    tables["report_selected/core_above_effective_threshold_types_k456_report"] =
+        selected_columns(above_core_composition_selected(tables["core_effective_type_composition"]), [
+            :k, :type_index, :ranking, :type_proportion, :coverage,
+            :conditional_share, :effective_threshold, :effective_weight,
+        ])
+    tables["report_selected/reverse_core_above_effective_threshold_types_k456_report"] =
+        selected_columns(above_core_composition_selected(tables["reverse_core_effective_type_composition"]), [
+            :k, :type_index, :ranking, :type_proportion, :reverse_coverage,
+            :conditional_share, :effective_threshold, :effective_weight,
+        ])
+
+    for name in [
+        "edge_effective_types_report",
+        "core_effective_types_report",
+        "reverse_core_effective_types_report",
+        "edge_above_effective_threshold_types_report",
+        "core_above_effective_threshold_types_k456_report",
+        "reverse_core_above_effective_threshold_types_k456_report",
+    ]
+        key = "report_selected/$name"
+        write_table(joinpath(report_dir, "$name.csv"), tables[key])
+    end
+end
+
+function run_effective_type_diagnostics!(
+    tables::Dict{String,DataFrame},
+    result::MajorityGraphSupportResult,
+    output_dir::AbstractString,
+)
+    eff_dir = joinpath(output_dir, "effective_types")
+    mkpath(eff_dir)
+
+    diagnostics = effective_type_diagnostics(result)
+
+    tables["edge_effective_types"] = diagnostics.edge_summary
+    tables["edge_effective_type_composition"] = diagnostics.edge_composition
+    tables["core_effective_types"] = diagnostics.core_summary
+    tables["reverse_core_effective_types"] = diagnostics.reverse_core_summary
+    tables["core_effective_type_composition"] = diagnostics.core_composition
+    tables["reverse_core_effective_type_composition"] = diagnostics.reverse_core_composition
+
+    write_table(joinpath(eff_dir, "edge_effective_types.csv"), diagnostics.edge_summary)
+    write_table(joinpath(eff_dir, "edge_effective_type_composition.csv"), diagnostics.edge_composition)
+    write_table(joinpath(eff_dir, "core_effective_types.csv"), diagnostics.core_summary)
+    write_table(joinpath(eff_dir, "reverse_core_effective_types.csv"), diagnostics.reverse_core_summary)
+    write_table(joinpath(eff_dir, "core_effective_type_composition.csv"), diagnostics.core_composition)
+    write_table(joinpath(eff_dir, "reverse_core_effective_type_composition.csv"), diagnostics.reverse_core_composition)
+    write_effective_report_selected_outputs!(tables, eff_dir)
+
+    return diagnostics
+end
+
 function top_voter_type_roles(role_table::DataFrame; max_rows=24)
     mask = role_table.anchor .| role_table.counter_graph .| role_table.edge_breaker
     selected = role_table[mask, :]
@@ -512,6 +734,12 @@ function generate_report(report_path, output_dir, input_path, tables, group_part
     weakest_edge_roles = tables["report_selected/weakest_edge_breakers_report"]
     group_role_power_report = tables["report_selected/group_role_power_weakest_edge_report"]
     group_primary_roles_report = tables["report_selected/group_primary_roles_report"]
+    edge_effective_report = tables["report_selected/edge_effective_types_report"]
+    core_effective_report = tables["report_selected/core_effective_types_report"]
+    reverse_core_effective_report = tables["report_selected/reverse_core_effective_types_report"]
+    edge_above_effective_threshold = tables["report_selected/edge_above_effective_threshold_types_report"]
+    core_above_effective_threshold_k456 = tables["report_selected/core_above_effective_threshold_types_k456_report"]
+    reverse_core_above_effective_threshold_k456 = tables["report_selected/reverse_core_above_effective_threshold_types_k456_report"]
 
     plurality_cols, plurality_heads = table_columns(plurality, [
         (:candidate, "candidate"), (:first_place_count, "count"), (:first_place_share, "share")
@@ -533,6 +761,45 @@ function generate_report(report_path, output_dir, input_path, tables, group_part
     ])
     core_cols, core_heads = table_columns(tables["core"], [
         (:k, "k"), (:core_mass, "core share")
+    ])
+    core_eff_cols, core_eff_heads = table_columns(core_effective_report, [
+        (:k, "k"), (:core_mass, "core mass"), (:hhi, "HHI"),
+        (:effective_types, "eff. types"), (:effective_threshold, "threshold"),
+        (:n_above_effective_threshold, "n effective"),
+        (:above_effective_rankings, "above-threshold types")
+    ])
+    reverse_core_eff_cols, reverse_core_eff_heads = table_columns(reverse_core_effective_report, [
+        (:k, "k"), (:reverse_core_mass, "reverse core mass"), (:hhi, "HHI"),
+        (:effective_types, "eff. types"), (:effective_threshold, "threshold"),
+        (:n_above_effective_threshold, "n effective"),
+        (:above_effective_rankings, "above-threshold types")
+    ])
+    edge_eff_cols, edge_eff_heads = table_columns(edge_effective_report, [
+        (:edge, "edge"), (:support_share_total, "support share"),
+        (:support_effective_types, "support eff. types"),
+        (:support_effective_threshold, "support threshold"),
+        (:support_n_above_effective_threshold, "support n effective"),
+        (:opposition_share_total, "opposition share"),
+        (:opposition_effective_types, "opposition eff. types"),
+        (:opposition_effective_threshold, "opposition threshold"),
+        (:opposition_n_above_effective_threshold, "opposition n effective")
+    ])
+    edge_above_eff_cols, edge_above_eff_heads = table_columns(edge_above_effective_threshold, [
+        (:edge, "edge"), (:side, "side"), (:type_index, "type"),
+        (:ranking, "ranking"), (:conditional_share, "conditional share"),
+        (:effective_threshold, "threshold"), (:effective_weight, "effective weight")
+    ])
+    core_above_eff_cols, core_above_eff_heads = table_columns(core_above_effective_threshold_k456, [
+        (:k, "k"), (:type_index, "type"), (:ranking, "ranking"),
+        (:type_proportion, "profile share"), (:coverage, "K"),
+        (:conditional_share, "conditional share"),
+        (:effective_threshold, "threshold"), (:effective_weight, "effective weight")
+    ])
+    reverse_core_above_eff_cols, reverse_core_above_eff_heads = table_columns(reverse_core_above_effective_threshold_k456, [
+        (:k, "k"), (:type_index, "type"), (:ranking, "ranking"),
+        (:type_proportion, "profile share"), (:reverse_coverage, "reverse K"),
+        (:conditional_share, "conditional share"),
+        (:effective_threshold, "threshold"), (:effective_weight, "effective weight")
     ])
     overlap_cols, overlap_heads = table_columns(edge_overlap_pairs, [
         (:edge_i_label, "edge i"), (:edge_j_label, "edge j"), (:overlap, "overlap"),
@@ -669,6 +936,28 @@ The strict core \\(\\gamma_6\\) is the mass supporting all six majority edges. T
 
 $(latex_table(tables["core"]; caption="Support cores by coverage threshold", label="tab:cores", columns=core_cols, headers=core_heads))
 
+\\subsection{Effective type composition of support cores}
+
+Mass and concentration answer different questions. The support core \\(\\gamma_k\\) measures the mass that supports at least \\(k\\) majority edges. The inverse-HHI effective type count gives the number of equally sized types that would produce the same concentration. To identify which concrete rankings carry that effective mass, I compare each conditional type share with the average effective-type share \\(1/N_{\\mathrm{eff}}\\). A type is above the effective threshold when \\(q_r > 1/N_{\\mathrm{eff}}\\), or equivalently when \\(N_{\\mathrm{eff}}q_r > 1\\). These are the rankings whose conditional mass is larger than one average effective type.
+
+The core tables report the effective threshold and the rankings above that threshold inside each support or reverse core. This avoids reducing the core to its largest ranking and instead identifies the rankings that count as more than one average effective type.
+
+$(latex_table(core_effective_report; caption="Effective type composition of support cores", label="tab:core-effective-types", columns=core_eff_cols, headers=core_eff_heads, resize=true))
+
+\\subsection{Reverse support cores}
+
+The reverse cores are the mirror image of the support cores. While \\(\\gamma_k\\) measures mass supporting at least \\(k\\) majority edges, \\(\\bar{\\gamma}_k\\) measures mass contesting at least \\(k\\) majority edges. Thus \\(\\bar{\\gamma}_6\\) is the mass that supports the full reverse of the majority graph. Effective type counts inside \\(\\bar{\\gamma}_k\\) distinguish compact counter-graph blocs from more heterogeneous opposition to the majority order.
+
+$(latex_table(reverse_core_effective_report; caption="Effective type composition of reverse support cores", label="tab:reverse-core-effective-types", columns=reverse_core_eff_cols, headers=reverse_core_eff_heads, resize=true))
+
+\\subsection{Effective type composition by edge}
+
+For each majority edge \\(e\\), the support mass \\(s^+(e)\\) gives the size of the majority coalition, while \\(N^+_{\\mathrm{eff}}(e)\\) gives its effective diversity across ranking types. The opposition mass \\(s^-(e)\\) gives the size of the counter-majority coalition, while \\(N^-_{\\mathrm{eff}}(e)\\) gives its effective diversity. The edge-level table now reports both the effective number of types and the number of concrete rankings above the effective threshold on each side of the comparison. This separates three quantities: the size of the side, its concentration, and the identity of the types that effectively compose it.
+
+$(latex_table(edge_effective_report; caption="Effective type composition by edge", label="tab:edge-effective-types", columns=edge_eff_cols, headers=edge_eff_heads, longtable=true, fontsize="scriptsize", landscape=true))
+
+$(latex_table(edge_above_effective_threshold; caption="Above-threshold effective types by edge and side", label="tab:edge-above-effective-threshold-types", columns=edge_above_eff_cols, headers=edge_above_eff_heads, longtable=true, fontsize="tiny", landscape=true))
+
 \\section{Edge coalition overlap}
 
 Anti-Bo edges overlap strongly, while the internal ordering among Lu, Te, and Ci is less coalitionally unified. In particular, Lu>Te with Te>Ci has low overlap compared with the anti-Bo edge pairs.
@@ -688,6 +977,8 @@ $(figure_tex("type_anchoring_top.png", "Top type anchoring scores."; width="0.82
 \\section{Type breakers and edge amenability}
 
 The fragile edge is Lu>Te: its margin is $(Int(round(lute.margin_mass[1]))) and only $(Int(round(lute.integer_flip_count[1]))) voters are needed to flip it. Some peripheral types are locally amenable even if they are not graph anchors. Amenability differs from raw mass because it discounts types farther from reversing a given edge.
+
+$(weak_edge_effective_type_text(tables))
 
 $(latex_table(breaker_selected; caption="Top type breakers for Lu>Te, Lu>Bo, and Te>Ci", label="tab:type-breakers-selected", columns=breaker_cols, headers=breaker_heads, longtable=true, fontsize="scriptsize", landscape=true))
 
@@ -782,6 +1073,14 @@ $(latex_table(tables["type_breakers"]; caption="Full type breaker table", label=
 
 $(group_table_sections(tables, group_partitions, "group_breakers"; caption_prefix="Group breakers appendix"))
 
+\\section{Appendix: effective type composition tables}
+
+$(latex_table(edge_above_effective_threshold; caption="Above-threshold effective type composition by edge and side", label="tab:edge-effective-composition-above-threshold", columns=edge_above_eff_cols, headers=edge_above_eff_heads, longtable=true, fontsize="tiny", landscape=true))
+
+$(latex_table(core_above_effective_threshold_k456; caption="Above-threshold support core effective type composition for k=6,5,4", label="tab:core-effective-composition-above-threshold-k456", columns=core_above_eff_cols, headers=core_above_eff_heads, longtable=true, fontsize="tiny", landscape=true))
+
+$(latex_table(reverse_core_above_effective_threshold_k456; caption="Above-threshold reverse core effective type composition for k=6,5,4", label="tab:reverse-core-effective-composition-above-threshold-k456", columns=reverse_core_above_eff_cols, headers=reverse_core_above_eff_heads, longtable=true, fontsize="tiny", landscape=true))
+
 \\end{document}
 """
     write(report_path, tex)
@@ -837,6 +1136,8 @@ function main(args=ARGS)
     tables["plurality_swing_values"] = plurality_swing_value_table(profile, TARGET, OPPONENT; current_first_candidates=CURRENT_FIRST_CANDIDATES, basis=basis)
     tables["exact_type_switch"] = exact_type_switch_table(profile, TARGET; current_first_candidates=CURRENT_FIRST_CANDIDATES, basis=basis)
 
+    run_effective_type_diagnostics!(tables, result, opts.output)
+
     group_partitions = Symbol[]
     group_results = Dict{Symbol,GroupMajorityGraphSupportResult}()
     for partition in PARTITIONS
@@ -878,6 +1179,8 @@ function main(args=ARGS)
         did_validate && println("Known 2022 validation checks passed.")
         did_validate_roles = validate_role_outputs(tables, group_partitions)
         did_validate_roles && println("2022 role validation checks passed.")
+        did_validate_effective = validate_effective_type_diagnostics(result, tables)
+        did_validate_effective && println("2022 effective-type validation checks passed.")
     end
 
     for (name, table) in sort(collect(tables); by=first)

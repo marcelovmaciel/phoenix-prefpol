@@ -434,6 +434,387 @@ function core_table(result::MajorityGraphSupportResult)
     return DataFrame(k = ks, core_mass = [result.core_mass_by_k[k] for k in ks])
 end
 
+function _hhi_from_conditional_shares(q)
+    isempty(q) && return NaN
+    return sum(x -> Float64(x)^2, q)
+end
+
+function _effective_number_from_conditional_shares(q)
+    hhi = _hhi_from_conditional_shares(q)
+    return (isnan(hhi) || hhi == 0.0) ? NaN : 1.0 / hhi
+end
+
+function _safe_effective_number(weights, denom)
+    denom == 0.0 && return NaN
+    return _effective_number_from_conditional_shares(Float64.(weights) ./ Float64(denom))
+end
+
+function _effective_threshold(effective_types::Real)
+    eff = Float64(effective_types)
+    return (isnan(eff) || eff <= 0.0) ? NaN : 1.0 / eff
+end
+
+function _effective_weight(conditional_share::Real, effective_types::Real)
+    threshold = _effective_threshold(effective_types)
+    return isnan(threshold) ? NaN : Float64(conditional_share) / threshold
+end
+
+function _above_effective_threshold_rows(result::MajorityGraphSupportResult,
+                                         indices::Vector{Int},
+                                         conditional_shares,
+                                         effective_types::Real)
+    threshold = _effective_threshold(effective_types)
+    isnan(threshold) && return (threshold, 0, "", "")
+
+    rows = Tuple{Int,Float64}[]
+    for (idx, share) in zip(indices, conditional_shares)
+        Float64(share) > threshold && push!(rows, (idx, Float64(share)))
+    end
+    sort!(rows; by = x -> (-x[2], x[1]))
+
+    type_indices = [string(idx) for (idx, _) in rows]
+    rankings = [_ranking_label(result.pool, result.basis.perms[idx]) for (idx, _) in rows]
+    return (threshold, length(rows), join(type_indices, ","), join(rankings, "; "))
+end
+
+function _top_conditional_type(result::MajorityGraphSupportResult, indices::Vector{Int}, denom::Float64)
+    denom == 0.0 && return (missing, missing, NaN)
+    isempty(indices) && return (missing, missing, NaN)
+    best = indices[argmax(result.type_proportion[indices])]
+    share = result.type_proportion[best] / denom
+    return (best, _ranking_label(result.pool, result.basis.perms[best]), share)
+end
+
+"""
+    edge_effective_type_table(result)
+
+Effective ranking-type concentration diagnostics for each majority-edge
+supporting and opposing coalition.
+"""
+function edge_effective_type_table(result::MajorityGraphSupportResult)
+    edge_index = Int[]
+    edge_label = String[]
+    winner = Symbol[]
+    loser = Symbol[]
+    support_mass = Float64[]
+    opposition_mass = Float64[]
+    support_share_total = Float64[]
+    opposition_share_total = Float64[]
+    support_hhi = Float64[]
+    support_effective_types = Float64[]
+    opposition_hhi = Float64[]
+    opposition_effective_types = Float64[]
+    support_top_type_index = Union{Missing,Int}[]
+    support_top_ranking = Union{Missing,String}[]
+    support_top_share_within_side = Float64[]
+    opposition_top_type_index = Union{Missing,Int}[]
+    opposition_top_ranking = Union{Missing,String}[]
+    opposition_top_share_within_side = Float64[]
+    support_effective_threshold = Float64[]
+    support_n_above_effective_threshold = Int[]
+    support_above_effective_type_indices = String[]
+    support_above_effective_rankings = String[]
+    opposition_effective_threshold = Float64[]
+    opposition_n_above_effective_threshold = Int[]
+    opposition_above_effective_type_indices = String[]
+    opposition_above_effective_rankings = String[]
+
+    ntypes = length(result.basis.types)
+    for eidx in eachindex(result.edges)
+        edge = result.edges[eidx]
+        supp = [r for r in 1:ntypes if result.support_matrix[r, eidx]]
+        opp = [r for r in 1:ntypes if !result.support_matrix[r, eidx]]
+        supp_denom = edge.support_mass / result.total_mass
+        opp_denom = edge.opposition_mass / result.total_mass
+        supp_q = supp_denom == 0.0 ? Float64[] : result.type_proportion[supp] ./ supp_denom
+        opp_q = opp_denom == 0.0 ? Float64[] : result.type_proportion[opp] ./ opp_denom
+        supp_top = _top_conditional_type(result, supp, supp_denom)
+        opp_top = _top_conditional_type(result, opp, opp_denom)
+        supp_hhi = _hhi_from_conditional_shares(supp_q)
+        supp_eff = _effective_number_from_conditional_shares(supp_q)
+        opp_hhi = _hhi_from_conditional_shares(opp_q)
+        opp_eff = _effective_number_from_conditional_shares(opp_q)
+        supp_above = _above_effective_threshold_rows(result, supp, supp_q, supp_eff)
+        opp_above = _above_effective_threshold_rows(result, opp, opp_q, opp_eff)
+
+        push!(edge_index, eidx)
+        push!(edge_label, _edge_label(result.pool, edge))
+        push!(winner, result.pool[edge.winner])
+        push!(loser, result.pool[edge.loser])
+        push!(support_mass, edge.support_mass)
+        push!(opposition_mass, edge.opposition_mass)
+        push!(support_share_total, supp_denom)
+        push!(opposition_share_total, opp_denom)
+        push!(support_hhi, supp_hhi)
+        push!(support_effective_types, supp_eff)
+        push!(opposition_hhi, opp_hhi)
+        push!(opposition_effective_types, opp_eff)
+        push!(support_top_type_index, supp_top[1])
+        push!(support_top_ranking, supp_top[2])
+        push!(support_top_share_within_side, supp_top[3])
+        push!(opposition_top_type_index, opp_top[1])
+        push!(opposition_top_ranking, opp_top[2])
+        push!(opposition_top_share_within_side, opp_top[3])
+        push!(support_effective_threshold, supp_above[1])
+        push!(support_n_above_effective_threshold, supp_above[2])
+        push!(support_above_effective_type_indices, supp_above[3])
+        push!(support_above_effective_rankings, supp_above[4])
+        push!(opposition_effective_threshold, opp_above[1])
+        push!(opposition_n_above_effective_threshold, opp_above[2])
+        push!(opposition_above_effective_type_indices, opp_above[3])
+        push!(opposition_above_effective_rankings, opp_above[4])
+    end
+
+    return DataFrame(
+        edge_index = edge_index,
+        edge = edge_label,
+        winner = winner,
+        loser = loser,
+        support_mass = support_mass,
+        opposition_mass = opposition_mass,
+        support_share_total = support_share_total,
+        opposition_share_total = opposition_share_total,
+        support_hhi = support_hhi,
+        support_effective_types = support_effective_types,
+        opposition_hhi = opposition_hhi,
+        opposition_effective_types = opposition_effective_types,
+        support_top_type_index = support_top_type_index,
+        support_top_ranking = support_top_ranking,
+        support_top_share_within_side = support_top_share_within_side,
+        opposition_top_type_index = opposition_top_type_index,
+        opposition_top_ranking = opposition_top_ranking,
+        opposition_top_share_within_side = opposition_top_share_within_side,
+        support_effective_threshold = support_effective_threshold,
+        support_n_above_effective_threshold = support_n_above_effective_threshold,
+        support_above_effective_type_indices = support_above_effective_type_indices,
+        support_above_effective_rankings = support_above_effective_rankings,
+        opposition_effective_threshold = opposition_effective_threshold,
+        opposition_n_above_effective_threshold = opposition_n_above_effective_threshold,
+        opposition_above_effective_type_indices = opposition_above_effective_type_indices,
+        opposition_above_effective_rankings = opposition_above_effective_rankings,
+    )
+end
+
+function edge_effective_type_composition_table(result::MajorityGraphSupportResult)
+    edge_index = Int[]
+    edge_label = String[]
+    side = String[]
+    winner = Symbol[]
+    loser = Symbol[]
+    type_index = Int[]
+    ranking = String[]
+    type_proportion = Float64[]
+    supports = Bool[]
+    conditional_share = Float64[]
+    weighted_mass = Float64[]
+    effective_threshold = Float64[]
+    effective_weight = Float64[]
+    above_effective_threshold = Bool[]
+
+    for eidx in eachindex(result.edges)
+        edge = result.edges[eidx]
+        supp_denom = edge.support_mass / result.total_mass
+        opp_denom = edge.opposition_mass / result.total_mass
+        supp = [r for r in eachindex(result.basis.types) if result.support_matrix[r, eidx]]
+        opp = [r for r in eachindex(result.basis.types) if !result.support_matrix[r, eidx]]
+        supp_q = supp_denom == 0.0 ? Float64[] : result.type_proportion[supp] ./ supp_denom
+        opp_q = opp_denom == 0.0 ? Float64[] : result.type_proportion[opp] ./ opp_denom
+        supp_eff = _effective_number_from_conditional_shares(supp_q)
+        opp_eff = _effective_number_from_conditional_shares(opp_q)
+        supp_threshold = _effective_threshold(supp_eff)
+        opp_threshold = _effective_threshold(opp_eff)
+        for ridx in eachindex(result.basis.types)
+            is_support = result.support_matrix[ridx, eidx]
+            denom = is_support ? supp_denom : opp_denom
+            threshold = is_support ? supp_threshold : opp_threshold
+            share = denom == 0.0 ? 0.0 : result.type_proportion[ridx] / denom
+            weight = isnan(threshold) ? NaN : share / threshold
+            push!(edge_index, eidx)
+            push!(edge_label, _edge_label(result.pool, edge))
+            push!(side, is_support ? "support" : "opposition")
+            push!(winner, result.pool[edge.winner])
+            push!(loser, result.pool[edge.loser])
+            push!(type_index, ridx)
+            push!(ranking, _ranking_label(result.pool, result.basis.perms[ridx]))
+            push!(type_proportion, result.type_proportion[ridx])
+            push!(supports, is_support)
+            push!(conditional_share, share)
+            push!(weighted_mass, result.type_proportion[ridx])
+            push!(effective_threshold, threshold)
+            push!(effective_weight, weight)
+            push!(above_effective_threshold, !isnan(weight) && weight > 1.0)
+        end
+    end
+
+    df = DataFrame(edge_index = edge_index, edge = edge_label, side = side,
+                   winner = winner, loser = loser, type_index = type_index,
+                   ranking = ranking, type_proportion = type_proportion,
+                   supports = supports, conditional_share = conditional_share,
+                   weighted_mass = weighted_mass,
+                   effective_threshold = effective_threshold,
+                   effective_weight = effective_weight,
+                   above_effective_threshold = above_effective_threshold)
+    df._side_order = ifelse.(df.side .== "support", 1, 2)
+    sort!(df, [:edge_index, :_side_order, order(:conditional_share, rev=true), :type_index])
+    select!(df, Not(:_side_order))
+    return df
+end
+
+function _core_effective_row(result::MajorityGraphSupportResult, k::Int; reverse::Bool=false)
+    nedges = length(result.edges)
+    included = reverse ?
+        [r for r in eachindex(result.basis.types) if nedges - result.coverage[r] >= k] :
+        [r for r in eachindex(result.basis.types) if result.coverage[r] >= k]
+    mass = sum(result.type_proportion[r] for r in included)
+    q = mass == 0.0 ? Float64[] : result.type_proportion[included] ./ mass
+    top = _top_conditional_type(result, included, mass)
+    effective_types = _effective_number_from_conditional_shares(q)
+    above = _above_effective_threshold_rows(result, included, q, effective_types)
+    return (mass, _hhi_from_conditional_shares(q),
+            effective_types, top..., above...)
+end
+
+function core_effective_type_table(result::MajorityGraphSupportResult)
+    nedges = length(result.edges)
+    k_col = collect(0:nedges)
+    core_mass = Float64[]
+    hhi = Float64[]
+    effective_types = Float64[]
+    top_type_index = Union{Missing,Int}[]
+    top_ranking = Union{Missing,String}[]
+    top_share_within_core = Float64[]
+    effective_threshold = Float64[]
+    n_above_effective_threshold = Int[]
+    above_effective_type_indices = String[]
+    above_effective_rankings = String[]
+
+    for k in k_col
+        row = _core_effective_row(result, k; reverse=false)
+        push!(core_mass, row[1])
+        push!(hhi, row[2])
+        push!(effective_types, row[3])
+        push!(top_type_index, row[4])
+        push!(top_ranking, row[5])
+        push!(top_share_within_core, row[6])
+        push!(effective_threshold, row[7])
+        push!(n_above_effective_threshold, row[8])
+        push!(above_effective_type_indices, row[9])
+        push!(above_effective_rankings, row[10])
+    end
+
+    return DataFrame(k = k_col, core_mass = core_mass, hhi = hhi,
+                     effective_types = effective_types,
+                     top_type_index = top_type_index, top_ranking = top_ranking,
+                     top_share_within_core = top_share_within_core,
+                     effective_threshold = effective_threshold,
+                     n_above_effective_threshold = n_above_effective_threshold,
+                     above_effective_type_indices = above_effective_type_indices,
+                     above_effective_rankings = above_effective_rankings)
+end
+
+function reverse_core_effective_type_table(result::MajorityGraphSupportResult)
+    nedges = length(result.edges)
+    k_col = collect(0:nedges)
+    reverse_core_mass = Float64[]
+    hhi = Float64[]
+    effective_types = Float64[]
+    top_type_index = Union{Missing,Int}[]
+    top_ranking = Union{Missing,String}[]
+    top_share_within_reverse_core = Float64[]
+    effective_threshold = Float64[]
+    n_above_effective_threshold = Int[]
+    above_effective_type_indices = String[]
+    above_effective_rankings = String[]
+
+    for k in k_col
+        row = _core_effective_row(result, k; reverse=true)
+        push!(reverse_core_mass, row[1])
+        push!(hhi, row[2])
+        push!(effective_types, row[3])
+        push!(top_type_index, row[4])
+        push!(top_ranking, row[5])
+        push!(top_share_within_reverse_core, row[6])
+        push!(effective_threshold, row[7])
+        push!(n_above_effective_threshold, row[8])
+        push!(above_effective_type_indices, row[9])
+        push!(above_effective_rankings, row[10])
+    end
+
+    return DataFrame(k = k_col, reverse_core_mass = reverse_core_mass, hhi = hhi,
+                     effective_types = effective_types,
+                     top_type_index = top_type_index, top_ranking = top_ranking,
+                     top_share_within_reverse_core = top_share_within_reverse_core,
+                     effective_threshold = effective_threshold,
+                     n_above_effective_threshold = n_above_effective_threshold,
+                     above_effective_type_indices = above_effective_type_indices,
+                     above_effective_rankings = above_effective_rankings)
+end
+
+function core_effective_type_composition_table(result::MajorityGraphSupportResult; reverse::Bool=false)
+    nedges = length(result.edges)
+    k_col = Int[]
+    core_kind = String[]
+    type_index = Int[]
+    ranking = String[]
+    type_proportion = Float64[]
+    coverage = Int[]
+    reverse_coverage = Int[]
+    included = Bool[]
+    conditional_share = Float64[]
+    effective_threshold = Float64[]
+    effective_weight = Float64[]
+    above_effective_threshold = Bool[]
+
+    for k in 0:nedges
+        flags = reverse ?
+            [nedges - result.coverage[r] >= k for r in eachindex(result.basis.types)] :
+            [result.coverage[r] >= k for r in eachindex(result.basis.types)]
+        mass = sum(result.type_proportion[r] for r in eachindex(result.basis.types) if flags[r])
+        included_indices = [r for r in eachindex(result.basis.types) if flags[r]]
+        q = mass == 0.0 ? Float64[] : result.type_proportion[included_indices] ./ mass
+        eff = _effective_number_from_conditional_shares(q)
+        threshold = _effective_threshold(eff)
+        for ridx in eachindex(result.basis.types)
+            inc = flags[ridx]
+            share = (inc && mass > 0.0) ? result.type_proportion[ridx] / mass : 0.0
+            weight = inc ? (isnan(threshold) ? NaN : share / threshold) : 0.0
+            push!(k_col, k)
+            push!(core_kind, reverse ? "reverse" : "majority")
+            push!(type_index, ridx)
+            push!(ranking, _ranking_label(result.pool, result.basis.perms[ridx]))
+            push!(type_proportion, result.type_proportion[ridx])
+            push!(coverage, result.coverage[ridx])
+            push!(reverse_coverage, nedges - result.coverage[ridx])
+            push!(included, inc)
+            push!(conditional_share, share)
+            push!(effective_threshold, threshold)
+            push!(effective_weight, weight)
+            push!(above_effective_threshold, inc && !isnan(weight) && weight > 1.0)
+        end
+    end
+
+    df = DataFrame(k = k_col, core_kind = core_kind, type_index = type_index,
+                   ranking = ranking, type_proportion = type_proportion,
+                   coverage = coverage, reverse_coverage = reverse_coverage,
+                   included = included, conditional_share = conditional_share,
+                   effective_threshold = effective_threshold,
+                   effective_weight = effective_weight,
+                   above_effective_threshold = above_effective_threshold)
+    sort!(df, [:k, order(:included, rev=true), order(:conditional_share, rev=true), :type_index])
+    return df
+end
+
+function effective_type_diagnostics(result::MajorityGraphSupportResult)
+    return (
+        edge_summary = edge_effective_type_table(result),
+        edge_composition = edge_effective_type_composition_table(result),
+        core_summary = core_effective_type_table(result),
+        reverse_core_summary = reverse_core_effective_type_table(result),
+        core_composition = core_effective_type_composition_table(result),
+        reverse_core_composition = core_effective_type_composition_table(result; reverse=true),
+    )
+end
+
 """
     boundary_distance_to_reverse(basis, type_index, winner, loser)
 
