@@ -3,7 +3,7 @@
 This workflow replaces the prototype Python report generator with composable Julia code.
 
 - `Preferences` contains the general social-choice objects and tables: voter-type bases, majority-graph support, edge/core/overlap/breaker tables, group majority-graph tables, and generic plurality/switch-amenability tables.
-- `PreferenceGraphPlots` contains generic PythonPlot plotting functions for those result objects and tables. It has no PrefPol-specific candidate names.
+- `PreferencePlots` contains generic PythonPlot plotting functions for those result objects and tables. It has no PrefPol-specific candidate names.
 - `PrefPol/composable_running/majority_graph_support_2022.jl` is the project-specific script. It wires the 2022 CSV rank columns, labels `Lu/Bo/Ci/Te`, reference order `Lu > Te > Ci > Bo`, target Lula, opponent Bolsonaro, partitions, output paths, and report text.
 
 Run from the repository root:
@@ -23,7 +23,7 @@ julia --project=PrefPol PrefPol/composable_running/majority_graph_support_2022.j
 Outputs are written under the output directory:
 
 - `tables/`: CSV tables produced by `Preferences`.
-- `figures/`: PNG and PDF figures produced by `PreferenceGraphPlots`.
+- `figures/`: PNG and PDF figures produced by `PreferencePlots`.
 - `report/majority_graph_support_2022.tex`: lightweight LaTeX report, compiled to PDF when `latexmk` or `tectonic` is available.
 - `manifest.toml`: input path, candidate mapping, partitions, and generation metadata.
 

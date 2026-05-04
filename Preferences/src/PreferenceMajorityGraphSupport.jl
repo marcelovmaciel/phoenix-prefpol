@@ -815,6 +815,86 @@ function effective_type_diagnostics(result::MajorityGraphSupportResult)
     )
 end
 
+support_core_effective_composition_table(result::MajorityGraphSupportResult) =
+    rename(core_effective_type_table(result),
+           :effective_types => :neff,
+           :n_above_effective_threshold => :n_effective_above_threshold,
+           :above_effective_rankings => :above_threshold_rankings)
+
+function support_core_above_threshold_type_table(result::MajorityGraphSupportResult)
+    df = core_effective_type_composition_table(result)
+    df = df[df.included .& df.above_effective_threshold, :]
+    rename!(df, :type_proportion => :profile_share,
+                :coverage => :support_coverage)
+    return select(df, :k, :type_index, :ranking, :profile_share, :support_coverage,
+                  :conditional_share, :effective_threshold, :effective_weight)
+end
+
+reverse_core_effective_composition_table(result::MajorityGraphSupportResult) =
+    rename(reverse_core_effective_type_table(result),
+           :effective_types => :neff,
+           :n_above_effective_threshold => :n_effective_above_threshold,
+           :above_effective_rankings => :above_threshold_rankings)
+
+function reverse_core_above_threshold_type_table(result::MajorityGraphSupportResult)
+    df = core_effective_type_composition_table(result; reverse=true)
+    df = df[df.included .& df.above_effective_threshold, :]
+    rename!(df, :type_proportion => :profile_share)
+    return select(df, :k, :type_index, :ranking, :profile_share, :reverse_coverage,
+                  :conditional_share, :effective_threshold, :effective_weight)
+end
+
+function edge_effective_composition_table(result::MajorityGraphSupportResult)
+    df = edge_effective_type_table(result)
+    rename!(df, :support_share_total => :support_share,
+                :support_effective_types => :support_neff,
+                :support_n_above_effective_threshold => :support_n_effective_above_threshold,
+                :opposition_share_total => :opposition_share,
+                :opposition_effective_types => :opposition_neff,
+                :opposition_n_above_effective_threshold => :opposition_n_effective_above_threshold)
+    return select(df, :edge_index, :edge, :support_share, :support_hhi, :support_neff,
+                  :support_effective_threshold, :support_n_effective_above_threshold,
+                  :opposition_share, :opposition_hhi, :opposition_neff,
+                  :opposition_effective_threshold, :opposition_n_effective_above_threshold)
+end
+
+function edge_above_threshold_type_table(result::MajorityGraphSupportResult)
+    df = edge_effective_type_composition_table(result)
+    df = df[df.above_effective_threshold, :]
+    rename!(df, :type_proportion => :profile_share)
+    return select(df, :edge_index, :edge, :side, :type_index, :ranking,
+                  :profile_share, :conditional_share, :effective_threshold,
+                  :effective_weight)
+end
+
+function countergraph_summary_table(result::MajorityGraphSupportResult)
+    nedges = length(result.edges)
+    reverse_mass(k) = sum(result.type_proportion[r] for r in eachindex(result.type_proportion)
+                          if nedges - result.coverage[r] >= k)
+    reverse_coverage = nedges .- result.coverage
+    largest_counter = isempty(result.type_proportion) ? missing :
+        argmax([(reverse_coverage[r], result.type_proportion[r])
+                for r in eachindex(result.type_proportion)])
+    largest_share = largest_counter === missing ? missing : result.type_proportion[largest_counter]
+    largest_ranking = largest_counter === missing || largest_share === missing ?
+        missing : _ranking_label(result.pool, result.basis.perms[largest_counter])
+    support_core(k) = get(result.core_mass_by_k, k, missing)
+    return DataFrame(
+        total_edges = [nedges],
+        strict_support_core_mass = [support_core(nedges)],
+        strict_reverse_core_mass = [reverse_mass(nedges)],
+        relaxed_support_core_mass_E_minus_1 = [nedges >= 1 ? support_core(nedges - 1) : missing],
+        relaxed_support_core_mass_E_minus_2 = [nedges >= 2 ? support_core(nedges - 2) : missing],
+        relaxed_reverse_core_mass_E_minus_1 = [nedges >= 1 ? reverse_mass(nedges - 1) : missing],
+        relaxed_reverse_core_mass_E_minus_2 = [nedges >= 2 ? reverse_mass(nedges - 2) : missing],
+        largest_countergraph_type_index = [largest_counter],
+        largest_countergraph_type_ranking = [largest_ranking],
+        largest_countergraph_type_share = [largest_share],
+        mean_type_support_coverage = [sum(result.type_proportion .* result.coverage)],
+        mean_type_reverse_coverage = [sum(result.type_proportion .* reverse_coverage)],
+    )
+end
+
 """
     boundary_distance_to_reverse(basis, type_index, winner, loser)
 

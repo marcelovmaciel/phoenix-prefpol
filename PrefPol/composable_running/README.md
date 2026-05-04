@@ -121,6 +121,25 @@ julia +1.11.9 --project=PrefPol \
 Do not use true paper-scale settings for smoke checks or low-replication
 operations tests.
 
+Single-peakedness report artifacts:
+
+```bash
+julia +1.11.9 --project=PrefPol \
+  PrefPol/composable_running/run_single_peakedness.jl \
+  --config PrefPol/config/single_peakedness.toml
+
+julia +1.11.9 --project=PrefPol/running/plotting_env \
+  PrefPol/composable_running/make_single_peakedness_report_artifacts.jl \
+  --config PrefPol/config/single_peakedness_report_artifacts.toml
+```
+
+The former graph-only plotting package is now `PreferencePlots`. It contains
+both majority-graph plots and reusable PythonPlot/CSV report artifacts for
+single-peakedness diagnostics. `PrefPol/composable_running/` remains
+orchestration-only: run diagnostics for the desired m values, generate figures
+and tables with `make_single_peakedness_report_artifacts.jl`, then write the
+report manually from those artifacts. This workflow does not generate a PDF.
+
 ## Stage Commands
 
 Use stage-by-stage execution when debugging, rerunning one failed stage,

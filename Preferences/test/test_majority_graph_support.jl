@@ -126,3 +126,48 @@
         @test nrow(pp.group_anchor_table(gresult)) == length(gresult.groups)
     end
 end
+
+@testset "effective composition and reverse core public tables" begin
+    pool = pp.CandidatePool([:A, :B, :C, :D])
+    profile = pp.Profile(pool, [
+        pp.StrictRank(pool, [:A, :B, :C, :D]),
+        pp.StrictRank(pool, [:A, :C, :B, :D]),
+        pp.StrictRank(pool, [:D, :C, :B, :A]),
+        pp.StrictRank(pool, [:B, :A, :C, :D]),
+    ])
+    basis = pp.voter_type_basis(pool; order=:kendall_shell, reference_order=[:A, :B, :C, :D])
+    result = pp.majority_graph_support(profile; basis=basis)
+    E = length(result.edges)
+
+    support_summary = pp.support_core_effective_composition_table(result)
+    support_long = pp.support_core_above_threshold_type_table(result)
+    reverse_summary = pp.reverse_core_effective_composition_table(result)
+    reverse_long = pp.reverse_core_above_threshold_type_table(result)
+    edge_summary = pp.edge_effective_composition_table(result)
+    edge_long = pp.edge_above_threshold_type_table(result)
+    counter = pp.countergraph_summary_table(result)
+
+    @test all([:k, :core_mass, :hhi, :neff, :effective_threshold,
+               :n_effective_above_threshold, :above_threshold_rankings] .∈ Ref(propertynames(support_summary)))
+    @test all([:k, :reverse_core_mass, :hhi, :neff, :effective_threshold,
+               :n_effective_above_threshold, :above_threshold_rankings] .∈ Ref(propertynames(reverse_summary)))
+    @test all([:edge_index, :edge, :support_share, :support_hhi, :support_neff,
+               :opposition_share, :opposition_hhi, :opposition_neff] .∈ Ref(propertynames(edge_summary)))
+    @test all([:edge_index, :edge, :side, :type_index, :ranking, :profile_share,
+               :conditional_share, :effective_threshold, :effective_weight] .∈ Ref(propertynames(edge_long)))
+    @test nrow(counter) == 1
+    @test counter.total_edges[1] == E
+
+    for df in (support_long, reverse_long, edge_long)
+        for row in eachrow(df)
+            @test row.effective_weight ≈ row.conditional_share / row.effective_threshold
+            @test row.effective_weight > 1.0
+        end
+    end
+
+    @test support_summary.core_mass[support_summary.k .== 0][1] ≈ 1.0
+    @test reverse_summary.reverse_core_mass[reverse_summary.k .== 0][1] ≈ 1.0
+    @test all(diff(support_summary.core_mass) .<= 1e-8)
+    @test all(diff(reverse_summary.reverse_core_mass) .<= 1e-8)
+    @test all(result.coverage .+ (E .- result.coverage) .== E)
+end

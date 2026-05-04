@@ -248,13 +248,13 @@ function role_mass_summary(role_table::DataFrame; mass_col::Symbol=:proportion)
     for (name, mask) in rows
         push!(role, name)
         push!(n_types, count(mask))
-        push!(mass, sum(Float64(role_table[i, mass_col]) for i in 1:nrow(role_table) if mask[i]))
+        push!(mass, sum((Float64(role_table[i, mass_col]) for i in 1:nrow(role_table) if mask[i]); init=0.0))
     end
     mixed = .!(role_table.anchor .| role_table.peripheral_supporter .|
                role_table.edge_breaker .| role_table.counter_graph)
     push!(role, "mixed")
     push!(n_types, count(mixed))
-    push!(mass, sum(Float64(role_table[i, mass_col]) for i in 1:nrow(role_table) if mixed[i]))
+    push!(mass, sum((Float64(role_table[i, mass_col]) for i in 1:nrow(role_table) if mixed[i]); init=0.0))
     share = total > 0 ? mass ./ total : zeros(Float64, length(mass))
     return DataFrame(role=role, n_types=n_types, mass=mass, share=share)
 end
@@ -275,7 +275,7 @@ function primary_role_mass_summary(role_table::DataFrame; mass_col::Symbol=:prop
         mask = role_table.primary_role .== role
         push!(primary_role, role)
         push!(n_types, count(mask))
-        push!(mass, sum(Float64(role_table[i, mass_col]) for i in 1:nrow(role_table) if mask[i]))
+        push!(mass, sum((Float64(role_table[i, mass_col]) for i in 1:nrow(role_table) if mask[i]); init=0.0))
     end
     share = total > 0 ? mass ./ total : zeros(Float64, length(mass))
     return DataFrame(primary_role=primary_role, n_types=n_types, mass=mass, share=share)

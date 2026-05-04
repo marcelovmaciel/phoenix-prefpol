@@ -1,5 +1,6 @@
-module PreferenceGraphPlots
+module PreferencePlots
 
+using CSV
 using DataFrames
 using Preferences
 using Printf
@@ -11,6 +12,17 @@ export plot_edge_overlap_heatmap, plot_support_matrix, plot_type_anchoring
 export plot_type_breakers, plot_group_contributions
 export plot_candidate_position_by_current_first, plot_plurality_swing_values
 export plot_group_target_switch
+export load_single_peakedness_outputs, require_columns, filter_single_peakedness
+export single_peaked_uniform_benchmark, canonical_axis_string, realization_cols
+export table_single_peakedness_main_values
+export table_single_peakedness_distance_distribution
+export table_single_peakedness_modal_axes
+export table_single_peakedness_axis_gaps
+export table_single_peakedness_pipeline_variation
+export table_single_peakedness_covariates
+export plot_sp_mass_by_m_year, plot_ratio_uniform_by_m_year, plot_l1_by_m_year
+export plot_distance_distribution, plot_pipeline_effects
+export plot_ideology_by_year_m, plot_covariate_exact_fit
 
 function _savefig(fig, output_path)
     path = String(output_path)
@@ -235,5 +247,7 @@ function plot_plurality_swing_values(swing_table; output_path)
     ax.set_title("Plurality swing values")
     return _savefig(fig, output_path)
 end
+
+include("single_peakedness_artifacts.jl")
 
 end

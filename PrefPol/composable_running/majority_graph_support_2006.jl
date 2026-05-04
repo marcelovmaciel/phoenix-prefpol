@@ -4,9 +4,9 @@ include("majority_graph_report_common.jl")
 
 function main(args=ARGS)
     opts = parse_common_args(args)
-    run_majority_graph_report(2022; config_path=opts.config, m=opts.m,
+    run_majority_graph_report(2006; config_path=opts.config, m=opts.m,
         backend=opts.backend, linearizer=opts.linearizer, b=opts.b, r=opts.r, k=opts.k,
-        input=opts.input, output=opts.output, validate_known=opts.validate_known)
+        input=opts.input, output=opts.output, validate_known=false)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
