@@ -1,6 +1,7 @@
 [input]
 dirs = [
-  "PrefPol/composable_running/output/single_peakedness",
+  "PrefPol/composable_running/output/paper_b2/single_peakedness_m3_m4",
+  "PrefPol/composable_running/output/paper_b2/single_peakedness",
 ]
 
 [output]
@@ -26,19 +27,19 @@ covariates_table = true
 year = 2006
 m = 5
 variable = "PT"
-filename = "demo_2006_pt_m5.png"
+filename = "demo_2006_pt_m5.jpg"
 title = "2006: exact fit by PT evaluation code, m=5"
 
 [[demo_covariate]]
 year = 2018
 m = 5
 variable = "LulaScoreGroup"
-filename = "demo_2018_lulascore_m5.png"
+filename = "demo_2018_lulascore_m5.jpg"
 title = "2018: exact fit by Lula score group, m=5"
 
 [[demo_covariate]]
 year = 2022
 m = 5
 variable = "Ideology"
-filename = "demo_2022_ideology_m5.png"
+filename = "demo_2022_ideology_m5.jpg"
 title = "2022: exact fit by ideology code, m=5"

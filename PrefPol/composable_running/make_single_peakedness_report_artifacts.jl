@@ -52,18 +52,6 @@ function generated!(paths, path)
     return path
 end
 
-function best_l0_support_classification(outputs)
-    axis = outputs.axis_summary
-    support = outputs.support_classification
-    require_columns(axis, [:axis_id, :is_best_L0_axis]; context="axis_summary")
-    require_columns(support, [:axis_id]; context="support_classification")
-    keys = [col for col in realization_cols(axis) if col ∈ realization_cols(support)]
-    join_keys = unique(vcat(keys, [:axis_id]))
-    best = unique(select(axis[axis.is_best_L0_axis .== true, :], join_keys))
-    best.is_best_L0_axis = trues(nrow(best))
-    return leftjoin(support, best; on=join_keys)
-end
-
 function demo_covariate_specs(cfg)
     return get(cfg, "demo_covariate", Any[])
 end
@@ -84,38 +72,37 @@ function main()
     mkpath(tables_dir)
 
     outputs = load_single_peakedness_outputs(dirs)
-    support_best_l0 = best_l0_support_classification(outputs)
     generated = String[]
 
     println("Generated single-peakedness report artifacts:")
 
     if enabled(artifacts, "sp_mass_by_m_year")
-        path = joinpath(figures_dir, "sp_mass_by_m_year.png")
+        path = joinpath(figures_dir, "sp_mass_by_m_year.jpg")
         plot_sp_mass_by_m_year(outputs.axis_summary; output_path=path)
         generated!(generated, path)
     end
     if enabled(artifacts, "ratio_uniform_by_m_year")
-        path = joinpath(figures_dir, "ratio_uniform_by_m_year.png")
+        path = joinpath(figures_dir, "ratio_uniform_by_m_year.jpg")
         plot_ratio_uniform_by_m_year(outputs.axis_summary; output_path=path)
         generated!(generated, path)
     end
     if enabled(artifacts, "l1_by_m_year")
-        path = joinpath(figures_dir, "l1_by_m_year.png")
+        path = joinpath(figures_dir, "l1_by_m_year.jpg")
         plot_l1_by_m_year(outputs.axis_summary; output_path=path)
         generated!(generated, path)
     end
     if enabled(artifacts, "distance_distribution")
-        path = joinpath(figures_dir, "distance_distribution.png")
-        plot_distance_distribution(support_best_l0; output_path=path, distance_bins=:tail)
+        path = joinpath(figures_dir, "distance_distribution.jpg")
+        plot_distance_distribution(outputs; output_path=path)
         generated!(generated, path)
     end
     if enabled(artifacts, "pipeline_effects")
-        path = joinpath(figures_dir, "pipeline_effects.png")
+        path = joinpath(figures_dir, "pipeline_effects.jpg")
         plot_pipeline_effects(outputs.axis_summary; output_path=path)
         generated!(generated, path)
     end
     if enabled(artifacts, "ideology_by_year_m") && :Ideology ∈ propertynames(outputs.row_classification)
-        path = joinpath(figures_dir, "ideology_by_year_m.png")
+        path = joinpath(figures_dir, "ideology_by_year_m.jpg")
         plot_ideology_by_year_m(outputs.row_classification; output_path=path)
         generated!(generated, path)
     end
@@ -155,7 +142,7 @@ function main()
     end
     if enabled(artifacts, "distance_table")
         path = joinpath(tables_dir, "single_peakedness_distance_distribution.csv")
-        table_single_peakedness_distance_distribution(support_best_l0; output_path=path)
+        table_single_peakedness_distance_distribution(outputs; output_path=path)
         generated!(generated, path)
     end
     if enabled(artifacts, "modal_axes_table")
