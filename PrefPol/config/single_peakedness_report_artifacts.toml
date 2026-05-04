@@ -1,0 +1,44 @@
+[input]
+dirs = [
+  "PrefPol/composable_running/output/single_peakedness",
+]
+
+[output]
+figures_dir = "PrefPol/composable_running/output/single_peakedness_report/figures"
+tables_dir = "PrefPol/composable_running/output/single_peakedness_report/tables"
+
+[artifacts]
+sp_mass_by_m_year = true
+ratio_uniform_by_m_year = true
+l1_by_m_year = true
+distance_distribution = true
+pipeline_effects = true
+ideology_by_year_m = true
+demo_covariates = true
+main_values_table = true
+distance_table = true
+modal_axes_table = true
+axis_gaps_table = true
+pipeline_variation_table = true
+covariates_table = true
+
+[[demo_covariate]]
+year = 2006
+m = 5
+variable = "PT"
+filename = "demo_2006_pt_m5.png"
+title = "2006: exact fit by PT evaluation code, m=5"
+
+[[demo_covariate]]
+year = 2018
+m = 5
+variable = "LulaScoreGroup"
+filename = "demo_2018_lulascore_m5.png"
+title = "2018: exact fit by Lula score group, m=5"
+
+[[demo_covariate]]
+year = 2022
+m = 5
+variable = "Ideology"
+filename = "demo_2022_ideology_m5.png"
+title = "2022: exact fit by ideology code, m=5"
