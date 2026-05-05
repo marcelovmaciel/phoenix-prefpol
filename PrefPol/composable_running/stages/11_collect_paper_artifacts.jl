@@ -208,7 +208,20 @@ function matching_manifest_rows(manifest::DataFrame, spec, settings)
     end
 
     :output_path in propertynames(rows) || error("Source manifest for $(stage) has no output_path column.")
-    rows = rows[isfile.(string.(rows.output_path)), :]
+    resolved_paths = String[]
+    keep = Bool[]
+    for path in string.(rows.output_path)
+        try
+            resolved = existing_manifest_path(path; label = "Generated source artifact")
+            push!(resolved_paths, resolved)
+            push!(keep, true)
+        catch
+            push!(resolved_paths, "")
+            push!(keep, false)
+        end
+    end
+    rows = rows[keep, :]
+    rows[!, :resolved_output_path] = resolved_paths[keep]
     return rows
 end
 
@@ -231,7 +244,9 @@ function selected_source_path(spec, settings)
         sort!(candidates, [:timestamp, :output_path])
     end
 
-    return String(candidates[end, :output_path])
+    return :resolved_output_path in propertynames(candidates) ?
+           String(candidates[end, :resolved_output_path]) :
+           existing_manifest_path(candidates[end, :output_path]; label = "Generated source artifact")
 end
 
 function ensure_destination_write!(src::AbstractString, dst::AbstractString, settings)
@@ -273,9 +288,9 @@ function collect_one(spec, settings)
         stage = "paper_artifact_collection",
         artifact_id = artifact_id,
         source_stage = String(config_value(spec, "source_stage", "")),
-        source_path = src,
-        destination_path = dst,
-        writing_imgs_path = writing_dst,
+        source_path = portable_path(src),
+        destination_path = portable_path(dst),
+        writing_imgs_path = isempty(writing_dst) ? "" : portable_path(writing_dst),
         copy_mode = settings.copy_mode,
         format = lowercase(splitext(destination_filename)[2][2:end]),
         source_hash = path_hash(src),
