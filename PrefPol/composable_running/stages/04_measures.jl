@@ -91,6 +91,71 @@ function resolve_path(path::AbstractString)
     return normpath(joinpath(pp.project_root, path))
 end
 
+function portable_path(path)
+    path === nothing && return ""
+    ismissing(path) && return ""
+    text = String(path)
+    isempty(text) && return text
+
+    abs_path = isabspath(text) ? normpath(text) : resolve_path(text)
+    rel = relpath(abs_path, REPOSITORY_ROOT)
+    if !startswith(rel, "..") && rel != "."
+        return replace(rel, '\\' => '/')
+    end
+    return isabspath(text) ? normpath(text) : text
+end
+
+function resolve_manifest_path(path)
+    ismissing(path) && return ""
+    text = String(path)
+    isempty(text) && return text
+    isabspath(text) && return normpath(text)
+    first_component = first(splitpath(text))
+    if first_component in ("PrefPol", "Preferences", "writing")
+        return normpath(joinpath(REPOSITORY_ROOT, text))
+    end
+    return normpath(joinpath(pp.project_root, text))
+end
+
+function recover_stale_manifest_path(path)
+    ismissing(path) && return nothing
+    text = String(path)
+    isempty(text) && return nothing
+
+    normalized = replace(text, '\\' => '/')
+    for anchor in ("PrefPol/", "Preferences/", "writing/")
+        idx = findfirst(anchor, normalized)
+        idx === nothing && continue
+        suffix = normalized[first(idx):end]
+        candidate = normpath(joinpath(REPOSITORY_ROOT, suffix))
+        isfile(candidate) || isdir(candidate) || continue
+        return candidate
+    end
+
+    return nothing
+end
+
+function manifest_path_error(label::AbstractString, original::AbstractString,
+                             resolved::AbstractString, recovered)
+    recovery_text = recovered === nothing ? "<none>" : String(recovered)
+    return """
+    $(label) not found.
+      original manifest path: $(original)
+      resolved candidate: $(resolved)
+      recovery candidate: $(recovery_text)
+    Rerun PrefPol/composable_running/stages/04_measures.jl to rewrite manifests with portable paths, or rerun it with --force to regenerate missing caches.
+    """
+end
+
+function existing_manifest_path(path; label::AbstractString = "Manifest artifact")
+    original = String(path)
+    resolved = resolve_manifest_path(original)
+    isfile(resolved) && return resolved
+    recovered = recover_stale_manifest_path(original)
+    recovered !== nothing && isfile(recovered) && return recovered
+    error(manifest_path_error(label, original, resolved, recovered))
+end
+
 function load_orchestration_config(path)
     path === nothing && return Dict{String,Any}()
     isfile(path) || error("Config not found: $(path)")
@@ -291,7 +356,7 @@ function spec_metadata(spec::pp.PipelineSpec, cache_dir::AbstractString, meta::N
         seed_namespace = spec.seed_namespace,
         schema_version = spec.schema_version,
         code_version = spec.code_version,
-        cache_dir = String(cache_dir),
+        cache_dir = portable_path(cache_dir),
     ), meta)
 end
 
@@ -322,7 +387,7 @@ function run_manifest(results::pp.BatchRunResult)
     for (idx, result) in enumerate(results.results)
         meta = merge(results.metadata[idx], (batch_index = idx,))
         push!(rows, merge(spec_metadata(result, meta), (
-            result_path = joinpath(result.cache_dir, "result.jld2"),
+            result_path = portable_path(joinpath(result.cache_dir, "result.jld2")),
             stage_manifest_rows = nrow(result.stage_manifest),
             measure_rows = nrow(result.measure_cube),
             status = "success",
@@ -360,8 +425,8 @@ function measure_manifest(results::pp.BatchRunResult)
                 k = key[3],
                 measure_id = String(row.measure),
                 grouping = ismissing(row.grouping) ? "" : String(row.grouping),
-                input_path = get(linearized_paths, key, ""),
-                output_path = get(measure_paths, key, ""),
+                input_path = portable_path(get(linearized_paths, key, "")),
+                output_path = portable_path(get(measure_paths, key, "")),
                 status = "success",
                 error = "",
                 timestamp = Dates.format(now(), dateformat"yyyy-mm-ddTHH:MM:SS"),
@@ -381,6 +446,7 @@ function stage_manifest(results::Vector{DataFrame},
         meta = merge(item.metadata, (batch_index = idx,))
         cache_dir = pp.pipeline_cache_dir(pipeline, item.spec)
         df = decorate!(DataFrame(manifest), spec_metadata(item.spec, cache_dir, meta))
+        :path in propertynames(df) && (df[!, :path] = portable_path.(df.path))
         df[!, :status] = fill("success", nrow(df))
         df[!, :error] = fill("", nrow(df))
         df[!, :timestamp] = fill(Dates.format(now(), dateformat"yyyy-mm-ddTHH:MM:SS"), nrow(df))

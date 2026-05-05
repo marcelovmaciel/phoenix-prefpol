@@ -103,7 +103,11 @@ end
 manifest_hash(path::AbstractString) = bytes2hex(SHA.sha256(read(path)))
 
 function lambda_augmented_result(path::AbstractString)
-    result = pp.load_pipeline_result(path)
+    result_path = existing_manifest_path(
+        path;
+        label = "Cached PipelineResult",
+    )
+    result = pp.load_pipeline_result(result_path)
     measures = Symbol.(result.measure_cube.measure)
     any(measures .== :lambda_sep) && return result
     return pp.augment_pipeline_result_with_lambda_sep(result; include_w = true)
@@ -135,7 +139,11 @@ function summarize_grouped_w(result::pp.PipelineResult)
 end
 
 function summarize_lambda_result(row)
-    result = lambda_augmented_result(string(row.result_path))
+    result_path = existing_manifest_path(
+        row.result_path;
+        label = "Cached PipelineResult",
+    )
+    result = lambda_augmented_result(result_path)
     lambda = summarize_grouped_measure(result, :lambda_sep, :Lambda)
     W = summarize_grouped_w(result)
     D = summarize_grouped_measure(result, :D, :D)
@@ -147,7 +155,7 @@ function summarize_lambda_result(row)
     audit[!, :Year] = fill(Int(row.year), nrow(audit))
     audit[!, :Scenario] = fill(string(row.scenario_name), nrow(audit))
     audit[!, :m] = fill(Int(row.m), nrow(audit))
-    audit[!, :source_result_path] = fill(string(row.result_path), nrow(audit))
+    audit[!, :source_result_path] = fill(portable_path(result_path), nrow(audit))
     select!(audit, :Year, :Scenario, :m, :Grouping, :Lambda, :W, :D, :S, :source_result_path)
     return select(audit, :Year, :Scenario, :m, :Grouping, :Lambda), audit
 end

@@ -234,11 +234,13 @@ function load_results_from_manifest(manifest::DataFrame)
     metadata = NamedTuple[]
 
     for row in eachrow(manifest)
-        result_path = String(row.result_path)
-        isfile(result_path) || error("Cached PipelineResult not found: $(result_path)")
+        result_path = existing_manifest_path(
+            row.result_path;
+            label = "Cached PipelineResult",
+        )
         result = pp.load_pipeline_result(result_path)
         :spec_hash in propertynames(row) && string(row.spec_hash) != basename(result.cache_dir) && error(
-            "Manifest/result hash mismatch for $(result_path).",
+            "Manifest/result hash mismatch for $(String(row.result_path)) resolved to $(result_path).",
         )
         meta = metadata_from_manifest_row(row)
         push!(items, pp.StudyBatchItem(result.spec; meta...))

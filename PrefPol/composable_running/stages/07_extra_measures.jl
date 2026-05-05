@@ -66,10 +66,13 @@ function linearized_stage_rows(result::pp.PipelineResult)
 end
 
 function strict_profile_from_linearized(path::AbstractString)
-    isfile(path) || error("Cached linearized profile artifact not found: $(path)")
-    artifact = JLD2.load(path, "artifact")
+    artifact_path = existing_manifest_path(
+        path;
+        label = "Cached linearized profile artifact",
+    )
+    artifact = JLD2.load(artifact_path, "artifact")
     artifact isa AbstractDataFrame || error(
-        "Expected cached linearized artifact $(path) to be a DataFrame; got $(typeof(artifact)).",
+        "Expected cached linearized artifact $(artifact_path) to be a DataFrame; got $(typeof(artifact)).",
     )
     return pp.dataframe_to_annotated_profile(artifact; ballot_kind = :strict).profile
 end
@@ -137,7 +140,10 @@ function base_draw_metadata(row, stage)
         k = Int(stage.k),
         scenario_dir = :scenario_dir in propertynames(row) ? string(row.scenario_dir) : "",
         cache_dir = string(row.cache_dir),
-        linearized_path = string(stage.path),
+        linearized_path = portable_path(existing_manifest_path(
+            stage.path;
+            label = "Cached linearized profile artifact",
+        )),
     )
 end
 
@@ -193,7 +199,11 @@ function build_draw_tables(manifest::DataFrame)
     effective_rows = NamedTuple[]
 
     for row in eachrow(manifest)
-        result = pp.load_pipeline_result(String(row.result_path))
+        result_path = existing_manifest_path(
+            row.result_path;
+            label = "Cached PipelineResult",
+        )
+        result = pp.load_pipeline_result(result_path)
         for stage in eachrow(linearized_stage_rows(result))
             profile = strict_profile_from_linearized(String(stage.path))
             base = base_draw_metadata(row, stage)
