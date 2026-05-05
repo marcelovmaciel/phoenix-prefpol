@@ -1,0 +1,109 @@
+# Paper-scope orchestration for B = 30, R = 10, K = 10.
+#
+# All stage outputs are rooted under
+# PrefPol/composable_running/output/paper_b30_r10_k10 so this run cannot
+# accidentally collect plots, tables, or Lambda outputs from another BRK run.
+
+[run]
+B = 30
+R = 10
+K = 10
+output_root = "PrefPol/composable_running/output/paper_b30_r10_k10"
+cache_root = "PrefPol/composable_running/output/paper_b30_r10_k10/cache"
+force = false
+dry_run = false
+consensus_tie_policy = "average"
+imputer_backends = ["mice", "zero"]
+linearizer_policies = ["pattern_conditional", "random_ties"]
+measures = ["Psi", "R", "HHI", "RHHI", "C", "D", "O", "S", "lambda_sep"]
+
+[measure_sets]
+main = ["Psi", "R", "HHI", "RHHI", "C", "D", "O", "S", "lambda_sep"]
+global = ["Psi", "R", "HHI", "RHHI"]
+group = ["C", "D", "O", "S"]
+o_smoothed_extension = ["O_smoothed"]
+
+[extra_measures]
+run_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/run_manifest.csv"
+extra_measure_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/extra_measure_manifest.csv"
+output_dir = "PrefPol/composable_running/output/paper_b30_r10_k10/extra_measures"
+analysis_role = "main"
+m_values = [2, 3, 4, 5]
+
+[global_plots]
+output_root = "PrefPol/composable_running/output/paper_b30_r10_k10"
+plot_root = "PrefPol/composable_running/output/paper_b30_r10_k10/plots/global"
+run_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/plot_manifest.csv"
+
+[group_plots]
+output_root = "PrefPol/composable_running/output/paper_b30_r10_k10"
+plot_root = "PrefPol/composable_running/output/paper_b30_r10_k10/plots/group"
+run_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/plot_manifest.csv"
+group_plot_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/group_plot_manifest.csv"
+
+[effective_rankings]
+output_root = "PrefPol/composable_running/output/paper_b30_r10_k10"
+table_root = "PrefPol/composable_running/output/paper_b30_r10_k10/tables"
+source = "PrefPol/composable_running/output/paper_b30_r10_k10/extra_measures/effective_counts/effective_counts_summary.csv"
+table_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/table_manifest.csv"
+enabled = true
+outputs = ["effective_rankings.csv", "effective_rankings.tex", "effective_rankings.md"]
+years = [2006, 2018, 2022]
+backend = "mice"
+linearizer = "pattern_conditional"
+analysis_role = "main"
+m_values = [2, 3, 4, 5]
+metrics = ["ENRP", "EO", "reversal_to_ranking_effective_ratio"]
+
+[extra_plots]
+output_root = "PrefPol/composable_running/output/paper_b30_r10_k10"
+extra_plot_root = "PrefPol/composable_running/output/paper_b30_r10_k10/extra_plots"
+table_root = "PrefPol/composable_running/output/paper_b30_r10_k10/tables/effective_rankings"
+extra_plot_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/extra_plot_manifest.csv"
+formats = ["png", "svg"]
+effective_rankings_enabled = true
+
+[extra_plots.variance_decomposition]
+enabled = true
+source = "PrefPol/composable_running/output/paper_b30_r10_k10/measures/decomposition_table.csv"
+year = 2022
+scenario_name = "main_2022"
+value_kind = "variance"
+filename = "variance_decomposition_2022.png"
+
+[lambda_table]
+run_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/run_manifest.csv"
+appendix_dir = "PrefPol/composable_running/output/paper_b30_r10_k10/appendices/lambda"
+appendix_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/lambda_table_manifest.csv"
+
+[[targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[diagnostic_targets]]
+wave_id = "2022"
+scenario_name = "no_forcing"
+m_values = [2, 3, 4, 5]
+analysis_role = "diagnostic"
+groupings = "configured"
