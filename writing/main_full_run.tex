@@ -1567,23 +1567,24 @@ linearization.
 
 A compact visualization of this decomposition is shown in Figure
 \ref{fig:variance-decomposition-2022}. The figure reports, for the 2022 wave
-and the selected scenario, the distribution of the three variance components
-across pipeline specifications, separately for each measure and candidate-set
-size \(m\). The horizontal axis gives \(m\), and within each value of \(m\) the
-boxplots compare the bootstrap, imputation, and linearization components. For
-the group-based measures, the boxplots pool the corresponding analysis cells
-across the available groupings, so the figure should be read as a descriptive
-summary of how the decomposition behaves across the set of group diagnostics,
-not as a statement about one particular grouping variable.
+and the selected scenario, the bootstrap, imputation, and linearization
+variance components for the measures used in the main analysis. The horizontal
+axis gives candidate-set size \(m\), and within each value of \(m\) the
+boxplots compare the three nested variance components. For the group-based
+measures, \(C\) and \(D\) pool the corresponding analysis cells across the
+available groupings, so the figure should be read as a descriptive summary
+across group diagnostics, not as a statement about one particular grouping
+variable.
 
 \begin{figure}[p]
   \centering
   \vspace{-1.2cm}
 \includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{imgs/variance_decomposition_2022.png}
 \caption{Nested variance decomposition by measure and candidate-set size,
-2022. For the group-based measures, the distributions pool the relevant
-analysis cells across available groupings, so the figure is intended as a
-compact descriptive summary of the sources of simulation variability.}
+2022. The figure reports the bootstrap, imputation, and linearization variance
+components for the measures used in the main analysis. For the group-based
+measures, \(C\) and \(D\) pool the corresponding analysis cells across
+available groupings.}
 \label{fig:variance-decomposition-2022}
 \end{figure}
 
@@ -1601,8 +1602,8 @@ measures and values of \(m\), the bootstrap component is visibly larger than
 the imputation and linearization components. This means that most of the
 simulation variability comes from changing the weighted pseudo-profile rather
 than from the downstream stochastic operations applied to that pseudo-profile.
-This pattern is especially clear for \(\Psi\), \(R\), \(HHI\), and \(RHHI\), but
-it also holds for the group-based measures \(C\) and \(D\).
+This pattern is especially clear for \(\Psi\), \(R\), \(\kappa\), and \(RHHI\),
+but it also holds for the group-based measures \(C\) and \(D\).
 In other words, once a bootstrap pseudo-profile is fixed, the additional
 variability introduced by missing-data imputation and by stochastic
 linearization is usually much smaller than the variability already induced by
@@ -1617,7 +1618,7 @@ contribution in most cases.
 
 Fourth, there is some heterogeneity across measures and across \(m\). Measures
 such as \(D\) occasionally exhibit somewhat larger bootstrap
-dispersion, and \(HHI\) and \(RHHI\) show more uneven behavior as \(m\) changes.
+dispersion, and \(\kappa\) and \(RHHI\) show more uneven behavior as \(m\) changes.
 This is unsurprising. Different measures respond differently to the geometry
 and sparsity of the profile, and increasing \(m\) changes the ranking space
 itself. Still, the broad qualitative pattern remains the same: candidate-set
@@ -1683,4 +1684,3 @@ Bolsonaro, Ciro Gomes, Simone Tebet, and Marina Silva.
 
 
 \end{document}
-

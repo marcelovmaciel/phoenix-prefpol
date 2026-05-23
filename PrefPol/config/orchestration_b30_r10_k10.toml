@@ -74,6 +74,7 @@ year = 2022
 scenario_name = "main_2022"
 value_kind = "variance"
 filename = "variance_decomposition_2022.png"
+maxcols = 3
 
 [lambda_table]
 run_manifest = "PrefPol/composable_running/output/paper_b30_r10_k10/manifests/run_manifest.csv"

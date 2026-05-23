@@ -69,7 +69,16 @@ function _plotting_test_results(;
 end
 
 @testset "plotting extension smoke" begin
-    @test Base.get_extension(PrefPol, :PrefPolPlottingExt) !== nothing
+    ext = Base.get_extension(PrefPol, :PrefPolPlottingExt)
+    @test ext !== nothing
+    @test ext._measure_label(:Psi) isa pp.Makie.LaTeXString
+    @test String(ext._measure_label(:Psi)) == raw"$\Psi$"
+    @test ext._measure_label(:HHI) isa pp.Makie.LaTeXString
+    @test String(ext._measure_label(:HHI)) == raw"$\kappa$"
+    @test ext._measure_label(:RHHI) == "RHHI"
+    @test ext._variance_measure_plot_label(:Psi) isa pp.Makie.LaTeXString
+    @test ext._variance_measure_plot_label(:HHI) isa pp.Makie.LaTeXString
+    @test ext._plot_measure_label(:HHI, Dict(:HHI => ext._measure_label(:HHI))) isa pp.Makie.LaTeXString
 
     results = _plotting_test_results()
     signed_results = _plotting_test_results(measures = [:S])

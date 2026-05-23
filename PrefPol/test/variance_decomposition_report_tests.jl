@@ -96,8 +96,8 @@ end
     fine = PrefPol.variance_decomposition_fine_table(input)
     labels = unique(fine.measure_label)
 
-    @test unique(fine.measure) == [:Psi, :R, :HHI, :RHHI, :C, :D, :S, :Sep]
-    @test labels == ["Ψ", "R", "HHI", "RHHI", "C", "D", "S", "1-O"]
+    @test unique(fine.measure) == [:C, :D, :HHI, :Psi, :R, :RHHI]
+    @test labels == ["C", "D", "κ", "Ψ", "R", "RHHI"]
     @test !(:D_median in fine.measure)
 
     explicit = PrefPol.variance_decomposition_fine_table(
@@ -184,13 +184,16 @@ end
     @test Set(diagnostic_rows.panel_label) == Set(["Ψ", "C | Age", "C | Education"])
 end
 
-@testset "variance decomposition report derives paper 1-O from O rows" begin
+@testset "variance decomposition report derives explicit 1-O from O rows" begin
     input = _report_decomposition_fixture()
     input = input[input.measure .!= :Sep, :]
     input.measure[input.measure .== :G] .= :O
     input.estimate[input.measure .== :O] .= 0.3
 
-    fine = PrefPol.variance_decomposition_fine_table(input)
+    fine = PrefPol.variance_decomposition_fine_table(
+        input,
+        PrefPol.VarianceDecompositionReportSpec(measures = [Symbol("1-O")]),
+    )
     sep = fine[fine.measure .== :Sep, :]
 
     @test :Sep in unique(fine.measure)

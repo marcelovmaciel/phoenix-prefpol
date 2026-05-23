@@ -1,9 +1,9 @@
 const DEFAULT_VARIANCE_DECOMPOSITION_ESTIMATOR = :existing_nested_moments
-const DEFAULT_PAPER_VARIANCE_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D, :S, :Sep]
+const DEFAULT_PAPER_VARIANCE_MEASURES = [:C, :D, :HHI, :Psi, :R, :RHHI]
 const DEFAULT_PAPER_VARIANCE_MEASURE_LABELS = Dict(
     :Psi => "Ψ",
     :R => "R",
-    :HHI => "HHI",
+    :HHI => "κ",
     :RHHI => "RHHI",
     :C => "C",
     :D => "D",

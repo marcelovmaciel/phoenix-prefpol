@@ -24,9 +24,14 @@ end
 @inline _wong_colors() = Makie.wong_colors()
 
 @inline _measure_label(measure::Symbol) =
-    measure === :Psi ? "Ψ" :
+    measure === :Psi ? Makie.LaTeXString(raw"$\Psi$") :
+    measure === :HHI ? Makie.LaTeXString(raw"$\kappa$") :
     measure === :D_median ? "D" :
     String(measure)
+
+@inline _variance_measure_plot_label(measure::Symbol) =
+    measure === :Psi || measure === :HHI ? _measure_label(measure) :
+    get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS, measure, String(measure))
 
 @inline _grouping_label(group::Symbol) =
     group === :LulaScoreGroup ? "Lula's score" : String(group)
@@ -75,7 +80,7 @@ const _VARIANCE_COMPONENT_OFFSETS = Dict(
 
 function _plot_measure_label(measure::Symbol, measure_labels)
     if measure_labels !== nothing && haskey(measure_labels, measure)
-        return String(measure_labels[measure])
+        return measure_labels[measure]
     end
 
     return _measure_label(measure)
@@ -509,7 +514,7 @@ function plot_group_demographics_lines(all_gm,
     header_rows = 2
 
     legend_handles = Any[]
-    legend_labels = String[]
+    legend_labels = AbstractString[]
 
     for (idx, demo) in enumerate(demographics)
         r, c = fldmod1(idx, ncol)
@@ -774,7 +779,7 @@ function plot_pipeline_scenario(result_or_results;
     )
 
     legend_handles = Any[]
-    legend_labels = String[]
+    legend_labels = AbstractString[]
 
     for (idx, measure) in enumerate(wanted_measures)
         subdf = sort(rows[rows.measure .== measure, :], :n_candidates)
@@ -880,7 +885,7 @@ function plot_pipeline_group_lines(result_or_results;
     header_rows = 2
 
     legend_handles = Any[]
-    legend_labels = String[]
+    legend_labels = AbstractString[]
 
     for (idx, grouping) in enumerate(grouping_values)
         r, c = fldmod1(idx, ncol)
@@ -1384,15 +1389,18 @@ function _summarize_variance_plot_rows(rows::AbstractDataFrame)
 end
 
 function _variance_by_m_panel_value(row, cols)
+    col_syms = Symbol.(collect(cols))
+    if length(col_syms) == 1 && only(col_syms) === :measure && hasproperty(row, :measure)
+        return _variance_measure_plot_label(PrefPol.normalize_variance_measure(row.measure))
+    end
+
     parts = String[]
-    for col in Symbol.(collect(cols))
+    for col in col_syms
         hasproperty(row, col) || continue
         value = getproperty(row, col)
         ismissing(value) && continue
         if col === :measure
-            push!(parts, get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS,
-                             PrefPol.normalize_variance_measure(value),
-                             string(value)))
+            push!(parts, String(_variance_measure_plot_label(PrefPol.normalize_variance_measure(value))))
         else
             push!(parts, string(value))
         end
@@ -1401,7 +1409,7 @@ function _variance_by_m_panel_value(row, cols)
 end
 
 function _variance_by_m_axis_values(rows::AbstractDataFrame, panel_cols)
-    labels = String[]
+    labels = AbstractString[]
     keys = Tuple[]
     seen = Set{Tuple}()
     for row in eachrow(rows)
@@ -1523,14 +1531,16 @@ end
 
 function _variance_boxplot_panel_keys(rows::AbstractDataFrame)
     keys = Tuple[]
-    labels = String[]
+    labels = AbstractString[]
     seen = Set{Tuple}()
 
     for row in eachrow(rows)
         grouping = hasproperty(row, :panel_grouping) ? row.panel_grouping :
                    (hasproperty(row, :grouping) ? row.grouping : missing)
-        label = hasproperty(row, :panel_label) ? string(row.panel_label) :
-                string(get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS, Symbol(row.measure), string(row.measure)))
+        measure = PrefPol.normalize_variance_measure(row.measure)
+        default_label = get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS, measure, string(row.measure))
+        row_label = hasproperty(row, :panel_label) ? string(row.panel_label) : default_label
+        label = row_label == default_label ? _variance_measure_plot_label(measure) : row_label
         key = (Symbol(row.measure), grouping, label)
         key in seen && continue
         push!(seen, key)
@@ -1767,8 +1777,7 @@ function plot_variance_decomposition_dotwhisker(pooled_table::AbstractDataFrame;
         xlabel = xlabel,
         yticks = (
             1:length(wanted_measures),
-            [get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS, measure, String(measure))
-             for measure in wanted_measures],
+            [_variance_measure_plot_label(measure) for measure in wanted_measures],
         ),
     )
 
@@ -1851,8 +1860,7 @@ function plot_variance_decomposition_boxplot(pooled_table::AbstractDataFrame;
         xlabel = xlabel,
         yticks = (
             1:length(wanted_measures),
-            [get(PrefPol.DEFAULT_PAPER_VARIANCE_MEASURE_LABELS, measure, String(measure))
-             for measure in wanted_measures],
+            [_variance_measure_plot_label(measure) for measure in wanted_measures],
         ),
     )
 
