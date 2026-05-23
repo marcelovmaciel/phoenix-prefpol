@@ -65,6 +65,35 @@ function linearized_stage_rows(result::pp.PipelineResult)
     return rows
 end
 
+function linearized_filename(b::Int, r::Int, k::Int)
+    return string(
+        "b", lpad(string(b), 4, "0"),
+        "_r", lpad(string(r), 4, "0"),
+        "_k", lpad(string(k), 4, "0"),
+        ".jld2",
+    )
+end
+
+function cached_linearized_stage_rows(row)
+    cache_dir = resolve_manifest_path(string(row.cache_dir))
+    rows = NamedTuple[]
+    for b in 1:Int(row.B), r in 1:Int(row.R), k in 1:Int(row.K)
+        push!(rows, (
+            stage = :linearized,
+            b = b,
+            r = r,
+            k = k,
+            path = joinpath(cache_dir, "linearized", linearized_filename(b, r, k)),
+        ))
+    end
+
+    missing_paths = [stage.path for stage in rows if !isfile(stage.path)]
+    isempty(missing_paths) || error(
+        "Cached linearized profile artifacts are missing for $(row.wave_id) $(row.scenario_name) m=$(row.m): $(first(missing_paths))",
+    )
+    return rows
+end
+
 function strict_profile_from_linearized(path::AbstractString)
     artifact_path = existing_manifest_path(
         path;
@@ -198,13 +227,17 @@ function build_draw_tables(manifest::DataFrame)
     ranking_rows = NamedTuple[]
     effective_rows = NamedTuple[]
 
-    for row in eachrow(manifest)
-        result_path = existing_manifest_path(
-            row.result_path;
-            label = "Cached PipelineResult",
+    for (row_idx, row) in enumerate(eachrow(manifest))
+        println(
+            "  extra measures [", row_idx, "/", nrow(manifest), "] wave=", row.wave_id,
+            " scenario=", row.scenario_name,
+            " m=", row.m,
+            " backend=", row.imputer_backend,
+            " linearizer=", row.linearizer_policy,
         )
-        result = pp.load_pipeline_result(result_path)
-        for stage in eachrow(linearized_stage_rows(result))
+        draw_idx = 0
+        for stage in cached_linearized_stage_rows(row)
+            draw_idx += 1
             profile = strict_profile_from_linearized(String(stage.path))
             base = base_draw_metadata(row, stage)
 
@@ -214,7 +247,10 @@ function build_draw_tables(manifest::DataFrame)
             push!(ranking_rows, ranking)
 
             push!(effective_rows, merge(base, effective_number_stats(profile)))
+            profile = nothing
+            draw_idx % 100 == 0 && GC.gc(false)
         end
+        GC.gc()
     end
 
     isempty(ranking_rows) && error("No ranking-support diagnostic rows were produced.")

@@ -158,7 +158,7 @@ function _plot_title(rows::AbstractDataFrame;
         rows[1, :R],
         ", K = ",
         rows[1, :K],
-        " • draws = ",
+        " • leaves = ",
         rows[1, :n_draws],
     )
 end
@@ -172,7 +172,7 @@ function _plot_year_label(rows::AbstractDataFrame; year = nothing, wave_id = not
 end
 
 function _plot_draws_label(rows::AbstractDataFrame)
-    return string("draws = ", rows[1, :n_draws])
+    return string("leaves = ", rows[1, :n_draws])
 end
 
 function _plot_paper_title(rows::AbstractDataFrame;

@@ -2775,7 +2775,7 @@ end
     pipeline_panel_table(result_or_results) -> DataFrame
 
 Summarize the raw measure cube for plotting/reporting. The returned rows are
-grouped by `(measure, grouping)` and include BRK-draw quantiles together with
+grouped by `(measure, grouping)` and include BRK-leaf quantiles together with
 the pooled estimate and variance decomposition. `G` is taken directly from the
 stored measure rows and is never re-derived from `C` and `D` at reporting time.
 """

@@ -327,6 +327,19 @@ function write_csv(path::AbstractString, df::AbstractDataFrame)
     return path
 end
 
+function append_csv(path::AbstractString, df::AbstractDataFrame; writeheader::Bool)
+    mkpath(dirname(path))
+    CSV.write(path, df; append = !writeheader, writeheader = writeheader)
+    return path
+end
+
+function reset_output_files!(paths::AbstractVector{<:AbstractString})
+    for path in paths
+        isfile(path) && rm(path)
+    end
+    return nothing
+end
+
 function sorted_table(df::DataFrame)
     isempty(df) && return df
     preferred = [
@@ -437,6 +450,58 @@ function measure_manifest(results::pp.BatchRunResult)
     return DataFrame(rows)
 end
 
+function decomposition_table(result::pp.PipelineResult, meta::NamedTuple)
+    df = pp.decomposition_table(result.decomposition)
+    decorate!(df, spec_metadata(result, meta))
+    return df
+end
+
+function run_manifest(result::pp.PipelineResult, meta::NamedTuple)
+    return DataFrame([merge(spec_metadata(result, meta), (
+        result_path = portable_path(joinpath(result.cache_dir, "result.jld2")),
+        stage_manifest_rows = nrow(result.stage_manifest),
+        measure_rows = nrow(result.measure_cube),
+        status = "success",
+        timestamp = Dates.format(now(), dateformat"yyyy-mm-ddTHH:MM:SS"),
+    ))])
+end
+
+function measure_manifest(result::pp.PipelineResult, meta::NamedTuple)
+    rows = NamedTuple[]
+    full_meta = spec_metadata(result, meta)
+    measure_paths = Dict{Tuple{Int,Int,Int},String}()
+    linearized_paths = Dict{Tuple{Int,Int,Int},String}()
+
+    for row in eachrow(result.stage_manifest)
+        key = (Int(row.b), Int(row.r), Int(row.k))
+        stage_name = Symbol(row.stage)
+        if stage_name === :measure
+            measure_paths[key] = String(row.path)
+        elseif stage_name === :linearized
+            linearized_paths[key] = String(row.path)
+        end
+    end
+
+    for row in eachrow(result.measure_cube)
+        key = (Int(row.b), Int(row.r), Int(row.k))
+        push!(rows, merge(full_meta, (
+            stage = "measure",
+            b = key[1],
+            r = key[2],
+            k = key[3],
+            measure_id = String(row.measure),
+            grouping = ismissing(row.grouping) ? "" : String(row.grouping),
+            input_path = portable_path(get(linearized_paths, key, "")),
+            output_path = portable_path(get(measure_paths, key, "")),
+            status = "success",
+            error = "",
+            timestamp = Dates.format(now(), dateformat"yyyy-mm-ddTHH:MM:SS"),
+        )))
+    end
+
+    return DataFrame(rows)
+end
+
 function stage_manifest(results::Vector{DataFrame},
                         batch::pp.StudyBatchSpec,
                         pipeline::pp.NestedStochasticPipeline)
@@ -509,6 +574,56 @@ function run_measure_batch(pipeline::pp.NestedStochasticPipeline,
     return pp.BatchRunResult(batch, results, metadata)
 end
 
+function write_measure_outputs_streaming(pipeline::pp.NestedStochasticPipeline,
+                                         batch::pp.StudyBatchSpec,
+                                         settings;
+                                         progress::Bool = true)
+    measure_dir = joinpath(settings.output_root, "measures")
+    manifest_dir = joinpath(settings.output_root, "manifests")
+
+    paths = (
+        measure_table = joinpath(measure_dir, "measure_table.csv"),
+        summary_table = joinpath(measure_dir, "summary_table.csv"),
+        panel_table = joinpath(measure_dir, "panel_table.csv"),
+        decomposition_table = joinpath(measure_dir, "decomposition_table.csv"),
+        run_manifest = joinpath(manifest_dir, "run_manifest.csv"),
+        measure_manifest = joinpath(manifest_dir, "measure_manifest.csv"),
+    )
+    reset_output_files!(String[getproperty(paths, name) for name in propertynames(paths)])
+
+    wrote = Dict(name => false for name in propertynames(paths))
+
+    for (idx, item) in enumerate(batch.items)
+        println(
+            "  assembling [", idx, "/", length(batch.items), "] wave=", item.spec.wave_id,
+            " scenario=", item.metadata.scenario_name,
+            " m=", item.metadata.m,
+            " backend=", item.spec.imputer_backend,
+            " linearizer=", item.spec.linearizer_policy,
+        )
+
+        result = pp.ensure_measures!(pipeline, item.spec; force = settings.force, progress = progress)
+        meta = merge(item.metadata, (batch_index = idx,))
+
+        for (name, table) in (
+            :measure_table => pp.pipeline_measure_table(result, meta),
+            :summary_table => pp.pipeline_summary_table(result, meta),
+            :panel_table => pp.pipeline_panel_table(result, meta),
+            :decomposition_table => decomposition_table(result, meta),
+            :run_manifest => run_manifest(result, meta),
+            :measure_manifest => measure_manifest(result, meta),
+        )
+            append_csv(getproperty(paths, name), sorted_table(table); writeheader = !wrote[name])
+            wrote[name] = true
+        end
+
+        result = nothing
+        GC.gc()
+    end
+
+    return paths
+end
+
 function main(args = ARGS)
     opts = parse_args(args)
     cfg = load_orchestration_config(opts["config"])
@@ -525,20 +640,10 @@ function main(args = ARGS)
     mkpath(joinpath(settings.output_root, "manifests"))
 
     pipeline = pp.NestedStochasticPipeline(registry; cache_root = settings.cache_root)
-    results = run_measure_batch(pipeline, batch; force = settings.force)
+    write_measure_outputs_streaming(pipeline, batch, settings)
 
-    measure_dir = joinpath(settings.output_root, "measures")
-    manifest_dir = joinpath(settings.output_root, "manifests")
-
-    write_csv(joinpath(measure_dir, "measure_table.csv"), sorted_table(pp.pipeline_measure_table(results)))
-    write_csv(joinpath(measure_dir, "summary_table.csv"), sorted_table(pp.pipeline_summary_table(results)))
-    write_csv(joinpath(measure_dir, "panel_table.csv"), sorted_table(pp.pipeline_panel_table(results)))
-    write_csv(joinpath(measure_dir, "decomposition_table.csv"), sorted_table(decomposition_tables(results)))
-    write_csv(joinpath(manifest_dir, "run_manifest.csv"), sorted_table(run_manifest(results)))
-    write_csv(joinpath(manifest_dir, "measure_manifest.csv"), sorted_table(measure_manifest(results)))
-
-    println("Wrote measure outputs under ", measure_dir)
-    println("Wrote manifests under ", manifest_dir)
+    println("Wrote measure outputs under ", joinpath(settings.output_root, "measures"))
+    println("Wrote manifests under ", joinpath(settings.output_root, "manifests"))
     return nothing
 end
 

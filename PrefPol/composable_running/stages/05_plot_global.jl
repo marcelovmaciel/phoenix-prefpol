@@ -360,7 +360,7 @@ function global_plot_stem(rows::AbstractDataFrame, target, combo)
         "B-$(row.B)",
         "R-$(row.R)",
         "K-$(row.K)",
-        "draws-$(row.n_draws)",
+        "leaves-$(row.n_draws)",
     ), "_")
 end
 
