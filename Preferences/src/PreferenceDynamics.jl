@@ -8,6 +8,18 @@
 # Mutable strict rank (ABM)
 ##############################
 
+"""
+    StrictRankMutable(x::StrictRank)
+    StrictRankMutable{N}(r::Vector{UInt16})
+
+Mutable complete strict ranking used by dynamics code. The storage convention is
+`ranks[id] = position`, where candidate IDs are pool-relative positions and
+lower positions are preferred. `StrictRankMutable(::StrictRank)` derives this
+rank-vector representation from the immutable best-to-worst permutation.
+
+The parametric constructor checks only length; callers that pass raw storage are
+responsible for preserving the permutation invariant.
+"""
 mutable struct StrictRankMutable{N}
     # ranks[id] = position (1..N)
     ranks::Vector{UInt16}  # length N, permutation of 1..N
@@ -36,7 +48,14 @@ function to_perm(srm::StrictRankMutable{N}) where {N}
     return perm
 end
 
-# Swap by positions (1..N): who is at pos_i and pos_j exchange positions
+"""
+    swap_positions!(srm, pos_i, pos_j) -> srm
+
+Swap the candidates currently occupying ranking positions `pos_i` and `pos_j`.
+Positions are 1-based best-to-worst ranks, not candidate IDs. The mutation is
+in place and preserves the `ranks[id] = position` representation when the input
+already satisfies that invariant.
+"""
 function swap_positions!(srm::StrictRankMutable{N}, pos_i::Integer, pos_j::Integer) where {N}
     (1 ≤ pos_i ≤ N && 1 ≤ pos_j ≤ N) || throw(BoundsError(srm, (pos_i, pos_j)))
     id_i = findfirst(r -> r == pos_i, srm.ranks)
@@ -50,7 +69,13 @@ function swap_positions!(srm::StrictRankMutable{N}, pos_i::Integer, pos_j::Integ
     return srm
 end
 
-# Swap by candidate ids (1..N): exchange their positions
+"""
+    swap_ids!(srm, id_i, id_j) -> srm
+
+Swap the ranking positions assigned to candidate IDs `id_i` and `id_j`.
+Candidate IDs are 1-based pool-relative identifiers, not rank positions. The
+mutation is in place.
+"""
 function swap_ids!(srm::StrictRankMutable{N}, id_i::Integer, id_j::Integer) where {N}
     (1 ≤ id_i ≤ N && 1 ≤ id_j ≤ N) || throw(BoundsError(srm, (id_i, id_j)))
     @inbounds begin
@@ -72,6 +97,19 @@ end
 #   score(j,i) = -score(i,j)
 # Diagonal is always zero in displays.
 
+"""
+    PairwiseTriangularStatic{N,T}()
+    PairwiseTriangularStatic{N,T}(vals, mask)
+
+Immutable pairwise-preference ballot backed by strict upper-triangle storage.
+For each pair `i < j`, `vals[_tidx(i,j)]` stores the oriented score for `i`
+against `j` and `mask[_tidx(i,j)]` says whether that pair is defined.
+`score(j,i)` is the negated stored score, missing pairs are represented by a
+false mask entry, and the diagonal is defined as zero.
+
+The outer constructor validates storage length but does not copy `vals` or
+`mask`.
+"""
 struct PairwiseTriangularStatic{N,T<:Integer} <: AbstractPairwise
     vals::Vector{T}      # length _tlen(N)
     mask::BitVector      # length _tlen(N)
@@ -81,6 +119,14 @@ struct PairwiseTriangularStatic{N,T<:Integer} <: AbstractPairwise
     end
 end
 
+"""
+    PairwiseTriangularMutable{N,T}()
+    PairwiseTriangularMutable{N,T}(vals, mask)
+
+Mutable upper-triangle pairwise ballot with the same orientation, missingness,
+and diagonal conventions as `PairwiseTriangularStatic`. Mutating helpers update
+the shared `vals` and `mask` vectors in place.
+"""
 mutable struct PairwiseTriangularMutable{N,T<:Integer} <: AbstractPairwise
     vals::Vector{T}      # length _tlen(N)
     mask::BitVector      # length _tlen(N)
@@ -90,6 +136,13 @@ mutable struct PairwiseTriangularMutable{N,T<:Integer} <: AbstractPairwise
     end
 end
 
+"""
+    PairwiseTriangularView{N,T}
+
+Read-only protocol view over triangular pairwise storage. The view aliases the
+underlying `vals` and `mask` vectors; it does not copy. Use `pairwise_view` to
+construct views from static or mutable triangular ballots.
+"""
 struct PairwiseTriangularView{N,T<:Integer} <: AbstractPairwise
     vals::Vector{T}      # alias to underlying storage
     mask::BitVector
@@ -105,7 +158,13 @@ function PairwiseTriangularMutable{N,T}() where {N,T<:Integer}
     PairwiseTriangularMutable{N,T}(zeros(T, L), falses(L))
 end
 
-# Views
+"""
+    pairwise_view(pb) -> PairwiseTriangularView
+
+Return an aliasing view over a `PairwiseTriangularStatic` or
+`PairwiseTriangularMutable`. The returned view follows the `AbstractPairwise`
+`score`/`isdefined` protocol and reflects later mutations to mutable storage.
+"""
 pairwise_view(pbs::PairwiseTriangularStatic{N,T}) where {N,T<:Integer} = PairwiseTriangularView{N,T}(pbs.vals, pbs.mask)
 pairwise_view(pbm::PairwiseTriangularMutable{N,T}) where {N,T<:Integer} = PairwiseTriangularView{N,T}(pbm.vals, pbm.mask)
 
@@ -130,7 +189,14 @@ isdefined(pb::PairwiseTriangularMutable{N}, i::Int, j::Int) where {N} = isdefine
 score(pb::PairwiseTriangularStatic{N,T}, i::Int, j::Int) where {N,T<:Integer} = score(pairwise_view(pb), i, j)
 score(pb::PairwiseTriangularMutable{N,T}, i::Int, j::Int) where {N,T<:Integer} = score(pairwise_view(pb), i, j)
 
-# Dense expansion: returns Matrix{Union{Missing,T}}
+"""
+    pairwise_dense(pb) -> Matrix{Union{Missing,T}}
+
+Expand triangular pairwise storage to a dense matrix. The returned matrix has
+zero diagonal, `score(i,j)` in cell `(i,j)`, the negated score in `(j,i)`, and
+`missing` in both orientations for undefined pairs. The matrix is a fresh
+allocation and does not alias triangular storage.
+"""
 function pairwise_dense(pbs::PairwiseTriangularStatic{N,T}) where {N,T<:Integer}
     M = Matrix{Union{Missing,T}}(undef, N, N)
     @inbounds for i in 1:N
@@ -273,7 +339,13 @@ end
 # Joint updates (strict + pw)
 ##############################
 
-# Perform swap and recompute pairwise fully (simple & correct).
+"""
+    swap_and_update_pairwise!(pbm, srm, pos_i, pos_j) -> pbm
+
+Swap two rank positions in `srm` with `swap_positions!` and then fully rebuild
+the strict pairwise scores in `pbm`. The pairwise ballot must share the same
+candidate count as the mutable strict rank.
+"""
 function swap_and_update_pairwise!(pbm::PairwiseTriangularMutable{N,Int8},
                                    srm::StrictRankMutable{N},
                                    pos_i::Integer, pos_j::Integer) where {N}

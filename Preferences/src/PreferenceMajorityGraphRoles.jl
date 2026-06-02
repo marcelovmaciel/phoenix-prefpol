@@ -92,7 +92,8 @@ graph induced by the profile, not intrinsic properties of rankings. A type is an
 `anchor` when it is both high mass and high coverage; a
 `peripheral_supporter` when it is not high mass but has high coverage;
 `counter_graph` when coverage is below the counter threshold; and
-`edge_breaker` when its best edge-breaking score exceeds the breaker quantile.
+`edge_breaker` when its best edge-breaking score meets or exceeds the breaker
+quantile.
 Roles are non-exclusive, and `primary_role` applies the priority encoded by
 `_primary_role`.
 

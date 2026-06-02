@@ -76,14 +76,37 @@ pretty_pairwise(pbm::PairwiseTriangularMutable{N,T}, pool::CandidatePool{N}; kwa
 
 # --- Additions below (only new functionality, no removals) --------------
 
+"""
+    StrictRankView
+
+Display wrapper for a strict best-to-worst sequence of candidate symbols.
+`show` prints symbols separated by the preference relation. This is a
+formatting object only; it does not define ranking semantics.
+"""
 struct StrictRankView
     order::Vector{Symbol}   # best → worst
 end
 
+"""
+    WeakOrderView
+
+Display wrapper for weak-order symbol groups. Each group is printed with tied
+symbols separated by `~`, and groups are separated by the preference relation.
+This is a formatting object only; weak-order semantics are defined by
+`WeakRank` and `to_weakorder`.
+"""
 struct WeakOrderView
     groups::Vector{Vector{Symbol}}  # higher groups ≻ lower groups; last may be unranked
 end
 
+"""
+    pretty(x::StrictRank, pool) -> StrictRankView
+    pretty(levels::Vector{Vector{Int}}, pool; hide_unranked=false) -> WeakOrderView
+
+Return display wrappers using candidate symbols from `pool`. Strict ranks are
+shown in best-to-worst order. Weak-order `levels` are expected to come from
+`to_weakorder`; when `hide_unranked=true`, the final level is omitted.
+"""
 function pretty(x::StrictRank, pool::CandidatePool)
     perm_ids = to_perm(x)
     return StrictRankView([pool[id] for id in perm_ids])
@@ -115,7 +138,14 @@ function Base.show(io::IO, v::WeakOrderView)
     end
 end
 
-# Dense pairwise wrapper colored table
+"""
+    show_pairwise_preference_table_color(pw; pool) -> nothing
+
+Print a colored pairwise-preference table for a single `AbstractPairwise`
+object. Cells show `+`, `-`, `0`, `·`, or the diagonal marker according to the
+dense pairwise scores. This helper is display-only and does not define pairwise
+measurement semantics.
+"""
 function show_pairwise_preference_table_color(pw::AbstractPairwise; pool::CandidatePool)
     M = dense(pw)
     N = size(M, 1)
@@ -273,6 +303,15 @@ function _profile_table_data(p::WeightedProfile; hide_unranked::Bool=false)
     return (labels=labels, counts=counts, proportions=proportions, has_counts=has_counts)
 end
 
+"""
+    pretty_profile_table(p; hide_unranked=false) -> String
+
+Return a boxed text table summarizing distinct ballots in a `Profile` or
+`WeightedProfile`. Unweighted profiles report counts and proportions when
+ballots repeat; weighted profiles aggregate stored survey weights by distinct
+ballot and report weight proportions. With `hide_unranked=true`, weak-order
+display labels omit the final unranked group.
+"""
 function pretty_profile_table(p::Profile; hide_unranked::Bool=false)
     data = _profile_table_data(p; hide_unranked=hide_unranked)
 
@@ -454,12 +493,6 @@ function profile_table_string_color(p::WeightedProfile; hide_unranked::Bool=fals
     return _box_table(headers, rows)
 end
 
-"""
-    show_profile_table_color(p::Profile; hide_unranked=false, io=stdout)
-    show_profile_table_color(p::WeightedProfile; hide_unranked=false, io=stdout)
-
-Prints a colored PrettyTables profile table.
-"""
 function _show_profile_table_color(data; io::IO=stdout)
     headers = data.has_counts ? ["ranking", "count", "proportion"] : ["ranking", "proportion"]
     nrows = length(data.labels)
@@ -500,6 +533,14 @@ function _show_profile_table_color(data; io::IO=stdout)
     return nothing
 end
 
+"""
+    show_profile_table_color(p::Profile; hide_unranked=false, io=stdout) -> nothing
+    show_profile_table_color(p::WeightedProfile; hide_unranked=false, io=stdout) -> nothing
+
+Print a colored PrettyTables profile table to `io`. Row aggregation and
+`hide_unranked` behavior match `pretty_profile_table`; this helper has printing
+side effects and returns `nothing`.
+"""
 function show_profile_table_color(p::Profile; hide_unranked::Bool=false, io::IO=stdout)
     data = _profile_table_data(p; hide_unranked=hide_unranked)
     return _show_profile_table_color(data; io=io)
@@ -550,6 +591,15 @@ function _pretty_matrix_table(M::AbstractMatrix, pool::CandidatePool)
     return join(rows, '\n')
 end
 
+"""
+    pretty_pairwise_majority_table(pm, pool; kind=:wins) -> String
+    pretty_pairwise_majority_table(profile, pool; kind=:wins) -> String
+
+Return a tab-separated pairwise-majority matrix. `kind` selects `:wins`,
+`:counts`, or `:margins`; compatibility spellings `:totals` and `:margin` map
+to `:counts` and `:margins`. The table is a display view over
+`pairwise_majority` results and does not add measurement semantics.
+"""
 function pretty_pairwise_majority_table(pm::PairwiseMajority, pool::CandidatePool; kind::Symbol=:wins)
     M = _pairwise_majority_matrix(pm, kind)
     return _pretty_matrix_table(M, pool)
@@ -558,21 +608,44 @@ end
 pretty_pairwise_majority_table(p::Profile, pool::CandidatePool; kind::Symbol=:wins) =
     pretty_pairwise_majority_table(pairwise_majority(p), pool; kind=kind)
 
+"""
+    pretty_pairwise_majority(x, pool) -> String
+
+Convenience wrapper for `pretty_pairwise_majority_table(x, pool; kind=:wins)`.
+"""
 pretty_pairwise_majority(p::PairwiseMajority, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:wins)
 pretty_pairwise_majority(p::Profile, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:wins)
 
+"""
+    pretty_pairwise_majority_counts(x, pool) -> String
+
+Convenience wrapper for `pretty_pairwise_majority_table(x, pool; kind=:counts)`.
+"""
 pretty_pairwise_majority_counts(p::PairwiseMajority, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:counts)
 pretty_pairwise_majority_counts(p::Profile, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:counts)
 
+"""
+    pretty_pairwise_majority_margins(x, pool) -> String
+
+Convenience wrapper for `pretty_pairwise_majority_table(x, pool; kind=:margins)`.
+"""
 pretty_pairwise_majority_margins(p::PairwiseMajority, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:margins)
 pretty_pairwise_majority_margins(p::Profile, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:margins)
 
+"""
+    show_pairwise_majority_table_color(pm; pool, kind=:wins) -> nothing
+    show_pairwise_majority_table_color(profile; pool, kind=:wins) -> nothing
+
+Print a colored PrettyTables matrix for pairwise-majority wins, counts, or
+margins. This display helper delegates the underlying majority calculation to
+`pairwise_majority` and returns `nothing`.
+"""
 function show_pairwise_majority_table_color(pm::PairwiseMajority;
                                             pool::CandidatePool,
                                             kind::Symbol=:wins)
