@@ -1,7 +1,35 @@
 # PreferenceLinearization.jl
 
+"""
+    AbstractWeakOrderLinearizer
+
+Abstract strategy object for linearizing `WeakRank` ballots. The domain is a
+weak order over candidate IDs; concrete linearizers return a `StrictRank`.
+
+The representation invariant is that linearization chooses one complete strict
+extension of a weak order. This is an interpretation step that resolves ties and
+may reject missing ranks depending on the concrete strategy. Candidate IDs are
+implementation-level positions in the common candidate pool.
+"""
 abstract type AbstractWeakOrderLinearizer end
 
+"""
+    PatternConditionalLinearizer(reference; alpha=0.5, fallback=:uniform) -> PatternConditionalLinearizer
+
+Weak-order linearizer that samples tie refinements conditionally on a reference
+strict profile. The domain is a `Profile` or `WeightedProfile` of `StrictRank`
+ballots, or complete tie-free `WeakRank` ballots that can be coerced to
+`StrictRank`; the return value is a mutable `PatternConditionalLinearizer`.
+
+The invariant is that the reference profile fixes the candidate universe and
+candidate IDs through its pool. For each weak-order tie pattern, compatible
+strict extensions receive reference mass plus `alpha` smoothing, and sampled
+extensions are cached by weak-order bucket pattern. Missing ranks in input
+ballots are rejected during `linearize`; reference weak ranks with missing or
+tied entries are skipped during coercion. `alpha <= 0`, unsupported fallback,
+empty usable weak references, invalid reference weights, or no compatible
+reference mass with `fallback = :error` throw `ArgumentError`.
+"""
 mutable struct PatternConditionalLinearizer{P} <: AbstractWeakOrderLinearizer
     reference::P
     alpha::Float64
@@ -235,6 +263,30 @@ function _linearize_with_pattern_conditioning(x::WeakRank,
     return StrictRank(exts[_sample_index(masses, rng)])
 end
 
+"""
+    linearize(x; tie_break=:random, rng=Random.GLOBAL_RNG,
+              incomplete_policy=:error) -> Union{StrictRank,WeakRank,Profile,WeightedProfile}
+
+Linearize weak-order ballots or profiles. The domain is a `StrictRank`,
+`WeakRank`, `Profile`, or `WeightedProfile`; strict inputs are returned
+unchanged, while weak inputs are interpreted into stricter representations.
+
+The representation invariant is that ordinary linearization chooses a strict
+extension of each weak rank by processing rank buckets from best to worst.
+`tie_break` may be `:error`, `:random`, a strategy accepted by
+`make_rank_bucket_linearizer`, a custom bucket function, or an
+`AbstractWeakOrderLinearizer`. `incomplete_policy = :error` rejects unranked
+candidates, `:complete` appends and linearizes the unranked bucket, and
+`:preserve` resolves ties among ranked candidates while returning a `WeakRank`
+with unranked candidates still `missing`. Pattern-conditional linearizers
+require complete weak orders and therefore only allow `incomplete_policy =
+:error`. Weighted profiles keep their weights after ballot linearization.
+Unsupported policies, unresolved ties under `:error`, invalid reference
+conditions, and incompatible pool sizes throw `ArgumentError`.
+
+Example: `linearize(WeakRank([1, 1, missing]); tie_break=:by_id,
+incomplete_policy=:preserve)` returns a `WeakRank` with ranks `[1, 2, missing]`.
+"""
 @inline linearize(x::StrictRank; kwargs...) = x
 
 function _normalize_incomplete_policy(incomplete_policy)

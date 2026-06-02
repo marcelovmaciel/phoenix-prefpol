@@ -4,6 +4,19 @@
 # Profile type
 ##############################
 
+"""
+    Profile(pool::CandidatePool, ballots::AbstractVector) -> Profile
+
+Finite profile of ballots over a common candidate pool. The domain is a
+`CandidatePool` and a vector of ballots; the return value is a `Profile{B}` with
+uniform concrete ballot type `B`.
+
+The representation invariant is that every ballot has the same candidate count
+as `pool`, and candidate IDs inside ballots are implementation-level positions
+in that common pool. `Profile` does not attach weights. Missing and tie behavior
+is inherited from the ballot representation. Construction rejects mixed concrete
+ballot types and pool-size mismatches with `ArgumentError`.
+"""
 struct Profile{B}
     pool::CandidatePool
     ballots::Vector{B}
@@ -19,6 +32,20 @@ struct Profile{B}
     end
 end
 
+"""
+    WeightedProfile(pool::CandidatePool, ballots::AbstractVector, weights::AbstractVector) -> WeightedProfile
+    WeightedProfile(profile::Profile, weights::AbstractVector) -> WeightedProfile
+
+Finite weighted profile over a common candidate pool. The domain is a profile or
+pool plus ballots and a weight vector; the return value is a `WeightedProfile`
+with survey or population weights attached to ballots.
+
+The representation invariant is that ballots are stored once and weights are
+parallel numeric entries, not replicated rows. Candidate IDs remain positions in
+the common pool. Construction checks weight element type is `<: Real` and length
+matches ballots; `validate(...; strict=true)` checks finite nonnegative weights.
+Missing and tie behavior is inherited from the ballots.
+"""
 struct WeightedProfile{B,W<:Real}
     pool::CandidatePool
     ballots::Vector{B}
@@ -49,6 +76,15 @@ end
 # Core API
 ##############################
 
+"""
+    nballots(p::Union{Profile,WeightedProfile}) -> Int
+
+Return the number of stored ballot rows. The domain is a profile; the return
+type is `Int`.
+
+The invariant is that this counts rows, not total survey/population weight.
+Missing, ties, and weights do not affect the count.
+"""
 @inline nballots(p::Profile) = length(p.ballots)
 @inline Base.length(p::Profile) = nballots(p)
 @inline nballots(p::WeightedProfile) = length(p.ballots)
@@ -59,9 +95,44 @@ Base.eltype(p::Profile{B}) where {B} = B
 Base.eltype(::Type{WeightedProfile{B,W}}) where {B,W} = B
 Base.eltype(p::WeightedProfile{B,W}) where {B,W} = B
 
+"""
+    weights(p::WeightedProfile) -> AbstractVector{<:Real}
+
+Return the stored weight vector for a weighted profile. The domain is a
+`WeightedProfile`; the return value is the profile's weight storage.
+
+The invariant is `weights(p)[i]` is the survey or population weight for
+`p.ballots[i]`, not a replication count. The accessor returns storage, not a
+copy. Missing and tie behavior belongs to the ballots. Strict validation of
+finite nonnegative weights is performed by `validate`, not this accessor.
+"""
 @inline weights(p::WeightedProfile) = p.weights
+
+"""
+    total_weight(p::WeightedProfile) -> Real
+
+Return the sum of stored profile weights. The domain is a `WeightedProfile`; the
+return type is the result of `sum(p.weights)`.
+
+The invariant is that total weight is aggregate survey/population mass, not the
+number of replicated rows. Missing and ties do not affect the sum. Invalid
+weights are not rejected here; use `validate(p; strict=true)` for finite
+nonnegative checks.
+"""
 @inline total_weight(p::WeightedProfile) = sum(p.weights)
 
+"""
+    validate(p::Union{Profile,WeightedProfile}; strict=true) -> Bool
+
+Validate profile representation invariants and return `true`. The domain is a
+profile; the return type is `Bool`.
+
+For `Profile`, strict validation checks every ballot size matches the common
+candidate pool. For `WeightedProfile`, validation always checks weight length;
+strict validation also checks finite nonnegative weights and ballot sizes.
+Missing ranks and ties are valid when the ballot type allows them. Violations
+throw `ArgumentError`.
+"""
 function validate(p::Profile; strict::Bool=true)
     if strict
         n_pool = length(p.pool)
@@ -91,6 +162,19 @@ end
 # Bootstrap utilities
 ##############################
 
+"""
+    resample_indices(p::Union{Profile,WeightedProfile}; rng=Random.GLOBAL_RNG,
+                     n=nballots(p)) -> Vector{Int}
+
+Sample ballot row indices with replacement. The domain is a profile and sample
+size; the return type is `Vector{Int}`.
+
+For unweighted profiles, rows are sampled uniformly. For weighted profiles, rows
+are sampled with probability proportional to stored survey/population weights;
+weights are not treated as replicated rows. Missing and tie behavior does not
+affect sampling. Negative `n`, negative weights, mismatched weight length, or
+zero total weight throw `ArgumentError`; empty profiles return `Int[]`.
+"""
 function resample_indices(p::Profile; rng::AbstractRNG=Random.GLOBAL_RNG,
                           n::Integer=nballots(p))
     n ≥ 0 || throw(ArgumentError("n must be ≥ 0"))
@@ -123,6 +207,19 @@ function resample_indices(p::WeightedProfile; rng::AbstractRNG=Random.GLOBAL_RNG
     return idx
 end
 
+"""
+    bootstrap(p::Union{Profile,WeightedProfile}; rng=Random.GLOBAL_RNG,
+              n=nballots(p)) -> Profile
+
+Return a bootstrap resample of ballot rows with replacement. The domain is a
+profile and sample size; the return type is an unweighted `Profile`.
+
+The invariant is that the returned profile uses the same candidate pool and
+contains sampled ballot objects. For a `WeightedProfile`, sampling probabilities
+are proportional to weights, but the returned object is not weighted; weights
+guide sampling rather than becoming replicated rows. Missing and ties are
+preserved in sampled ballots. Sampling errors are those of `resample_indices`.
+"""
 function bootstrap(p::Profile; rng::AbstractRNG=Random.GLOBAL_RNG,
                    n::Integer=nballots(p))
     idx = resample_indices(p; rng=rng, n=n)
@@ -137,6 +234,19 @@ function bootstrap(p::WeightedProfile; rng::AbstractRNG=Random.GLOBAL_RNG,
     return Profile(p.pool, new_ballots)
 end
 
+"""
+    bootstrap_counts(p::Union{Profile,WeightedProfile}; rng=Random.GLOBAL_RNG,
+                     n=nballots(p)) -> Vector{Int}
+
+Return row-selection counts for a bootstrap draw. The domain is a profile and
+sample size; the return type is a `Vector{Int}` with one count per stored ballot
+row.
+
+The invariant is that counts are produced by sampling row indices with
+replacement. Weighted profiles use weights as sampling probabilities, not as
+pre-expanded rows. Missing and tie behavior does not affect counts. Sampling
+errors are those of `resample_indices`.
+"""
 function bootstrap_counts(p::Profile; rng::AbstractRNG=Random.GLOBAL_RNG,
                           n::Integer=nballots(p))
     idx = resample_indices(p; rng=rng, n=n)
@@ -161,6 +271,21 @@ end
 # Restriction
 ##############################
 
+"""
+    restrict(p::Union{Profile,WeightedProfile}, subset_syms::AbstractVector{Symbol}) -> (new_profile, new_pool, backmap)
+
+Restrict every ballot in a profile to a candidate subset. The domain is a
+profile and subset symbols in the desired new order; the return value is the
+restricted profile, a new `CandidatePool`, and `backmap::Vector{Int}`.
+
+The invariant is `backmap[new_id] == old_id`, relating candidate positions in
+the returned pool to positions in the original pool. Ballot-level restriction
+semantics apply: strict orders preserve relative order, weak ranks renormalize
+present rank levels and preserve missingness/ties, and pairwise ballots preserve
+the selected submatrix. Weighted profiles copy their weights; weights are
+survey/population mass and are not replicated rows. Unknown or duplicate subset
+symbols throw through pool construction/lookup.
+"""
 function restrict(p::Profile, subset_syms::AbstractVector{Symbol})
     n = nballots(p)
     if n == 0

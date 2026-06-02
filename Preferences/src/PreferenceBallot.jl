@@ -7,19 +7,71 @@ using StaticArrays
 # Ballot types
 ###############
 
+"""
+    StrictRank
+    StrictRank(pool::CandidatePool, perm::AbstractVector{<:Integer}) -> StrictRank
+    StrictRank(pool::CandidatePool, names::AbstractVector{Symbol}) -> StrictRank
+
+Complete strict ranking over a candidate pool. The domain is either a
+best-to-worst permutation of pool-relative candidate IDs or symbols from the
+pool; the return value is a `StrictRank`.
+
+The representation invariant is that `perm` is a complete permutation of
+candidate IDs, where IDs are implementation-level 1-based positions in the
+pool's canonical candidate order. Strict ranks have no missing entries and no
+ties. Pool-aware constructors reject wrong lengths, out-of-range IDs, duplicate
+IDs, and unknown names with `ArgumentError`.
+
+Example: with `pool = CandidatePool([:a, :b, :c])`,
+`ordered_candidates(StrictRank(pool, [:b, :a, :c]), pool) == [:b, :a, :c]`.
+"""
 struct StrictRank{N,Storage<:AbstractVector{Int}}
     # permutation of ids (best → worst), length N
     perm::Storage
 end
 
+"""
+    WeakRank
+    WeakRank(pool::CandidatePool, ranks::AbstractVector) -> WeakRank
+    WeakRank(pool::CandidatePool, d::Dict{Symbol,<:Integer}) -> WeakRank
+
+Weak or incomplete ranking over a candidate pool. The domain is a rank vector
+indexed by candidate ID, or a dictionary from pool symbols to ranks; the return
+value is a `WeakRank`.
+
+The representation invariant is `ranks[id] = rank`, with lower rank numbers
+better and `missing` meaning the candidate is unranked. Equal present ranks
+encode ties. Candidate IDs are implementation-level positions in the common
+`CandidatePool`. Pool-aware constructors reject wrong vector lengths, unknown
+symbols, and ranks below `1` with `ArgumentError`.
+
+Example: `WeakRank(CandidatePool([:a, :b]), Dict(:a => 1))` ranks `:a` and
+leaves `:b` unranked.
+"""
 struct WeakRank{N,Storage<:AbstractVector{Union{Int,Missing}}}
     # ranks per id (1 = best), missing = unranked
     # length N; indices are candidate ids
     ranks::Storage
 end
 
-# Dynamic storage aliases (Vector-backed)
+"""
+    StrictRankDyn
+
+Vector-backed alias for `StrictRank`. The domain and invariants are exactly
+those of `StrictRank`: a complete best-to-worst permutation of candidate IDs
+with no missing entries and no ties. The alias is an implementation/storage
+detail and does not change return semantics or error behavior.
+"""
 const StrictRankDyn = StrictRank{N,Vector{Int}} where {N}
+
+"""
+    WeakRankDyn
+
+Vector-backed alias for `WeakRank`. The domain and invariants are exactly those
+of `WeakRank`: a rank vector indexed by candidate ID, with lower ranks better,
+equal ranks tied, and `missing` unranked. The alias is an implementation/storage
+detail and does not change return semantics or error behavior.
+"""
 const WeakRankDyn = WeakRank{N,Vector{Union{Int,Missing}}} where {N}
 
 ##############################
@@ -117,9 +169,36 @@ end
 # Accessors / predicates
 ##############################
 
-# Accessors (public)
+"""
+    perm(x::StrictRank) -> Vector{Int}
+    perm(x::WeakRank) -> Vector{Int}
+
+Return candidate IDs in best-to-worst order. For `StrictRank`, the return value
+is a copy of the stored complete permutation. For `WeakRank`, the return value
+is the deterministic `to_perm` ordering.
+
+The invariant is that returned IDs are pool-relative implementation positions.
+`StrictRank` has no missing or tie behavior. `WeakRank` sorts present ranks by
+rank number, preserves ties by candidate ID/order from the rank vector, and
+appends unranked IDs at the end; this is an ordering view, not a full
+linearization contract. Inconsistent unchecked strict-rank storage may surface
+through downstream errors.
+"""
 @inline perm(x::StrictRank) = copy(x.perm)
 
+"""
+    ranks(x::StrictRank) -> Vector{Int}
+    ranks(x::WeakRank) -> AbstractVector{Union{Int,Missing}}
+
+Return ranks indexed by candidate ID. For `StrictRank`, the return value is a
+fresh `Vector{Int}` with positions derived from the permutation. For `WeakRank`,
+the return value exposes the stored rank vector.
+
+The invariant is that `ranks(x)[id]` is the candidate's rank in the pool, with
+lower ranks better. `StrictRank` returns a complete strict rank vector with no
+ties or missing values. `WeakRank` may contain equal ranks for ties and
+`missing` for unranked candidates.
+"""
 @inline function ranks(x::StrictRank)::Vector{Int}
     N = length(x.perm)
     r = Vector{Int}(undef, N)
@@ -134,6 +213,18 @@ end
 # WeakRank perm mirrors to_perm semantics (unranked appended at the end).
 @inline perm(x::WeakRank) = to_perm(x)
 
+"""
+    rank(x, pool::CandidatePool, nm::Symbol) -> Union{Int,Missing}
+
+Return the rank of candidate `nm` in ballot `x`. The domain is a `StrictRank` or
+`WeakRank`, the common candidate pool, and a pool symbol; the return type is
+`Int` for strict ranks and `Union{Int,Missing}` for weak ranks.
+
+The invariant is that the pool maps `nm` to the candidate ID used by the ballot.
+Lower rank numbers are better. Strict ranks have no missing/tie ranks; weak
+ranks may return `missing` for unranked candidates and equal integers for ties.
+Unknown candidate symbols throw `ArgumentError`.
+"""
 # rank(::StrictRank, pool, :name) -> Int
 function rank(x::StrictRank, pool::CandidatePool, nm::Symbol)::Int
     id = pool[nm]
@@ -149,6 +240,18 @@ end
 # rank(::WeakRank, pool, :name) -> Int | missing
 @inline rank(x::WeakRank, pool::CandidatePool, nm::Symbol) = ranks(x)[pool[nm]]
 
+"""
+    prefers(x, pool::CandidatePool, a::Symbol, b::Symbol) -> Bool
+
+Return whether ballot `x` ranks `a` strictly above `b`. The domain is a
+`StrictRank` or `WeakRank`, the common pool, and two candidate symbols; the
+return type is `Bool`.
+
+The invariant is comparison by pool-relative candidate IDs and lower rank
+number as better. For weak ranks, pairs involving `missing` return `false`, and
+equal present ranks also return `false` because they are ties. Unknown symbols
+throw `ArgumentError`.
+"""
 # prefers(a,b): True iff rank(a) < rank(b)
 function prefers(x::StrictRank, pool::CandidatePool, a::Symbol, b::Symbol)::Bool
     return rank(x, pool, a) < rank(x, pool, b)
@@ -160,6 +263,18 @@ function prefers(x::WeakRank, pool::CandidatePool, a::Symbol, b::Symbol)::Bool
     return ra < rb
 end
 
+"""
+    indifferent(x, pool::CandidatePool, a::Symbol, b::Symbol) -> Bool
+
+Return whether candidates `a` and `b` have the same rank in ballot `x`. The
+domain is a `StrictRank` or `WeakRank`, the common pool, and two candidate
+symbols; the return type is `Bool`.
+
+The invariant is comparison by pool-relative candidate IDs. In a valid
+`StrictRank`, two distinct candidates are never indifferent. In a `WeakRank`,
+both candidates must be present and have equal ranks; comparisons involving
+`missing` return `false`. Unknown symbols throw `ArgumentError`.
+"""
 # indifferent(a,b): True iff both present and equal rank
 function indifferent(x::StrictRank, pool::CandidatePool, a::Symbol, b::Symbol)::Bool
     return rank(x, pool, a) == rank(x, pool, b)
@@ -170,6 +285,17 @@ function indifferent(x::WeakRank, pool::CandidatePool, a::Symbol, b::Symbol)::Bo
     return (!ismissing(ra) && !ismissing(rb) && ra == rb)
 end
 
+"""
+    asdict(x, pool::CandidatePool) -> Dict{Symbol,Int}
+
+Return a symbol-to-rank dictionary for ballot `x`. The domain is a `StrictRank`
+or `WeakRank` and the common pool; the return type is `Dict{Symbol,Int}`.
+
+The invariant is that dictionary keys are pool labels and values are rank
+numbers with lower better. Strict ranks include every candidate exactly once.
+Weak ranks omit candidates whose rank is `missing` and preserve equal values for
+ties. Inconsistent ballot and pool sizes may throw indexing errors.
+"""
 # asdict
 function asdict(x::StrictRank, pool::CandidatePool)::Dict{Symbol,Int}
     N = length(pool)
@@ -197,6 +323,18 @@ end
 # Conversions and order views
 ##################################
 
+"""
+    to_perm(x) -> Vector{Int}
+
+Return a best-to-worst vector of candidate IDs. The domain is a `StrictRank` or
+`WeakRank`; the return type is `Vector{Int}`.
+
+The invariant is that IDs are implementation-level positions in the associated
+candidate pool. Strict ranks return the complete strict permutation. Weak ranks
+sort present alternatives by increasing rank and append unranked alternatives
+after all ranked alternatives; ties are ordered by candidate ID/order from the
+rank vector. This is not a tie-resolving linearization.
+"""
 # Strict → perm (ids best→worst)
 @inline to_perm(x::StrictRank) = collect(perm(x))
 
@@ -214,12 +352,32 @@ function to_perm(x::WeakRank)
     return vcat(ids_ranked, ids_unranked)
 end
 
+"""
+    ordered_candidates(x::StrictRank, pool::CandidatePool) -> Vector{Symbol}
+
+Return candidate symbols in the order encoded by a strict rank. The domain is a
+`StrictRank` and its `CandidatePool`; the return type is `Vector{Symbol}`.
+
+The invariant is that strict-rank candidate IDs index the pool's canonical
+symbol order. There is no missing or tie behavior. Inconsistent ballot and pool
+sizes may throw indexing errors.
+"""
 # Ordered candidate names from StrictRank
 ordered_candidates(x::StrictRank, pool::CandidatePool) = [pool[id] for id in x.perm]
 
-# Weak-order levels (Vector of groups of ids). Last group = unranked (if any).
+"""
+    to_weakorder(x::WeakRank) -> Vector{Vector{Int}}
 
-# Weak-order levels (Vector of groups of ids). Last group = unranked (if any).
+Return weak-order levels as groups of candidate IDs. The domain is a `WeakRank`;
+the return type is `Vector{Vector{Int}}`.
+
+The representation invariant is that each inner vector contains pool-relative
+candidate IDs tied at the same present rank, ordered by candidate ID. Levels are
+sorted by increasing rank number, so earlier levels are better. If any
+candidates are `missing`, a final level contains the unranked IDs; this records
+incompleteness and should not be read as an ordinary tie without an explicit
+extension policy.
+"""
 function to_weakorder(x::WeakRank)::Vector{Vector{Int}}
     rx = ranks(x)
     N = length(rx)
@@ -251,6 +409,16 @@ function to_weakorder(x::WeakRank)::Vector{Vector{Int}}
 end
 
 
+"""
+    weakorder_symbol_groups(levels::Vector{Vector{Int}}, pool::CandidatePool) -> Vector{Vector{Symbol}}
+
+Map weak-order candidate-ID groups to symbol groups. The domain is the output of
+`to_weakorder` and the common pool; the return type is `Vector{Vector{Symbol}}`.
+
+The invariant is that every ID indexes the pool's canonical ordering. Ties and
+the possible final unranked group are preserved structurally. Out-of-range IDs
+throw `BoundsError`.
+"""
 # Map weak-order id groups to symbol groups
 weakorder_symbol_groups(levels::Vector{Vector{Int}}, pool::CandidatePool) =
     [ [pool[id] for id in grp] for grp in levels ]
@@ -260,15 +428,23 @@ weakorder_symbol_groups(levels::Vector{Vector{Int}}, pool::CandidatePool) =
 ##################################
 
 """
-to_strict(x::WeakRank; tie_break=:error | :random | f, rng=Random.GLOBAL_RNG,
-          pool=nothing, incomplete_policy=:error)
-- :error  => throw if ties are present
-- :random => break ties within each bucket randomly (uses rng)
-- f::Function => custom bucket linearizer: f(bucket_ids::Vector{Int}, pool, ranks)::Vector{Int}
+    to_strict(x::WeakRank; tie_break=:error, rng=Random.GLOBAL_RNG,
+              pool=nothing, incomplete_policy=:error) -> StrictRank
 
-`incomplete_policy` controls how unranked alternatives are handled:
-- :error    => throw
-- :complete => append the unranked alternatives using the chosen bucket policy
+Linearize a weak or incomplete rank into a complete strict order. The domain is
+a `WeakRank`; the return type is `StrictRank`. This is an interpretation step,
+not an innocuous representation conversion.
+
+The invariant of the result is a best-to-worst permutation of all candidate IDs.
+Present rank buckets are processed by increasing rank. Singletons are kept as
+is; tied buckets are resolved by `tie_break`: `:error` throws, `:random` shuffles
+with `rng`, and a function may accept either `(ids)` or `(ids, pool, ranks)`.
+Unranked candidates are an error by default; `incomplete_policy = :complete`
+appends the unranked bucket and linearizes it with the same tie breaker. Other
+incomplete policies throw `ArgumentError`.
+
+Example: `to_strict(WeakRank([1, 1, 2]); tie_break=make_rank_bucket_linearizer(:by_id))`
+returns the strict permutation `[1, 2, 3]`.
 """
 function to_strict(x::WeakRank;
                    tie_break = :error,
@@ -321,6 +497,21 @@ function to_strict(x::WeakRank;
     return StrictRank(perm)
 end
 
+"""
+    make_rank_bucket_linearizer(strategy::Symbol; rng=Random.GLOBAL_RNG,
+                                pool=nothing, jitter=0.5) -> Function
+
+Build a deterministic or random tie-bucket linearizer for candidate-ID buckets.
+The domain is a strategy symbol; the return value is a function
+`ids::Vector{Int} -> Vector{Int}`.
+
+The invariant is that the returned function reorders IDs within a tied rank
+bucket and should return the same IDs exactly once. `:by_id` sorts by
+implementation-level candidate ID, `:by_name` sorts by the pool's symbol labels,
+`:random`/`:shuffle` shuffles with `rng`, and jitter strategies sort by
+`id + jitter * rand(rng)`. `:by_name` without `pool`, negative `jitter`, and
+unknown strategies throw `ArgumentError`.
+"""
 # Public helper to build linearizers
 function make_rank_bucket_linearizer(strategy::Symbol; rng::AbstractRNG=Random.GLOBAL_RNG,
                                      pool::Union{Nothing,CandidatePool}=nothing,
@@ -372,6 +563,19 @@ end
 # Pairwise (dense wrapper)
 ##############################
 
+"""
+    PairwiseDense(matrix) -> PairwiseDense
+
+Dense pairwise ballot matrix indexed by candidate ID. The domain is an `N x N`
+matrix, typically with entries `Union{Missing,Int8}`; the return value is a
+`PairwiseDense` implementing `AbstractPairwise`.
+
+The representation invariant is orientation: `matrix[i,j] == 1` means
+candidate ID `i` is preferred to `j`, `-1` means the reverse, `0` means a tie or
+the diagonal, and `missing` means undefined. Off-diagonal defined entries should
+be antisymmetric. Missing entries are not ties. Constructors do not validate the
+matrix shape or antisymmetry.
+"""
 struct PairwiseDense{T} <: AbstractPairwise
     matrix::Matrix{T}   # T = Union{Missing,Int8}
 end
@@ -379,6 +583,18 @@ end
 @inline dense(pw::PairwiseDense) = pw.matrix
 @inline score(pw::PairwiseDense, i::Int, j::Int) = pw.matrix[i, j]
 @inline isdefined(pw::PairwiseDense, i::Int, j::Int) = (i == j ? true : !ismissing(pw.matrix[i, j]))
+
+"""
+    pairwise_dense(pw::PairwiseDense) -> AbstractMatrix
+
+Return the dense matrix backing a pairwise ballot. The domain is a
+`PairwiseDense`; the return value is the stored matrix, with rows and columns
+indexed by pool-relative candidate ID.
+
+The invariant is the same as `dense`: diagonal entries are defined as `0`,
+off-diagonal `missing` entries are undefined, and `0` off the diagonal is a
+defined tie. This accessor returns the stored matrix rather than a copy.
+"""
 @inline pairwise_dense(pw::PairwiseDense) = dense(pw)
 
 # core engine: compute pairwise from a given ranks vector and policy
@@ -408,6 +624,20 @@ end
     r
 end
 
+"""
+    to_pairwise(x, pool::CandidatePool; policy::ExtensionPolicy) -> PairwiseDense
+
+Convert a `StrictRank` or `WeakRank` into a dense pairwise ballot over `pool`.
+The domain is a rank ballot and its common candidate pool; the return type is
+`PairwiseDense{Union{Missing,Int8}}`.
+
+The representation invariant is `score(i,j) == 1` when candidate ID `i` is
+ranked above `j`, `-1` for the reverse, `0` for ties/diagonal, and `missing` for
+undefined pairs. Strict ranks have no missing comparisons. Weak-rank missing
+behavior is controlled by `policy`: for example, `NonePolicyMissing` preserves
+undefined pairs while `BottomPolicyMissing` ranks present alternatives above
+unranked ones. Pool size mismatches can cause indexing errors.
+"""
 # Public constructor: WeakRank/StrictRank → PairwiseDense
 function to_pairwise(x::WeakRank, pool::CandidatePool; policy::ExtensionPolicy)
     N = length(pool)
@@ -463,6 +693,22 @@ function _restrict_weak_ranks(ranks::AbstractVector{Union{Int,Missing}}, backmap
     return newr
 end
 
+"""
+    restrict(x, pool::CandidatePool, subset_syms::AbstractVector{Symbol}) -> (new_x, new_pool, backmap)
+
+Restrict a ballot or pairwise matrix to a candidate subset. The domain is a
+`StrictRank`, `WeakRank`, or `PairwiseDense`, its original pool, and subset
+symbols in the desired new order; the return value is the restricted object, a
+new `CandidatePool`, and `backmap::Vector{Int}`.
+
+The invariant is `backmap[new_id] == old_id`, so returned candidate IDs are
+positions in `new_pool` while `backmap` recovers their original pool positions.
+Strict ranks preserve the original relative order among retained candidates.
+Weak ranks preserve missing entries and renormalize present ranks to contiguous
+levels `1:K`, preserving ties. Pairwise restriction preserves scores and
+missing pairs on the selected submatrix. Unknown subset symbols or duplicate
+subset labels throw through `CandidatePool`/lookup errors.
+"""
 # StrictRank restrict
 function restrict(x::StrictRank, pool::CandidatePool, subset_syms::AbstractVector{Symbol})
     new_pool, backmap = _restrict_pool(pool, subset_syms)

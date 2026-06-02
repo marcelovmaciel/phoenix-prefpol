@@ -515,11 +515,7 @@ theoretically plausible candidates in the Brazilian context.
     \includegraphics[width=.8\linewidth]{imgs/2018_global_main.png}
   }\par\medskip
   % ----- 2022 -----
-  \subcaptionbox{2022\label{fig:globals-2022}}{
-    \includegraphics[width=.8\linewidth]{imgs/2022_global_main.png}
-  }
-
-  \caption{Evolution of global measures (2006, 2018, 2022)}
+  \caption{Evolution of global measures (2006, 2018)}
   \label{fig:globals-evolution}
 \end{figure}
 
@@ -570,6 +566,14 @@ the relevant change is not the emergence of antagonism from a neutral baseline.
 It is the intensification of an already nontrivial level of pairwise dissent,
 with 2022 standing out even after the analysis moves beyond the Lula--Bolsonaro
 comparison.
+
+\begin{figure}
+  \centering
+    {
+    \includegraphics[width=.8\linewidth]{imgs/2022_global_main.png}
+  }
+
+\end{figure}
 
 However, \(\Psi\) does not describe the structure of that dissent. It summarizes
 average pairwise opposition, but it does not show whether the profile is
@@ -1558,6 +1562,20 @@ candidate-set size \(m\), measure, and grouping. Summaries that pool over
 multiple values of \(m\) are used only as compact descriptive diagnostics across
 analysis cells, not as the primary variance decomposition.
 
+
+\begin{figure}[htp]
+  \centering
+  \vspace{-1.2cm}
+\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{imgs/variance_decomposition_2022.png}
+\caption{Nested variance decomposition by measure and candidate-set size,
+2022. The figure reports the bootstrap, imputation, and linearization variance
+components for the measures used in the main analysis. For the group-based
+measures, \(C\) and \(D\) pool the corresponding analysis cells across
+available groupings.}
+\label{fig:variance-decomposition-2022}
+\end{figure}
+
+
 The decomposition is descriptive. It does not introduce an additional
 population model for the measures. Its purpose is to report how much of the
 simulation variability in the measured profile, within a fixed analysis cell,
@@ -1575,18 +1593,6 @@ measures, \(C\) and \(D\) pool the corresponding analysis cells across the
 available groupings, so the figure should be read as a descriptive summary
 across group diagnostics, not as a statement about one particular grouping
 variable.
-
-\begin{figure}[p]
-  \centering
-  \vspace{-1.2cm}
-\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{imgs/variance_decomposition_2022.png}
-\caption{Nested variance decomposition by measure and candidate-set size,
-2022. The figure reports the bootstrap, imputation, and linearization variance
-components for the measures used in the main analysis. For the group-based
-measures, \(C\) and \(D\) pool the corresponding analysis cells across
-available groupings.}
-\label{fig:variance-decomposition-2022}
-\end{figure}
 
 Several features stand out. First, the variance values are generally very
 small in absolute magnitude. In most panels the components lie close to zero,
