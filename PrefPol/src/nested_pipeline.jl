@@ -14,6 +14,19 @@ const SUPPORTED_GROUPED_NESTED_MEASURES = (
     :lambda_sep,
 )
 
+"""
+    SurveyWaveConfig
+
+Applied configuration for one Brazil/ESEB survey wave in the PrefPol
+replication workflow.
+
+The object is derived from a year TOML parsed by `load_election_cfg` and records
+how PrefPol should load the raw survey table, which candidate columns form the
+candidate universe, which demographic columns are available for grouped
+measures, and which scenario-specific candidates must be forced into an active
+candidate set. It is an application-layer object: formal profile and measure
+definitions live in `Preferences`.
+"""
 struct SurveyWaveConfig
     wave_id::String
     year::Int
@@ -27,6 +40,12 @@ struct SurveyWaveConfig
     default_seed::Int
 end
 
+"""
+    SurveyWaveConfig(cfg::ElectionConfig; wave_id=string(cfg.year))
+
+Convert the legacy election TOML configuration into the nested-pipeline wave
+configuration used by the reproducible BRK pipeline.
+"""
 SurveyWaveConfig(cfg::ElectionConfig; wave_id::AbstractString = string(cfg.year)) =
     SurveyWaveConfig(
         String(wave_id),
@@ -41,12 +60,31 @@ SurveyWaveConfig(cfg::ElectionConfig; wave_id::AbstractString = string(cfg.year)
         cfg.rng_seed,
     )
 
+"""
+    load_survey_wave_config(path; wave_id=nothing) -> SurveyWaveConfig
+
+Load a PrefPol year configuration TOML and return the corresponding
+`SurveyWaveConfig`.
+
+This is the nested pipeline's configuration-loading entry point for the
+Brazil/ESEB application. `data_file` paths are resolved by `load_election_cfg`;
+no survey data or cache artifact is read here.
+"""
 function load_survey_wave_config(path::AbstractString; wave_id = nothing)
     cfg = load_election_cfg(path)
     resolved_wave_id = wave_id === nothing ? string(cfg.year) : String(wave_id)
     return SurveyWaveConfig(cfg; wave_id = resolved_wave_id)
 end
 
+"""
+    build_source_registry(waves) -> Dict{String,SurveyWaveConfig}
+
+Index survey-wave configurations by `wave_id` for a
+`NestedStochasticPipeline`.
+
+The registry is a pure in-memory lookup table; it does not validate files or
+touch cache. Duplicate wave ids follow normal `Dict` assignment semantics.
+"""
 function build_source_registry(waves)
     registry = Dict{String,SurveyWaveConfig}()
 
@@ -114,6 +152,24 @@ function _normalize_groupings(groupings)
     return Symbol.(collect(groupings))
 end
 
+"""
+    PipelineSpec
+
+Reproducibility specification for one nested PrefPol analysis cell.
+
+A spec fixes the survey wave, active candidate set, grouped variables, requested
+measures, and the BRK stochastic tree:
+
+- `B`: weighted-bootstrap resamples of observed respondents.
+- `R`: imputation replicates within each bootstrap.
+- `K`: strict linearizations within each imputed weak profile.
+
+It also fixes the imputation backend, weak-order linearization policy, consensus
+tie policy, seed namespace, schema version, and code version. The stable
+serialization of this object defines the cache key, so changing these fields
+creates a separate cache directory. Formal meanings of the stored measures and
+profile objects are delegated to `Preferences`.
+"""
 struct PipelineSpec
     wave_id::String
     active_candidates::Vector{String}
@@ -132,6 +188,17 @@ struct PipelineSpec
     code_version::String
 end
 
+"""
+    PipelineSpec(wave_id, active_candidates; kwargs...) -> PipelineSpec
+
+Validate and construct a nested-pipeline spec.
+
+The constructor normalizes measure names, candidate names, and grouping columns,
+then checks supported resampling, imputation, linearization, and consensus-tie
+policies. Grouped measures such as `:C`, `:D`, `:S`, `:E`, and `:lambda_sep`
+require at least one grouping column; global reversal/polarization measures do
+not.
+"""
 function PipelineSpec(wave_id::AbstractString,
                       active_candidates;
                       groupings = Symbol[],
@@ -201,6 +268,19 @@ function PipelineSpec(wave_id::AbstractString,
     )
 end
 
+"""
+    resolve_active_candidate_set(wcfg; active_candidates=nothing,
+                                 scenario_name=nothing, m=nothing,
+                                 data=nothing) -> Vector{String}
+
+Resolve the ordered candidate set used by one Brazil/ESEB pipeline spec.
+
+Pass `active_candidates` to use an exact set. Otherwise PrefPol computes a
+weighted-missingness ordering from the raw survey data, optionally force-including
+the candidates declared by `scenario_name`, and trims to `m` alternatives. This
+function may load the raw survey table unless `data` is provided; it does not
+write cache.
+"""
 function resolve_active_candidate_set(wcfg::SurveyWaveConfig;
                                       active_candidates = nothing,
                                       scenario_name = nothing,
@@ -247,6 +327,18 @@ function resolve_active_candidate_set(wcfg::SurveyWaveConfig;
     )
 end
 
+"""
+    build_pipeline_spec(wcfg; active_candidates=nothing, scenario_name=nothing,
+                        m=nothing, groupings=nothing, kwargs...) -> PipelineSpec
+
+Create a `PipelineSpec` from a survey-wave config and PrefPol's candidate-set
+rules.
+
+When `active_candidates` is absent, the active set is resolved through
+`resolve_active_candidate_set`, so scenario forcing and the number of
+alternatives are part of the resulting reproducibility contract. Defaults use
+the wave's configured demographic columns as grouped-measure variables.
+"""
 function build_pipeline_spec(wcfg::SurveyWaveConfig;
                              active_candidates = nothing,
                              scenario_name = nothing,
@@ -353,6 +445,12 @@ end
 
 _rng_from_seed(seed::UInt64) = MersenneTwister(_seed_int(seed))
 
+"""
+    resolve_pipeline_cache_root(root=nothing) -> String
+
+Resolve the directory that will hold nested-pipeline cache artifacts. Relative
+paths are interpreted under `project_root`; the directory is created if needed.
+"""
 function resolve_pipeline_cache_root(root = nothing)
     if root === nothing
         mkpath(DEFAULT_NESTED_PIPELINE_CACHE_ROOT)
@@ -366,11 +464,24 @@ function resolve_pipeline_cache_root(root = nothing)
     return resolved
 end
 
+"""
+    NestedStochasticPipeline
+
+Application pipeline object that connects registered survey waves to a cache
+root. A pipeline does not itself encode stochastic choices; those live in
+`PipelineSpec`.
+"""
 struct NestedStochasticPipeline
     source_registry::Dict{String,SurveyWaveConfig}
     cache_root::String
 end
 
+"""
+    NestedStochasticPipeline(source_registry; cache_root=nothing)
+
+Create a pipeline from a wave registry and resolve the cache root used for all
+`PipelineSpec` cache keys.
+"""
 function NestedStochasticPipeline(source_registry::Dict{String,SurveyWaveConfig};
                                   cache_root = nothing)
     return NestedStochasticPipeline(
@@ -379,9 +490,22 @@ function NestedStochasticPipeline(source_registry::Dict{String,SurveyWaveConfig}
     )
 end
 
+"""
+    NestedStochasticPipeline(waves; cache_root=nothing)
+
+Create a pipeline directly from an iterable of `SurveyWaveConfig` objects.
+"""
 NestedStochasticPipeline(waves; cache_root = nothing) =
     NestedStochasticPipeline(build_source_registry(waves); cache_root = cache_root)
 
+"""
+    ObservedData
+
+Loaded survey rows for one `PipelineSpec`, restricted to active candidate scores,
+auxiliary score columns needed for derived groups, requested grouping columns,
+and normalized survey weights. This stage is cached once per spec before BRK
+resampling begins.
+"""
 struct ObservedData
     wave_id::String
     active_candidates::Vector{String}
@@ -391,6 +515,14 @@ struct ObservedData
     provenance::NamedTuple
 end
 
+"""
+    Resample
+
+One weighted-bootstrap branch of the nested pipeline. `b` is the bootstrap
+index, `indices` records sampled respondent rows, `multiplicities` records how
+often each observed row was drawn, and `table` is the sampled score/group table
+used by imputation.
+"""
 struct Resample
     b::Int
     indices::Vector{Int}
@@ -399,6 +531,14 @@ struct Resample
     seed::UInt64
 end
 
+"""
+    ImputedData
+
+One imputation branch for a bootstrap resample. `r` indexes the replicate within
+bootstrap branch `b`; `table` contains completed candidate scores plus grouping
+columns, and `report` stores backend diagnostics such as R/mice methods and
+logged events.
+"""
 struct ImputedData
     b::Int
     r::Int
@@ -409,6 +549,13 @@ struct ImputedData
     report::NamedTuple
 end
 
+"""
+    LinearizedProfile
+
+One strict-profile branch after converting imputed weak score profiles into
+`Preferences.AnnotatedProfile` strict rankings. `k` indexes the linearization
+replicate within `(b, r)`, and `policy` records the tie-breaking strategy.
+"""
 struct LinearizedProfile
     b::Int
     r::Int
@@ -419,6 +566,15 @@ struct LinearizedProfile
     seed::UInt64
 end
 
+"""
+    MeasureResult
+
+Leaf-level scalar output for one `(b, r, k)` profile and one measure. `grouping`
+is `nothing` for global measures and a demographic symbol for grouped measures;
+`lower` and `upper` carry consensus-tie intervals where applicable. Formal
+measure definitions are in `Preferences`; this struct records their applied
+placement in the Brazil/ESEB workflow.
+"""
 struct MeasureResult
     b::Int
     r::Int
@@ -434,6 +590,13 @@ end
 # `V_res` is kept as a legacy field name for backward compatibility with
 # existing scripts; in the explicit tree decomposition it is the bootstrap
 # component `Var_b(E[M | b])`.
+"""
+    VarianceComponentSummary
+
+Pooled estimate and variance components for one measure/grouping cell of the
+BRK tree. `V_res`, `V_imp`, and `V_lin` are legacy names for bootstrap,
+imputation, and linearization variance components.
+"""
 struct VarianceComponentSummary
     measure_id::Symbol
     grouping::Union{Nothing,Symbol}
@@ -445,10 +608,25 @@ struct VarianceComponentSummary
     empirical_variance::Float64
 end
 
+"""
+    VarianceDecomposition
+
+Collection of variance summaries computed from a nested-pipeline measure cube.
+Use `decomposition_table` or `pipeline_variance_decomposition_table` for a tidy
+`DataFrame` representation.
+"""
 struct VarianceDecomposition
     summaries::Vector{VarianceComponentSummary}
 end
 
+"""
+    PipelineResult
+
+Complete result object for one applied `PipelineSpec`. It stores the cache
+directory, stage manifest, leaf-level measure cube, pooled summaries, variance
+decomposition, and audit log. The result is saved as `result.jld2` under the
+spec-specific cache directory.
+"""
 struct PipelineResult
     spec::PipelineSpec
     cache_dir::String
@@ -459,16 +637,35 @@ struct PipelineResult
     audit_log::DataFrame
 end
 
+"""
+    StudyBatchItem
+
+Ordered batch entry pairing a `PipelineSpec` with reporting metadata such as
+year, scenario name, candidate-set size, or label. Metadata is appended to batch
+tables but is not part of the spec cache key.
+"""
 struct StudyBatchItem
     spec::PipelineSpec
     metadata::NamedTuple
 end
 
+"""
+    StudyBatchItem(spec; metadata...)
+
+Construct a batch item from keyword metadata used later by table builders.
+"""
 StudyBatchItem(spec::PipelineSpec; metadata...) =
     StudyBatchItem(spec, (; metadata...))
 
 # Batch items are an ordered job list. Identical PipelineSpecs are legal and
 # remain distinct by position in `items`.
+"""
+    StudyBatchSpec
+
+Ordered list of nested-pipeline jobs. Identical specs are allowed and remain
+distinct by position, which lets orchestration scripts attach different metadata
+to reused cache entries.
+"""
 struct StudyBatchSpec
     items::Vector{StudyBatchItem}
 end
@@ -479,16 +676,34 @@ StudyBatchSpec(items::AbstractVector{<:StudyBatchItem}) =
 StudyBatchSpec(specs::AbstractVector{<:PipelineSpec}) =
     StudyBatchSpec([StudyBatchItem(spec) for spec in specs])
 
+"""
+    BatchRunner
+
+Small wrapper that binds a `NestedStochasticPipeline` to `run_batch`.
+"""
 struct BatchRunner
     pipeline::NestedStochasticPipeline
 end
 
+"""
+    BatchRunResult
+
+Ordered collection of `PipelineResult`s plus the metadata from the corresponding
+`StudyBatchSpec`. Table helpers stack these results and append metadata while
+preserving `batch_index`.
+"""
 struct BatchRunResult
     batch::StudyBatchSpec
     results::Vector{PipelineResult}
     metadata::Vector{NamedTuple}
 end
 
+"""
+    BatchRunResult(batch, results, metadata) -> BatchRunResult
+
+Validate that results and metadata align one-to-one with the ordered batch
+items.
+"""
 function BatchRunResult(batch::StudyBatchSpec,
                         results::AbstractVector{<:PipelineResult},
                         metadata::AbstractVector{<:NamedTuple})
@@ -511,6 +726,15 @@ Base.values(results::BatchRunResult) = results.results
 Base.pairs(results::BatchRunResult) = pairs(results.results)
 Base.iterate(results::BatchRunResult, state...) = iterate(results.results, state...)
 
+"""
+    load_observed_data(pipeline, spec) -> ObservedData
+
+Load and validate the raw survey data needed by `spec`. The returned object is
+restricted to active candidates, requested groupings, any auxiliary score columns
+needed for derived groups, and normalized weights. This function reads raw data
+through the configured loader but does not write cache; `ensure_observed!` is the
+cached stage entry point.
+"""
 function load_observed_data(pipeline::NestedStochasticPipeline, spec::PipelineSpec)
     wcfg = _lookup_wave_config(pipeline, spec.wave_id)
     raw = load_wave_data(wcfg)
@@ -843,6 +1067,20 @@ function _pairwise_consensus_distance_stats(result_i,
     return (point = point, lo = minimum(distances), hi = maximum(distances))
 end
 
+"""
+    compute_group_measure_details(bundle, demo; tie_policy=:average, ...) -> NamedTuple
+
+Compute the grouped PrefPol measures for one strict annotated profile and one
+demographic column.
+
+`bundle` is a `Preferences.AnnotatedProfile` produced by the applied pipeline;
+`demo` selects a metadata column whose values define groups. The function builds
+group-specific formal profiles, obtains group consensus rankings via
+`Preferences.consensus_kendall`, and returns the applied grouped quantities used
+by the paper tables (`C`, `W`, `D`, `O`, `Sep`, `S`, `E`, `lambda_sep`, and
+related intervals/diagnostics). It does not read or write cache. Formal
+consensus, overlap, and distance definitions live in `Preferences`.
+"""
 function compute_group_measure_details(bundle::AnnotatedProfile,
                                        demo::Symbol;
                                        tie_policy::Symbol = :average,
@@ -1574,6 +1812,14 @@ function _with_grouped_e_measure_list(measures::AbstractVector{<:Symbol};
     return updated
 end
 
+"""
+    augment_pipeline_result_with_grouped_s(result; audit_message=nothing) -> PipelineResult
+
+Append grouped `:S` rows derived from cached grouped `:C` and `:D` leaf rows,
+then recompute pooled summaries and the variance decomposition. This is a
+result-level augmentation; it does not mutate cache files or re-run bootstrap,
+imputation, or linearization stages.
+"""
 function augment_pipeline_result_with_grouped_s(result::PipelineResult;
                                                 audit_message::Union{Nothing,AbstractString} = nothing)
     any(result.measure_cube.measure .== :S) && throw(ArgumentError(
@@ -1635,6 +1881,13 @@ function augment_pipeline_result_with_grouped_s(result::PipelineResult;
     )
 end
 
+"""
+    augment_pipeline_result_with_lambda_sep(result; include_w=true, audit_message=nothing)
+
+Append grouped `:lambda_sep` rows derived from cached grouped `:D` and `:W`
+(or from grouped `:C` when `:W` must be derived), then recompute summaries and
+variance components. No pipeline stage artifacts are rewritten.
+"""
 function augment_pipeline_result_with_lambda_sep(result::PipelineResult;
                                                  include_w::Bool = true,
                                                  audit_message::Union{Nothing,AbstractString} = nothing)
@@ -1709,6 +1962,14 @@ function augment_pipeline_result_with_lambda_sep(result::PipelineResult;
     )
 end
 
+"""
+    augment_pipeline_result_with_E(result; include_w=true, audit_message=nothing)
+
+Append grouped normalized consensus-separation `:E` rows from cached grouped
+`D` and `W`/`C` leaf rows, then recompute pooled summaries and the variance
+decomposition. This documents a reporting augmentation, not a new formal measure
+definition; see `Preferences` for the underlying consensus quantities.
+"""
 function augment_pipeline_result_with_E(result::PipelineResult;
                                         include_w::Bool = true,
                                         audit_message::Union{Nothing,AbstractString} = nothing)
@@ -1783,6 +2044,17 @@ function augment_pipeline_result_with_E(result::PipelineResult;
     )
 end
 
+"""
+    compute_variance_decomposition(measure_cube) -> VarianceDecomposition
+
+Compute pooled estimates and BRK variance components for the nested pipeline
+measure cube. The input is the leaf-level table with `(b, r, k, measure,
+grouping, value)` rows produced by `ensure_measures!` or `run_pipeline`.
+
+Finite measure cells are passed to `tree_variance_decomposition_table`; cells
+containing non-finite values retain a mean estimate and `NaN` variance
+components.
+"""
 function compute_variance_decomposition(measure_cube::DataFrame)
     summaries = VarianceComponentSummary[]
 
@@ -1827,6 +2099,14 @@ function compute_variance_decomposition(measure_cube::DataFrame)
     return VarianceDecomposition(summaries)
 end
 
+"""
+    decomposition_table(decomposition) -> DataFrame
+
+Convert a `VarianceDecomposition` into the tidy summary schema used by PrefPol
+pipeline outputs. Rows are keyed by `(measure, grouping)` and include estimate,
+total variance, bootstrap/imputation/linearization components, component
+shares, standard deviation, and legacy aliases `V_res`, `V_imp`, and `V_lin`.
+"""
 function decomposition_table(decomposition::VarianceDecomposition)
     rows = NamedTuple[]
 
@@ -2376,14 +2656,34 @@ function ensure_measures!(pipeline::NestedStochasticPipeline,
     return result
 end
 
+"""
+    pipeline_result_path(pipeline, spec) -> String
+
+Return the `result.jld2` path in the spec-specific nested-pipeline cache
+directory. The directory is created as a side effect through `pipeline_cache_dir`.
+"""
 function pipeline_result_path(pipeline::NestedStochasticPipeline, spec::PipelineSpec)
     return joinpath(pipeline_cache_dir(pipeline, spec), "result.jld2")
 end
 
+"""
+    load_pipeline_result(path) -> PipelineResult
+
+Load a saved nested-pipeline `PipelineResult` from the standard JLD2 key
+`"result"`. This reads the aggregate result object, not individual stage
+artifacts.
+"""
 function load_pipeline_result(path::AbstractString)
     return JLD2.load(path, "result")
 end
 
+"""
+    save_pipeline_result(path, result; overwrite=false) -> String
+
+Save the aggregate `PipelineResult` under the standard JLD2 key `"result"`.
+This writes only the result object; stage artifacts are written by the pipeline
+stage functions.
+"""
 function save_pipeline_result(path::AbstractString,
                               result::PipelineResult;
                               overwrite::Bool = false)
@@ -2402,6 +2702,18 @@ function _metadata_value(metadata::NamedTuple, key::Symbol, default = missing)
     return hasproperty(metadata, key) ? getproperty(metadata, key) : default
 end
 
+"""
+    run_pipeline(pipeline, spec; force=false, progress=true) -> PipelineResult
+
+Run the full applied nested pipeline for one spec: observed data, weighted
+bootstrap resamples, imputation replicates, strict linearizations, measure
+application, variance decomposition, stage manifest, audit log, and
+`result.jld2`. Existing aggregate cache is reused unless `force=true`.
+
+This is the one-spec execution entry point used by batch orchestration. Formal
+profile and measure semantics remain in `Preferences`; this function defines the
+Brazil/ESEB reproducibility and cache convention.
+"""
 function run_pipeline(pipeline::NestedStochasticPipeline,
                       spec::PipelineSpec;
                       force::Bool = false,
@@ -2592,6 +2904,13 @@ run(pipeline::NestedStochasticPipeline, spec::PipelineSpec;
     progress::Bool = true) =
     run_pipeline(pipeline, spec; force = force, progress = progress)
 
+"""
+    run_batch(runner, batch; force=false, progress=true) -> BatchRunResult
+
+Run an ordered list of pipeline specs and retain each item's metadata for later
+reporting tables. Each spec still uses its own stable cache key; duplicate specs
+may reuse cache while remaining separate rows through `batch_index`.
+"""
 function run_batch(runner::BatchRunner,
                    batch::StudyBatchSpec;
                    force::Bool = false,
@@ -2766,6 +3085,13 @@ pipeline_variance_decomposition_table(results::AbstractDict{<:Any,<:PipelineResu
 pipeline_variance_decomposition_table(results::BatchRunResult) =
     pipeline_summary_table(results)
 
+"""
+    save_pipeline_variance_decomposition_csv(path, result_or_results) -> String
+
+Write `pipeline_variance_decomposition_table(result_or_results)` to CSV using
+the PrefPol table writer. This is a reporting/export helper and does not alter
+the underlying pipeline cache.
+"""
 function save_pipeline_variance_decomposition_csv(path::AbstractString, result_or_results)
     table = pipeline_variance_decomposition_table(result_or_results)
     return _write_table_csv(path, table)
@@ -2967,6 +3293,14 @@ function _panel_m_column(df::AbstractDataFrame)
     return :n_candidates
 end
 
+"""
+    select_pipeline_panel_rows(result_or_results; filters...) -> DataFrame
+
+Filter the plotting/reporting panel table by year or wave, scenario, candidate
+set size, imputation backend, measure list, grouping list, and whether rows are
+global or grouped. Inputs may be a `PipelineResult`, collection,
+`BatchRunResult`, or an already-built panel table.
+"""
 function select_pipeline_panel_rows(result_or_results;
                                     year = nothing,
                                     wave_id = nothing,
@@ -3029,6 +3363,13 @@ function select_pipeline_panel_rows(result_or_results;
     return sort(panel, sort_cols)
 end
 
+"""
+    pipeline_candidate_label(rows) -> String
+
+Return the candidate-set label used by pipeline plotting wrappers. PrefPol first
+uses explicit batch metadata when present, otherwise it derives a compact label
+from the active-candidate key in the selected panel rows.
+"""
 function pipeline_candidate_label(rows::AbstractDataFrame)
     isempty(rows) && return ""
 
@@ -3052,6 +3393,13 @@ function pipeline_candidate_label(rows::AbstractDataFrame)
     return describe_candidate_set(split(String(rows[idx, :active_candidates_key]), '|'))
 end
 
+"""
+    pipeline_scenario_plot_data(result_or_results; filters...) -> NamedTuple
+
+Prepare global-measure panel rows for scenario-level paper figures. The result
+contains filtered rows, the realized `m` values, and the candidate-set label; it
+does not create a figure or touch cache.
+"""
 function pipeline_scenario_plot_data(result_or_results;
                                      year = nothing,
                                      wave_id = nothing,
@@ -3076,6 +3424,14 @@ function pipeline_scenario_plot_data(result_or_results;
     )
 end
 
+"""
+    pipeline_group_plot_data(result_or_results; filters...) -> NamedTuple
+
+Prepare grouped-measure panel rows for line or heatmap paper figures. The result
+contains filtered rows, realized `m` values, selected grouping columns, and a
+candidate-set label; figure construction is delegated to the CairoMakie
+extension.
+"""
 function pipeline_group_plot_data(result_or_results;
                                   year = nothing,
                                   wave_id = nothing,
@@ -3120,6 +3476,13 @@ function _panel_stat_column(statistic::Symbol)
     ))
 end
 
+"""
+    pipeline_group_heatmap_values(result_or_results; statistic=:median, filters...)
+
+Convert grouped panel rows into measure-by-`m`/grouping matrices used by the
+heatmap plotting wrappers. `statistic` selects a stored panel statistic such as
+`:median`, `:mean`, `:estimate`, or a quantile column.
+"""
 function pipeline_group_heatmap_values(result_or_results;
                                        year = nothing,
                                        wave_id = nothing,
@@ -3165,18 +3528,44 @@ function pipeline_group_heatmap_values(result_or_results;
     return merge(data, (matrices = matrices, statistic = stat_col))
 end
 
+"""
+    plot_pipeline_scenario(result_or_results; kwargs...)
+
+Draw the scenario-level global-measure figure through the CairoMakie extension.
+The wrapper accepts pipeline results or panel tables and delegates plotting
+behavior to `PrefPolPlottingExt`; it does not compute new measures.
+"""
 function plot_pipeline_scenario(result_or_results; kwargs...)
     return _call_plotting_extension(:plot_pipeline_scenario, result_or_results; kwargs...)
 end
 
+"""
+    plot_pipeline_group_lines(result_or_results; kwargs...)
+
+Draw grouped-measure line panels through the CairoMakie extension from existing
+pipeline output tables.
+"""
 function plot_pipeline_group_lines(result_or_results; kwargs...)
     return _call_plotting_extension(:plot_pipeline_group_lines, result_or_results; kwargs...)
 end
 
+"""
+    plot_pipeline_group_heatmap(result_or_results; kwargs...)
+
+Draw grouped-measure heatmaps through the CairoMakie extension from existing
+pipeline output tables.
+"""
 function plot_pipeline_group_heatmap(result_or_results; kwargs...)
     return _call_plotting_extension(:plot_pipeline_group_heatmap, result_or_results; kwargs...)
 end
 
+"""
+    save_pipeline_plot(fig, stem; kwargs...)
+
+Save a CairoMakie figure using the plotting extension's paper-output naming and
+directory conventions. This wrapper writes figure files only; it does not modify
+pipeline cache artifacts.
+"""
 function save_pipeline_plot(fig, stem::AbstractString; kwargs...)
     return _call_plotting_extension(:save_pipeline_plot, fig, stem; kwargs...)
 end

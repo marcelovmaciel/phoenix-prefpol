@@ -1,3 +1,16 @@
+"""
+    PrefPol
+
+Applied Brazil/ESEB replication package built on the reusable `Preferences`
+formal package.
+
+`PrefPol` owns survey configuration loading, candidate-set selection,
+bootstrap/imputation/linearization orchestration, cache layout, applied measure
+execution, and paper-facing tables/figures. Formal profile representations,
+rankings, consensus, overlap, reversal, polarization, and related mathematical
+definitions live in `Preferences`; PrefPol adapters either construct those
+formal objects from survey data or delegate to `Preferences`.
+"""
 module PrefPol
 
 using Pkg

@@ -1,5 +1,15 @@
 const DEFAULT_VARIANCE_DECOMPOSITION_ESTIMATOR = :existing_nested_moments
+"""
+Default measure order for paper variance-decomposition reports.
+
+These symbols refer to measures already computed in PrefPol pipeline results;
+formal definitions of `:C`, `:D`, `:Psi`, `:R`, and related quantities live in
+`Preferences`.
+"""
 const DEFAULT_PAPER_VARIANCE_MEASURES = [:C, :D, :HHI, :Psi, :R, :RHHI]
+"""
+Display labels used by PrefPol variance-decomposition paper tables and plots.
+"""
 const DEFAULT_PAPER_VARIANCE_MEASURE_LABELS = Dict(
     :Psi => "Ψ",
     :R => "R",
@@ -32,6 +42,15 @@ const _VARIANCE_REPORT_DECOMPOSITION_COLUMNS = [
     :total_variance,
 ]
 
+"""
+    VarianceDecompositionReportSpec
+
+Reporting configuration for variance-decomposition tables built from cached
+PrefPol pipeline output. The spec filters selections, candidate-set sizes,
+measures, and groupings, and controls whether report rows are pooled across `m`
+or survey/scenario selections. Pooling is a reporting choice only; it does not
+change the stored pipeline cache or recompute measures.
+"""
 struct VarianceDecompositionReportSpec
     selections::Any
     m_values::Any
@@ -43,6 +62,14 @@ struct VarianceDecompositionReportSpec
     estimator::Symbol
 end
 
+"""
+    VarianceDecompositionReportSpec(; selections=nothing, m_values=nothing, ...)
+
+Construct a variance-reporting spec. By default, the report preserves candidate
+set size `m` and survey/scenario selections because those define different
+applied ranking spaces. Set pooling options only for secondary descriptive
+diagnostics.
+"""
 function VarianceDecompositionReportSpec(; selections = nothing,
                                          m_values = nothing,
                                          measures = nothing,
@@ -81,6 +108,13 @@ the primary cellwise variance decomposition.
 """
 VarianceDecompositionReportSpec
 
+"""
+    normalize_variance_measure(measure) -> Symbol
+
+Normalize paper-facing variance-report measure aliases to pipeline measure
+symbols. For example, `"Ψ"` maps to `:Psi`, and overlap-complement labels map
+to `:Sep`. Formal measure definitions are not rederived here.
+"""
 function normalize_variance_measure(measure)
     sym = Symbol(measure)
     sym === Symbol("Ψ") && return :Psi
@@ -311,6 +345,14 @@ function _fine_row(row, component::Symbol, value, measure::Symbol, spec::Varianc
     )
 end
 
+"""
+    variance_decomposition_fine_table(input, spec=VarianceDecompositionReportSpec())
+
+Convert a wide pipeline variance table or `PipelineResult` collection into one
+row per `(cell, component)` for reporting. Rows preserve BRK dimensions (`B`,
+`R`, `K`), pipeline choices, candidate-set size `m`, selection metadata, and the
+component value. No cache is read except through the supplied input object.
+"""
 function variance_decomposition_fine_table(input,
                                            spec::VarianceDecompositionReportSpec = VarianceDecompositionReportSpec())
     base = _variance_decomposition_input_table(input)
@@ -625,6 +667,13 @@ function _joined_notes(values)
     return join(vals, "; ")
 end
 
+"""
+    variance_decomposition_pooled_table(fine, spec=VarianceDecompositionReportSpec())
+
+Summarize fine variance-decomposition rows across report cells with quartiles,
+median, mean, and pooled-cell counts. The default grouping preserves `m`;
+`pool_over_m=true` intentionally mixes candidate-set sizes for diagnostics.
+"""
 function variance_decomposition_pooled_table(fine::AbstractDataFrame,
                                              spec::VarianceDecompositionReportSpec = VarianceDecompositionReportSpec())
     isempty(fine) && return DataFrame()
@@ -660,6 +709,14 @@ than the primary cellwise decomposition.
 """
 variance_decomposition_pooled_table
 
+"""
+    variance_decomposition_report(input, spec=VarianceDecompositionReportSpec())
+        -> (fine, pooled)
+
+Build both the fine component table and the pooled diagnostic table from cached
+PrefPol pipeline outputs. This is a reporting entry point for paper artifacts;
+it does not recompute profiles, measures, or variance components.
+"""
 function variance_decomposition_report(input,
                                        spec::VarianceDecompositionReportSpec = VarianceDecompositionReportSpec())
     fine = variance_decomposition_fine_table(input, spec)
@@ -667,18 +724,44 @@ function variance_decomposition_report(input,
     return fine, pooled
 end
 
+"""
+    plot_variance_decomposition_dotwhisker(pooled_table; kwargs...)
+
+Draw the pooled variance-decomposition dot-whisker diagnostic through the
+CairoMakie extension. The input should be a table from
+`variance_decomposition_pooled_table`; plotting behavior is delegated to the
+extension.
+"""
 function plot_variance_decomposition_dotwhisker(pooled_table; kwargs...)
     return _call_plotting_extension(:plot_variance_decomposition_dotwhisker, pooled_table; kwargs...)
 end
 
+"""
+    plot_variance_decomposition_boxplot(pooled_table; kwargs...)
+
+Draw the pooled variance-decomposition boxplot diagnostic through the CairoMakie
+extension from an existing pooled report table.
+"""
 function plot_variance_decomposition_boxplot(pooled_table; kwargs...)
     return _call_plotting_extension(:plot_variance_decomposition_boxplot, pooled_table; kwargs...)
 end
 
+"""
+    plot_variance_decomposition_by_m(table; kwargs...)
+
+Draw the m-explicit variance-decomposition figure through the CairoMakie
+extension. The input may be a fine table or wide pipeline variance table.
+"""
 function plot_variance_decomposition_by_m(table; kwargs...)
     return _call_plotting_extension(:plot_variance_decomposition_by_m, table; kwargs...)
 end
 
+"""
+    plot_variance_decomposition_year_scenario_boxplots(table; kwargs...)
+
+Draw the primary year/scenario variance-decomposition boxplot through the
+CairoMakie extension from existing report rows.
+"""
 function plot_variance_decomposition_year_scenario_boxplots(table; kwargs...)
     return _call_plotting_extension(:plot_variance_decomposition_year_scenario_boxplots, table; kwargs...)
 end

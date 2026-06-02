@@ -47,6 +47,13 @@ function dab(candidate1, candidate2, profile::Vector{<:Dict})
     return abs(nab(candidate1, candidate2, profile) - nab(candidate2, candidate1, profile))
 end
 
+"""
+    Ψ(profile)
+
+Applied wrapper for `Preferences.can_polarization`. PrefPol accepts applied
+profile artifacts or annotated profiles, extracts the formal strict profile, and
+delegates the polarization statistic to `Preferences`.
+"""
 function Ψ(profile)
     return Preferences.can_polarization(strict_profile(profile))
 end
@@ -59,14 +66,29 @@ function get_paired_rankings_and_proportions(profile)
     return paired, proportion_rankings
 end
 
+"""
+    calc_total_reversal_component(profile)
+
+Applied wrapper for the total reversal component defined in `Preferences`.
+"""
 function calc_total_reversal_component(profile)
     return Preferences.total_reversal_component(strict_profile(profile))
 end
 
+"""
+    calc_reversal_HHI(profile)
+
+Applied wrapper for reversal concentration (`Preferences.reversal_hhi`).
+"""
 function calc_reversal_HHI(profile)
     return Preferences.reversal_hhi(strict_profile(profile))
 end
 
+"""
+    fast_reversal_geometric(profile)
+
+Applied wrapper for the reversal geometric measure defined in `Preferences`.
+"""
 function fast_reversal_geometric(profile)
     return Preferences.reversal_geometric(strict_profile(profile))
 end
@@ -92,12 +114,54 @@ overall_divergences_median(args...; kwargs...) = Preferences.overall_divergences
 overall_separation(args...; kwargs...) = Preferences.overall_separation(args...; kwargs...)
 overall_separations(args...; kwargs...) = Preferences.overall_separations(args...; kwargs...)
 grouped_gsep(args...; kwargs...) = Preferences.grouped_gsep(args...; kwargs...)
+"""
+    normalized_consensus_separation(args...; kwargs...)
+
+Delegate to `Preferences.normalized_consensus_separation`. PrefPol exports this
+name for applied grouped-measure reporting; the formal definition lives in
+`Preferences`.
+"""
 normalized_consensus_separation(args...; kwargs...) = Preferences.normalized_consensus_separation(args...; kwargs...)
+"""
+    consensus_excess_separation(args...; kwargs...)
+
+Delegate to `Preferences.consensus_excess_separation`; retained in PrefPol for
+legacy applied scripts.
+"""
 consensus_excess_separation(args...; kwargs...) = Preferences.consensus_excess_separation(args...; kwargs...)
+"""
+    group_E(args...; kwargs...)
+
+Delegate to the group-level normalized consensus separation helper in
+`Preferences`.
+"""
 group_E(args...; kwargs...) = Preferences.group_E(args...; kwargs...)
+"""
+    aggregate_E(args...; kwargs...)
+
+Delegate to `Preferences.aggregate_E` for formal aggregation semantics.
+"""
 aggregate_E(args...; kwargs...) = Preferences.aggregate_E(args...; kwargs...)
+"""
+    E(args...; kwargs...)
+
+Delegate to `Preferences.E`. PrefPol computes and caches applied `:E` rows in
+the nested pipeline, but the formal definition is not rederived here.
+"""
 E(args...; kwargs...) = Preferences.E(args...; kwargs...)
+"""
+    S(args...; kwargs...)
+
+Delegate to `Preferences.S`; PrefPol may also derive cached grouped `:S` rows
+from applied `C` and `D` pipeline output.
+"""
 S(args...; kwargs...) = Preferences.S(args...; kwargs...)
+"""
+    S_old(args...; kwargs...)
+
+Delegate to `Preferences.S_old`, retained for legacy support-separation
+comparisons in applied PrefPol reports.
+"""
 S_old(args...; kwargs...) = Preferences.S_old(args...; kwargs...)
 
 function _measure_input(x)

@@ -131,9 +131,14 @@ end
 """
     compute_weighted_dont_know_her(scores_df, candidate_cols; weights)
 
-Compute the weighted percentage of missing / "don't know" scores (96–99 or
-`missing`) for each candidate and return a deterministic ascending ordering of
-`(name, percent)` pairs.
+Compute the weighted percentage of missing or "don't know" scores for each
+candidate in the Brazil/ESEB score table.
+
+PrefPol treats Julia `missing` and survey sentinel codes `96`-`99` as missing
+candidate knowledge. The returned `(name, percent)` pairs are sorted by ascending
+weighted missingness and then candidate name, making them reproducible inputs to
+candidate-set selection. This reads only the provided table and weights; it does
+not touch pipeline cache.
 """
 function compute_weighted_dont_know_her(scores_df::DataFrame,
                                         candidate_cols;
@@ -161,8 +166,12 @@ end
 """
     prepare_scores_for_imputation_int(df, score_cols; extra_cols=String[])
 
-Convert numeric score columns to `Int` and mark special codes (96–99) as
-missing. Optional `extra_cols` are appended unchanged.
+Prepare Brazil/ESEB score columns for deterministic zero-style imputation.
+
+Numeric candidate score columns are converted to `Union{Missing,Int}` and survey
+codes `96`-`99` are declared missing through `Impute`. Optional demographic or
+auxiliary columns are appended unchanged. This helper is used before the nested
+pipeline's imputation stage and does not write cache.
 """
 function prepare_scores_for_imputation_int(df::DataFrame,
     score_cols::Vector{String};
@@ -184,10 +193,14 @@ end
 
 
 """
-    prepare_scores_for_imputation_categorical(df, score_cols; extra_cols = String[])
+    prepare_scores_for_imputation_categorical(df, score_cols; extra_cols=String[])
 
-Same idea as the `_int` version but returns the scores as **ordered categoricals**.
-Demographics are still appended unchanged.
+Prepare Brazil/ESEB score columns for stochastic or R/mice imputation.
+
+The candidate score columns are first normalized by
+`prepare_scores_for_imputation_int` and then converted to ordered categorical
+columns, matching the imputation backends used by PrefPol. Optional demographic
+or auxiliary columns are appended unchanged.
 """
 function prepare_scores_for_imputation_categorical(df::DataFrame,
                                                    score_cols::Vector{String};
@@ -213,8 +226,12 @@ end
 """
     select_top_candidates(countmaps, nrespondents; m, force_include=String[])
 
-Select up to `m` candidates with the lowest "don't know" rates. Additional
-names in `force_include` are guaranteed to appear in the result.
+Select up to `m` candidates by ascending unweighted "don't know" rates.
+
+Forced candidates are pinned first in the returned order and the remaining slots
+are filled from the missingness ordering. This is a legacy countmap-based helper;
+the nested pipeline usually calls `compute_global_candidate_set` so survey
+weights enter candidate-set selection.
 """
 function select_top_candidates(countmaps::Dict{String,<:AbstractDict},
                                nrespondents::Int;
@@ -228,7 +245,12 @@ end
 """
     compute_candidate_set(scores_df; candidate_cols, m, force_include=String[])
 
-Determine the set of `m` candidates to analyze based on score distributions.
+Determine an unweighted candidate set from raw candidate score distributions.
+
+This helper counts sentinel-code missingness in the supplied score table and is
+kept for compatibility with older PrefPol workflows. For paper pipeline specs,
+prefer `compute_global_candidate_set` or `resolve_active_candidate_set`, which
+use survey weights and scenario forcing.
 """
 function compute_candidate_set(scores_df::DataFrame;
                                candidate_cols,
@@ -285,20 +307,23 @@ function get_df_just_top_candidates(df::DataFrame, which_ones; demographics = St
 end
 
 
-"""
-    GLOBAL_R_IMPUTATION(df; m=1)
-
-Impute missing values using R's `mice` package and return a completed
-DataFrame with a single imputed dataset (`m = 1`). A random seed is set
-for reproducibility across bootstraps. The `m` keyword is accepted for
-backward compatibility but any value different from `1` is ignored.
-"""
 const _R_VALID_SEED_MODULUS = Int128(typemax(Int32) - 1)
 
 function _normalize_r_seed(seed::Integer)
     return Int(mod(Int128(seed), _R_VALID_SEED_MODULUS) + 1)
 end
 
+"""
+    r_impute_mice_report(df; seed=nothing) -> NamedTuple
+
+Run one R/mice imputation on a prepared score table and return both the completed
+DataFrame and diagnostics.
+
+The report includes the `mice` method map, logged events, and dropped predictors.
+When a seed is supplied, PrefPol normalizes it to R's valid seed range so nested
+pipeline imputation replicate `r` is reproducible within each bootstrap branch.
+This function calls R through `RCall`; it does not write cache.
+"""
 function r_impute_mice_report(df::DataFrame; seed::Union{Nothing,Integer} = nothing)
     rcall = _require_rcall!()
 
@@ -380,6 +405,13 @@ function r_impute_mice_report(df::DataFrame; seed::Union{Nothing,Integer} = noth
     )
 end
 
+"""
+    GLOBAL_R_IMPUTATION(df; m=1, seed=nothing) -> DataFrame
+
+Backward-compatible callable wrapper around `r_impute_mice_report` that returns
+only the completed DataFrame. The nested pipeline uses `r_impute_mice_report` so
+R/mice diagnostics can be cached with `ImputedData` artifacts.
+"""
 const GLOBAL_R_IMPUTATION = let
     function f(df::DataFrame; m::Int = 1, seed::Union{Nothing,Integer} = nothing)
         if m != 1
@@ -397,6 +429,13 @@ end
 const SUPPORTED_IMPUTATION_VARIANTS = (:zero, :random, :mice)
 const DEFAULT_PIPELINE_IMPUTATION_VARIANTS = (:zero, :mice)
 
+"""
+    normalize_imputation_variants(variants) -> Tuple{Vararg{Symbol}}
+
+Normalize and validate requested PrefPol imputation variants. Supported applied
+variants are `:zero`, `:random`, and `:mice`; the formal profile semantics after
+imputation are handled by `Preferences` adapters downstream.
+"""
 function normalize_imputation_variants(variants)
     raw = if variants isa Symbol || variants isa AbstractString
         (variants,)
@@ -420,7 +459,13 @@ end
                         most_known_candidates=String[],
                         variants=SUPPORTED_IMPUTATION_VARIANTS)
 
-Return a named tuple of imputed score tables for the requested strategies.
+Return imputed Brazil/ESEB score tables for the requested imputation strategies.
+
+The result is a named tuple keyed by `:zero`, `:random`, and/or `:mice`. Each
+value is a completed score table containing the selected candidate columns plus
+demographic columns. This legacy helper performs imputation in memory; the
+nested pipeline wraps equivalent logic in `_impute_resample` and caches each
+`(b, r)` imputation branch as an `ImputedData` artifact.
 """
 function imputation_variants(df::DataFrame,
     candidates::Vector{String},
@@ -467,7 +512,12 @@ end
 """
     weighted_bootstrap(data, weights, B)
 
-Draw `B` bootstrap resamples from `data` using the provided `weights`.
+Draw `B` weighted bootstrap resamples of a raw applied survey table.
+
+Each output DataFrame has `nrow(data)` rows sampled with replacement using the
+provided respondent weights. This helper is kept for older workflows; the nested
+pipeline records explicit sampled indices and multiplicities in `Resample` cache
+artifacts.
 """
 function weighted_bootstrap(data::DataFrame, weights::Vector{Float64}, B::Int)
     n = nrow(data)
@@ -605,8 +655,13 @@ end
 """
     build_profile(df; score_cols, rng=Random.GLOBAL_RNG, kind=:linear)
 
-Construct ranking dictionaries for each row of `df`. `kind` may be
-`:linear` to break ties randomly or `:weak` to keep weak orderings.
+Construct row-level ranking dictionaries from completed Brazil/ESEB score
+columns.
+
+`kind=:weak` preserves equal scores as weak-order ties; `kind=:linear` breaks
+ties randomly with `rng`. This is an applied preprocessing helper that produces
+rank dictionaries later converted to `Preferences` profiles by the adapter
+layer.
 """
 function build_profile(df::DataFrame;
                        score_cols::Vector,
@@ -627,8 +682,12 @@ end
 """
     profile_dataframe(df; score_cols, demo_cols, rng=Random.GLOBAL_RNG, kind=:linear)
 
-Return a DataFrame with a `:profile` column of rankings and the requested
+Return an applied profile DataFrame with a `:profile` column and selected
 demographic columns.
+
+The `:profile` values are ranking dictionaries from `build_profile`. Downstream
+helpers attach candidate metadata and convert this table to a
+`Preferences.AnnotatedProfile`; formal profile invariants live in `Preferences`.
 """
 function profile_dataframe(df::DataFrame;
                            score_cols::Vector,

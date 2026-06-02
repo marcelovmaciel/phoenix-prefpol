@@ -359,6 +359,18 @@ function build_profile(df::DataFrame, year::Int;
     )
 end
 
+"""
+    build_profile(raw::NamedTuple; kwargs...) -> Preferences.Profile
+
+Build a formal `Preferences.Profile` or `Preferences.WeightedProfile` from a
+`load_raw_pref_data` result. This method reuses the stored raw DataFrame,
+candidate columns, labels, and weight-column hint when available; scenario-based
+selection falls back to the year config.
+
+The score-to-weak-rank conversion and profile invariants are implemented in
+`Preferences.build_profile_from_scores`; PrefPol supplies the Brazil/ESEB score
+normalizer and candidate-selection conventions. No cache is read or written.
+"""
 function build_profile(raw::NamedTuple;
                        weighted::Bool = false,
                        allow_ties::Bool = true,
@@ -443,6 +455,14 @@ function build_profile(raw::NamedTuple;
 end
 
 # Generic pattern summarization/formatting now lives in Preferences.
+"""
+    profile_pattern_proportions(profile; weighted=true, candidate_set=nothing)
+
+Applied wrapper around `Preferences.profile_pattern_proportions` for raw ESEB
+profiles. Use this to summarize observed weak-rank response patterns after
+`build_profile`; formal pattern definitions and weighting conventions are
+documented in `Preferences`.
+"""
 function profile_pattern_proportions(profile; weighted::Bool = true,
                                      candidate_set = nothing)
     return _prefs().profile_pattern_proportions(
@@ -452,15 +472,46 @@ function profile_pattern_proportions(profile; weighted::Bool = true,
     )
 end
 
+"""
+    ranked_count(pattern_or_blocks)
+
+Delegate to `Preferences.ranked_count`, which defines the formal rank-size
+encoding used by pattern summaries.
+"""
 ranked_count(pattern::AbstractString) = _prefs().ranked_count(pattern)
 ranked_count(blocks::AbstractVector{<:Integer}) = _prefs().ranked_count(blocks)
 
+"""
+    has_ties(pattern_or_blocks)
+
+Delegate to `Preferences.has_ties` for the weak-order pattern convention used in
+raw-profile summaries.
+"""
 has_ties(pattern::AbstractString) = _prefs().has_ties(pattern)
 has_ties(blocks::AbstractVector{<:Integer}) = _prefs().has_ties(blocks)
 
+"""
+    ranking_type_support(r)
+
+Delegate to `Preferences.ranking_type_support`, which enumerates the formal
+weak-rank type support for `r` ranked candidates.
+"""
 ranking_type_support(r::Int) = _prefs().ranking_type_support(r)
+"""
+    ranking_type_template(blocks)
+
+Delegate to `Preferences.ranking_type_template` for display labels of weak-rank
+block patterns.
+"""
 ranking_type_template(blocks::AbstractVector{<:Integer}) = _prefs().ranking_type_template(blocks)
 
+"""
+    profile_ranksize_summary(profile; k, weighted=true, include_zero_rank=true)
+
+Summarize how many candidates respondents ranked in a raw-profile build. This
+is an applied wrapper; the table schema and rank-size convention are defined in
+`Preferences.profile_ranksize_summary`.
+"""
 function profile_ranksize_summary(profile; k::Int, weighted::Bool = true,
                                   include_zero_rank::Bool = true)
     return _prefs().profile_ranksize_summary(
@@ -471,6 +522,12 @@ function profile_ranksize_summary(profile; k::Int, weighted::Bool = true,
     )
 end
 
+"""
+    profile_ranking_type_proportions(profile; k, weighted=true, include_zero_rank=true)
+
+Return weak-rank type proportions for a raw ESEB profile. PrefPol delegates the
+formal ranking-type support and output schema to `Preferences`.
+"""
 function profile_ranking_type_proportions(profile; k::Int, weighted::Bool = true,
                                           include_zero_rank::Bool = true)
     return _prefs().profile_ranking_type_proportions(
@@ -481,14 +538,33 @@ function profile_ranking_type_proportions(profile; k::Int, weighted::Bool = true
     )
 end
 
+"""
+    pretty_print_ranksize_summary(summary; digits=4, io=stdout)
+
+Print the rank-size summary table produced by `profile_ranksize_summary`. This
+is a display wrapper around `Preferences`; it does not compute new profile
+statistics.
+"""
 function pretty_print_ranksize_summary(summary; digits::Int = 4, io::IO = stdout)
     return _prefs().pretty_print_ranksize_summary(summary; digits = digits, io = io)
 end
 
+"""
+    pretty_print_ranking_type_proportions(type_tbl; digits=4, io=stdout)
+
+Print ranking-type proportions using the display convention from `Preferences`.
+"""
 function pretty_print_ranking_type_proportions(type_tbl; digits::Int = 4, io::IO = stdout)
     return _prefs().pretty_print_ranking_type_proportions(type_tbl; digits = digits, io = io)
 end
 
+"""
+    pretty_print_profile_patterns(tbl; digits=4, io=stdout, others_threshold=nothing)
+
+Print raw-profile pattern summaries. Pattern semantics are defined in
+`Preferences`; PrefPol exposes this wrapper so ESEB profile diagnostics can be
+called from the applied package namespace.
+"""
 function pretty_print_profile_patterns(tbl;
                                        digits::Int = 4,
                                        io::IO = stdout,
