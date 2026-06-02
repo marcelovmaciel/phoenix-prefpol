@@ -144,10 +144,45 @@ Mean & 62.60 & 62.00 & 49.80 \\
 \label{tab:mean}
 \end{table}
 
-First, attitude-based measures often summarize evaluations by averaging responses across individuals \parencite{fuks22_polar_e_contex, borba24_polar_ideol, mehlhaff23_group_based_approac_to_measur_polar}. This operation is meaningful only under interpersonal comparability assumptions. To average thermometer scores is not merely to summarize responses; it is to treat numerical levels and intervals as comparable across persons. That assumption is substantive and usually unverified. Table~\ref{tab:mean} illustrates the issue. The mean scores rank the candidates as \(C1 \succ C2 \succ C3\), but this result depends on treating P1's use of the full 0--100 scale and P3--P5's compressed use of the 50--60 band as measurements on the same interpersonal scale.
+First, attitude-based measures often summarize evaluations by averaging
+responses across individuals \parencite{fuks22_polar_e_contex,
+borba24_polar_ideol, mehlhaff23_group_based_approac_to_measur_polar}.
+This operation is informationally demanding. Ranking candidates by average
+thermometer scores does not only use each respondent's evaluation of the
+alternatives; it treats score differences as commensurable across persons.
+Formally, the comparison between two candidates \(a\) and \(b\) depends on
+\(\bar{x}(a)-\bar{x}(b)
+=
+\frac{1}{n}\sum_i \bigl(x_i(a)-x_i(b)\bigr),
+\) so a ten-point difference for one respondent is counted as the same
+quantity as a ten-point difference for another. That is a substantive
+interpersonal comparability assumption.
 
-By contrast, the ordinal information in the same table requires only each respondent's internal ordering of the alternatives. It does not assume that a score of \(60\), or a difference of ten points, has the same meaning across respondents. At the ordinal level, three of the five respondents rank \(C3\) first, and standard ordinal procedures such as pairwise majority comparison or Borda produce \(C3 \succ C2 \succ C1\).\footnote{The point is not that the ordinal ordering is the uniquely correct social ordering, or that cardinal and ordinal summaries must coincide under full interpersonal comparability. They need not. The point is one of meaningfulness: cardinal aggregation across persons presupposes interpersonal comparability of levels and intervals, whereas ordinal profiles do not.} Using preferences thus avoids a comparability assumption that is not generally guaranteed in survey data \parencite{narens2007introduction}.
+Table~\ref{tab:mean} illustrates the dependence of mean aggregation on this
+assumption. The mean scores rank the candidates as \(C1 \succ C2 \succ C3\).
+This ranking gives large aggregate weight to P1's use of the full
+\(0\)--\(100\) range and combines it with the compressed \(50\)--\(60\)
+ranges used by P3--P5. The calculation is mechanically valid, but its
+interpretation requires more than the respondents' preference orderings: it
+requires the numerical distances on their scales to be comparable across
+persons.
 
+By contrast, the ordinal information in the same table uses only each
+respondent's internal ordering of the alternatives. It is invariant under
+respondent-specific increasing transformations of the thermometer scale and
+therefore does not require that a score of \(60\), or a difference of ten
+points, have the same meaning across respondents. At the ordinal level,
+three of the five respondents rank \(C3\) first, and pairwise majority
+comparison produces \(C3 \succ C2 \succ C1\).\footnote{The point is not that
+the ordinal ordering is the uniquely correct social ordering, or that
+cardinal and ordinal summaries must coincide under full interpersonal
+comparability. They need not. The point is one of informational
+requirements: cardinal aggregation across persons presupposes interpersonal
+comparability of score differences, whereas ordinal profiles require only
+within-person comparisons.} For this reason, preference profiles provide a
+more conservative informational basis for studying polarization when
+interpersonal comparability of thermometer scores is not independently
+secured \parencite{narens2007introduction}.
 
 
 % Second, because even though analyses based on ideal points—\emph{i.e.}, on models that locate voters and alternatives in a space and define utility as a (typically) decreasing function of distance—would, in principle, characterize a preference-based study, they start from a spatial representation that presupposes single-peaked preferences \parencite{elkind2022preference, fiorina08_polit_polar_americ_public}, an assumption routinely violated in large-scale survey data \parencite{regenwetter2006behavioral, feld1988ideological}. A unidimensional Euclidean representation of preferences implies single-peakedness; therefore, by contraposition\footnote{This follows from basic classical logic \parencite{da2008ensaio, velleman2019prove}. For any formulas $A, B$, we have $(A \to B) \leftrightarrow (\neg B \to \neg A)$.}, the failure of single-peakedness implies the impossibility of such a representation. More concretely: the spatial model embeds alternatives in an outcome space and assigns each voter a most-preferred point (a “bliss point”); all alternatives are ranked by their distance from that point. This construction \emph{requires} that each voter’s preference be single-peaked along the relevant ordering, so that utility falls as one moves away from \textit{the} peak. If a voter’s preference is not single-peaked—\emph{e.g.}, it has two local maxima—then no single point can summarize that voter’s tastes, and distance from the  “ideal point” will fail to recover the observed ranking (moving away from the designated peak can increase, rather than decrease, utility). Consequently, if there is no ordering of the alternatives under which \emph{all} voters’ preferences are single-peaked, a one-dimensional Euclidean (ideal-point) representation is misspecified: distances from putative ideal points will not preserve individual orderings, and aggregation based on those points/distances inherits this mismatch. In survey data, this violation for citizens’ rankings over candidates is not difficult to demonstrate and has been known for decades \parencite{ballester10_charac_singl_peaked_domain, feld1988ideological}. The problem does not arise in bipartisan contexts, as these are vacuously single-peaked\footnote{A vacuously true proposition is a statement considered true because there are no objects satisfying the conditions of the antecedent. In the case of the single-peakedness of a profile with only two alternatives, there are only two possible ways to order these alternatives, and in both all preferences will have a unique peak. Equivalently, there is a characterization of the single-peakedness of a profile in terms of forbidden subprofiles: a criterion with 3 agents and 3 alternatives, and another with 2 agents and 4 alternatives \parencite{ballester10_charac_singl_peaked_domain}. Now, with only 2 alternatives, it is impossible to violate these criteria.}.

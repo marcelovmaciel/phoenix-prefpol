@@ -1,3 +1,19 @@
+"""
+    AnnotatedProfile(profile, metadata)
+    AnnotatedProfile(df::AbstractDataFrame; col=:profile, ballot_kind=nothing)
+
+Bundle a formal preference `profile` with row-aligned empirical metadata.
+
+`AnnotatedProfile` preserves covariates, demographics, and other survey fields
+alongside the finite preference profile produced by the measurement layer. The
+profile contains the formal ballots used by social-choice routines; `metadata`
+contains the respondent-level variables used for grouping, subsetting, and
+reporting. Metadata may be supplied as a `NamedTuple` of vectors or as a
+`DataFrame`; in both cases every metadata column must have exactly
+`nballots(profile)` rows.
+
+The `DataFrame` constructor delegates to `dataframe_to_annotated_profile`.
+"""
 struct AnnotatedProfile{P,M}
     profile::P
     metadata::M
@@ -128,6 +144,15 @@ function AnnotatedProfile(profile, metadata::AbstractDataFrame)
     return AnnotatedProfile(profile, _metadata_namedtuple(metadata))
 end
 
+"""
+    AnnotatedProfile(df::AbstractDataFrame; col=:profile, ballot_kind=nothing)
+
+Construct an `AnnotatedProfile` from a DataFrame artifact.
+
+This is a convenience wrapper around `dataframe_to_annotated_profile`; the
+profile column is decoded into formal ballots and all other columns are kept as
+row-aligned metadata.
+"""
 AnnotatedProfile(df::AbstractDataFrame; col::Symbol = :profile, ballot_kind = nothing) =
     dataframe_to_annotated_profile(df; col = col, ballot_kind = ballot_kind)
 
@@ -231,6 +256,24 @@ function dict_profile_to_preferences(profile::AbstractVector{<:AbstractDict};
     return Profile(pool, ballots)
 end
 
+"""
+    dataframe_to_annotated_profile(df; col=:profile, ballot_kind=nothing)
+
+Decode a DataFrame artifact into an `AnnotatedProfile`.
+
+The column `col` must contain one ballot representation per row. Dictionary
+artifacts map candidate symbols to rank numbers. Compact rank-vector artifacts
+are accepted when DataFrame metadata contains `profile_encoding = "rank_vector_v1"`;
+in that encoding, each tuple position is a candidate ID, `0` means unranked,
+and positive integers are ranks. Candidate labels are read from DataFrame
+metadata `"candidates"` when they cannot be inferred safely from the artifact.
+
+The ballot kind must be supplied as `:strict` or `:weak`, or stored in DataFrame
+metadata `"profile_kind"`. The accepted strict synonyms are `:strict`,
+`:linear`, and `:linearized`. All non-profile DataFrame columns are preserved
+as metadata, keeping demographics and covariates aligned with the formal
+ballots.
+"""
 function dataframe_to_annotated_profile(df::AbstractDataFrame;
                                         col::Symbol = :profile,
                                         ballot_kind = nothing)
@@ -262,6 +305,16 @@ function dataframe_to_annotated_profile(df::AbstractDataFrame;
     return AnnotatedProfile(profile, _metadata_namedtuple(df_local; exclude = col))
 end
 
+"""
+    profile_to_ranking_dicts(profile_or_bundle)
+
+Represent each ballot as a candidate-to-rank dictionary.
+
+This is the portable DataFrame encoding used by `annotated_profile_to_dataframe`.
+Strict ballots produce one rank per candidate. Weak ballots omit unranked
+candidates and use equal rank values to preserve ties created by equal survey
+scores.
+"""
 function profile_to_ranking_dicts(profile::Union{Profile,WeightedProfile})
     return [asdict(ballot, profile.pool) for ballot in profile.ballots]
 end
@@ -295,6 +348,18 @@ function compact_profile_artifact_dataframe(bundle::AnnotatedProfile;
     return df
 end
 
+"""
+    annotated_profile_to_dataframe(bundle; col=:profile)
+
+Encode an `AnnotatedProfile` as a DataFrame with profile metadata.
+
+The output column `col` stores candidate-to-rank dictionaries produced by
+`profile_to_ranking_dicts`; all annotated metadata columns are copied alongside
+it. DataFrame metadata records the candidate labels and `profile_kind`, so the
+artifact can be decoded later by `dataframe_to_annotated_profile`. This keeps
+empirical covariates and demographics attached to the same rows as the formal
+ballots.
+"""
 function annotated_profile_to_dataframe(bundle::AnnotatedProfile;
                                         col::Symbol = :profile)
     bundle = annotated_profile(bundle)
@@ -305,6 +370,17 @@ function annotated_profile_to_dataframe(bundle::AnnotatedProfile;
     return df
 end
 
+"""
+    linearize_annotated_profile(bundle; tie_break=:random, rng=Random.GLOBAL_RNG)
+
+Convert an annotated weak-profile bundle to an annotated strict-profile bundle.
+
+Only the formal profile is linearized; metadata is copied unchanged, preserving
+row alignment between ballots and covariates. Linearization uses
+`incomplete_policy = :error`, so incomplete weak ballots must be resolved before
+this step. Ties are broken according to `tie_break` and `rng` using the same
+rules as `linearize`.
+"""
 function linearize_annotated_profile(bundle::AnnotatedProfile;
                                      tie_break = :random,
                                      rng = Random.GLOBAL_RNG)
@@ -320,6 +396,18 @@ function linearize_annotated_profile(bundle::AnnotatedProfile;
     )
 end
 
+"""
+    annotated_profile(bundle)
+    annotated_profile(profile, metadata)
+    annotated_profile(df::AbstractDataFrame; col=:profile, ballot_kind=nothing)
+
+Coerce supported empirical profile representations to `AnnotatedProfile`.
+
+Existing bundles are returned with `NamedTuple` metadata, profile/metadata
+pairs are validated for row alignment, and DataFrames are decoded through
+`dataframe_to_annotated_profile`. Use this when downstream code needs a common
+container for formal ballots plus respondent covariates.
+"""
 function annotated_profile(bundle::AnnotatedProfile; kwargs...)
     return bundle.metadata isa NamedTuple ? bundle : AnnotatedProfile(bundle.profile, bundle.metadata)
 end
@@ -339,6 +427,16 @@ function _subset_profile(profile::WeightedProfile, idxs)
     return WeightedProfile(inner, profile.weights[idxs])
 end
 
+"""
+    subset_annotated_profile(bundle, idxs)
+
+Subset an annotated profile by row indices.
+
+The returned bundle contains the selected ballots and the matching metadata
+rows. For weighted profiles, the corresponding weights are subset as well.
+This preserves the empirical link between each formal ballot and its
+covariates or demographics.
+"""
 function subset_annotated_profile(bundle::AnnotatedProfile, idxs)
     bundle = annotated_profile(bundle)
     idxv = collect(idxs)
@@ -348,6 +446,15 @@ function subset_annotated_profile(bundle::AnnotatedProfile, idxs)
     )
 end
 
+"""
+    strict_profile(bundle::AnnotatedProfile)
+
+Return the strict formal profile inside an annotated bundle.
+
+This method delegates to `strict_profile` on `bundle.profile`; metadata is not
+returned. It is useful for consensus routines that operate on formal ballots
+after the empirical covariates have been used to select or group rows.
+"""
 strict_profile(x::AnnotatedProfile) = strict_profile(annotated_profile(x).profile)
 
 function _group_row_indices(bundle::AnnotatedProfile, demo)
@@ -377,6 +484,16 @@ function _group_proportion_map(bundle::AnnotatedProfile, grouped_indices)
     return Dict(group => length(idxs) / total for (group, idxs) in grouped_indices)
 end
 
+"""
+    overall_divergences(grouped_consensus, whole_bundle::AnnotatedProfile, key)
+
+Compute overall group divergence using annotated-profile metadata groups.
+
+Rows of `whole_bundle.metadata[key]` define subgroup membership. The consensus
+table must contain group labels in `key` and a consensus column named
+`:consensus_result`, `:consensus_ranking`, or `:x1`. Each group is converted to
+a subgroup profile by subsetting the formal ballots while preserving weights.
+"""
 function overall_divergences(grouped_consensus::AbstractDataFrame,
                              whole_bundle::AnnotatedProfile,
                              key)
@@ -391,6 +508,15 @@ function overall_divergences(grouped_consensus::AbstractDataFrame,
     return overall_divergence(group_profiles, consensus_map)
 end
 
+"""
+    overall_overlaps(grouped_consensus, whole_bundle::AnnotatedProfile, key)
+
+Compute overall ranking-support overlap across annotated metadata groups.
+
+The consensus table supplies the group labels in `key`; the overlap statistic
+uses subgroup profiles formed from matching rows of `whole_bundle`. Profile
+weights, when present, remain attached to the subgroup ballots.
+"""
 function overall_overlaps(grouped_consensus::AbstractDataFrame,
                           whole_bundle::AnnotatedProfile,
                           key)
@@ -403,6 +529,15 @@ function overall_overlaps(grouped_consensus::AbstractDataFrame,
     return overall_overlap(group_profiles)
 end
 
+"""
+    overall_overlaps_smoothed(grouped_consensus, whole_bundle::AnnotatedProfile, key)
+
+Compute smoothed overall ranking-support overlap across annotated metadata groups.
+
+This is the annotated-profile adapter for `overall_overlap_smoothed`: metadata
+column `key` defines groups, and each subgroup profile is formed by subsetting
+formal ballots and any profile weights.
+"""
 function overall_overlaps_smoothed(grouped_consensus::AbstractDataFrame,
                                    whole_bundle::AnnotatedProfile,
                                    key)
@@ -415,6 +550,15 @@ function overall_overlaps_smoothed(grouped_consensus::AbstractDataFrame,
     return overall_overlap_smoothed(group_profiles)
 end
 
+"""
+    overall_divergences_median(grouped_consensus, whole_bundle::AnnotatedProfile, key)
+
+Compute median-based overall group divergence using annotated metadata groups.
+
+The consensus table must contain group labels in `key` and a consensus column
+named `:consensus_result`, `:consensus_ranking`, or `:x1`. Subgroup profiles
+are built from the annotated formal ballots, preserving weights where present.
+"""
 function overall_divergences_median(grouped_consensus::AbstractDataFrame,
                                     whole_bundle::AnnotatedProfile,
                                     key)
@@ -429,6 +573,15 @@ function overall_divergences_median(grouped_consensus::AbstractDataFrame,
     return overall_divergence_median(group_profiles, consensus_map)
 end
 
+"""
+    overall_separations(grouped_consensus, whole_bundle::AnnotatedProfile, key)
+
+Compute overall consensus separation using annotated metadata groups.
+
+The consensus table must contain group labels in `key` and a consensus column
+named `:consensus_result`, `:consensus_ranking`, or `:x1`. The adapter maps
+metadata groups to subgroup profiles without dropping profile weights.
+"""
 function overall_separations(grouped_consensus::AbstractDataFrame,
                              whole_bundle::AnnotatedProfile,
                              key)
@@ -512,6 +665,18 @@ function _compute_group_metric_details(bundle::AnnotatedProfile, demo;
     )
 end
 
+"""
+    compute_group_metrics(bundle::AnnotatedProfile, demo; cache, rng, tie_break_context)
+
+Compute `(C, D)` group metrics from an annotated empirical profile.
+
+Metadata column `demo` defines the groups. For each group, the formal ballots
+are subset, a Kendall consensus is computed, and group proportions are measured
+from ballot counts for unweighted profiles or from total survey weight for
+`WeightedProfile`s. The returned `C` is weighted coherence and `D` is overall
+divergence; detailed intermediate quantities are kept internal to match the
+DataFrame adapter API.
+"""
 function compute_group_metrics(bundle::AnnotatedProfile, demo;
                                cache = GLOBAL_LINEAR_ORDER_CACHE,
                                rng = nothing,

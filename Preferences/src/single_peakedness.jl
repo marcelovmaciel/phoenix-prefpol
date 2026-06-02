@@ -10,6 +10,29 @@ struct SinglePeakedSupportEntry{A,B}
     proportion_source::Symbol
 end
 
+raw"""
+    SinglePeakedAxisSummary
+
+Per-axis summary for deviation from single-peakedness. For an axis `a`, let
+`SP(a)` be the set of strict rankings single-peaked on that axis, `p_r` the
+profile mass of ranking type `r`, and
+`d_a(r) = min_{s in SP(a)} d_K(r,s) / binomial(m, 2)`. The fields store
+
+* `L0 = sum_{r notin SP(a)} p_r`, the off-axis support mass;
+* `L1 = sum_r p_r d_a(r)`, the unconditional normalized Kendall distortion;
+* `L1_off_axis = sum_{r notin SP(a)} p_r d_a(r) / L0`, or `missing` when
+  `L0` is numerically zero.
+
+`axis` is a vector of candidate symbols, `axis_id` is its deterministic index
+among evaluated axes, and support IDs refer to unique ranking rows. Values are
+normalized by the ranking proportions generated from a strict `Profile` or
+`WeightedProfile`; empty and zero-mass profiles are rejected before summaries
+are constructed.
+
+Interpretation: `L0` identifies how much ranking support lies outside the axis,
+while `L1` and `L1_off_axis` quantify how far the full profile and off-axis
+portion are from the single-peaked domain.
+"""
 struct SinglePeakedAxisSummary{A}
     axis_id::Int
     axis::Vector{A}
@@ -21,6 +44,22 @@ struct SinglePeakedAxisSummary{A}
     total_mass::Float64
 end
 
+raw"""
+    SinglePeakedSupportClassification
+
+Classification of one observed ranking type against one evaluated axis. The row
+contains the unique ranking ID, candidate-symbol ranking, normalized ranking
+proportion, optional raw count or survey-weight sum, axis ID, a Boolean support
+indicator `is_single_peaked`, and the unnormalized Kendall distance from the
+ranking to the axis's single-peaked domain.
+
+Inputs represented by these rows come from strict `Profile` or `WeightedProfile`
+objects after compression to observed ranking types. Proportions sum to `1`
+within the source profile, and empty or zero-mass profiles are rejected upstream.
+
+Interpretation: these rows distinguish axis support (`is_single_peaked == true`)
+from off-axis rankings and attach the distance used by the `L1` summaries.
+"""
 struct SinglePeakedSupportClassification{A}
     unique_ranking_id::Int
     ranking::Vector{A}
@@ -33,6 +72,28 @@ struct SinglePeakedSupportClassification{A}
     distance::Float64
 end
 
+raw"""
+    SinglePeakednessResult
+
+Complete result returned by `single_peakedness_summary`. The best fields are
+minima over evaluated axes: `best_L0` for off-axis mass, `best_L1` for
+unconditional normalized Kendall distortion, and `best_L1_off_axis` for
+conditional off-axis distortion. The corresponding axis-ID vectors list all
+tied minimizers under the supplied tolerance.
+
+`axis_summaries` contains one `SinglePeakedAxisSummary` per axis,
+`support_classifications` contains selected ranking-by-axis rows according to
+`classify_axes`, and `support` stores the observed ranking-type distribution.
+All measures use strict complete rankings and normalized row or survey-weight
+proportions. Empty and zero-mass profiles throw before a result is created;
+`best_L1_off_axis` is `missing` when every evaluated axis has zero off-axis
+mass.
+
+Interpretation: the result separates axis choice from profile support: a profile
+can have low `L0` because most mass is on-axis, low `L1` because off-axis
+rankings are close to the domain, or low `L1_off_axis` because the incompatible
+portion is mild conditional on being incompatible.
+"""
 struct SinglePeakednessResult{A}
     best_L0::Float64
     best_L1::Float64
@@ -45,7 +106,7 @@ struct SinglePeakednessResult{A}
     support::Vector
 end
 
-"""
+raw"""
     axes_up_to_reversal(candidates)
 
 Return one deterministic representative from each reversal-equivalence class of
@@ -94,7 +155,7 @@ function _validate_strict_linear_order(ranking_vec::AbstractVector,
     return true
 end
 
-"""
+raw"""
     is_single_peaked(ranking, axis)::Bool
 
 Return whether a strict best-to-worst `ranking` is single-peaked on `axis`, using
@@ -121,7 +182,7 @@ function is_single_peaked(ranking, axis)::Bool
     return true
 end
 
-"""
+raw"""
     single_peaked_rankings(axis)
 
 Generate all `2^(m-1)` strict best-to-worst rankings that are single-peaked on a
@@ -167,7 +228,7 @@ function _kendall_distance_vectors(x::AbstractVector, y::AbstractVector)
     return d
 end
 
-"""
+raw"""
     single_peaked_distance(ranking, axis)
 
 Return the minimum Kendall tau distance from `ranking` to the single-peaked
@@ -198,7 +259,7 @@ function _normalize_proportion_source(profile, proportion_source::Symbol)
     return proportion_source
 end
 
-"""
+raw"""
     profile_distribution(profile; proportion_source=:auto)
 
 Compress a strict `Profile` or `WeightedProfile` to unique strict rankings and
@@ -293,29 +354,41 @@ function _axis_to_ids(axis, pool::CandidatePool)
     end
 end
 
-"""
+raw"""
     single_peakedness_summary(profile; axes=nothing, proportion_source=:auto, classify_axes=:best)
 
 Compute deviation-from-single-peakedness measures over a probability
-distribution of unique strict rankings:
+distribution of unique strict rankings. For each axis `a`, let `SP(a)` be the
+single-peaked domain, `p_r` the observed ranking proportions, and
+`d_a(r) = min_{s in SP(a)} d_K(r,s) / binomial(m, 2)`. The per-axis quantities
+are
 
-* `best_L0` is the minimal profile mass incompatible with single-peakedness on
-  the best-fitting axis.
-* `best_L1` is the minimal unconditional expected Kendall distance to the
-  single-peaked domain, normalized by `binomial(m, 2)`, on the best-fitting axis.
-* `best_L1_off_axis` is the minimal conditional expected normalized Kendall
-  distance among rankings that are not single-peaked on the axis. It is
-  `missing` when no evaluated axis has positive off-axis mass.
+```math
+L_0(a) = \sum_{r \notin SP(a)} p_r, \qquad
+L_1(a) = \sum_r p_r d_a(r),
+```
 
-Axes are evaluated up to reversal. `L0`, unconditional normalized `L1`, and
-conditional normalized `L1_off_axis` may have different best axes, and the result
-stores their tied minimizers separately. Inputs must be strict complete linear
-orders; weak orders, ties, missing alternatives, and inconsistent candidate sets
-are rejected. Axis scoring is computed over unique rankings and their
-`proportion`; raw counts and survey-weight sums are returned only as metadata.
+and
+
+```math
+L_{1,off}(a) =
+\frac{\sum_{r \notin SP(a)} p_r d_a(r)}{L_0(a)}
+```
+
+when `L0(a) > 0`, otherwise `missing`.
+
+Inputs are strict `Profile` or `WeightedProfile` objects. Axes may be omitted,
+in which case one representative from each reversal-equivalence class is
+evaluated, or supplied as candidate IDs or symbols. Weak orders, ties, missing
+alternatives, inconsistent candidate sets, empty profiles, zero-mass profiles,
+and one-candidate profiles are rejected. All reported `L0` and `L1` values are
+normalized to `[0, 1]`; `L1_off_axis` is either in `[0, 1]` or `missing`.
+
+Interpretation: `L0` is axis support failure mass, `L1` is full-profile
+Kendall distortion from the axis's single-peaked domain, and `L1_off_axis`
+measures the severity of only the off-axis rankings. These criteria can have
+different best axes, and the result stores all tied minimizers separately.
 Support indices refer to unique ranking rows, not original respondents.
-Respondent-level classification requires callers, such as PrefPol, to supply row
-identifiers or a row-to-ranking mapping.
 """
 function single_peakedness_summary(profile::Union{Profile,WeightedProfile};
                                    axes = nothing,
@@ -422,7 +495,38 @@ function single_peakedness_summary(profile::Union{Profile,WeightedProfile};
     )
 end
 
+raw"""
+    single_peakedness_L0(profile; kwargs...)
+
+Return only `best_L0` from `single_peakedness_summary`: the minimum off-axis
+ranking mass `min_a L0(a)` over evaluated axes. Inputs, normalization, empty and
+zero-mass behavior, and interpretation are the same as
+`single_peakedness_summary`.
+"""
 single_peakedness_L0(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L0
+raw"""
+    single_peakedness_L1(profile; kwargs...)
+
+Return only `best_L1` from `single_peakedness_summary`: the minimum
+unconditional expected Kendall distance to an axis's single-peaked domain,
+normalized by `binomial(m, 2)`. Inputs, range, and zero-mass behavior are the
+same as `single_peakedness_summary`.
+"""
 single_peakedness_L1(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L1
+raw"""
+    single_peakedness_L1_off_axis(profile; kwargs...)
+
+Return only `best_L1_off_axis` from `single_peakedness_summary`: the minimum
+conditional normalized Kendall distance among rankings not supported by the
+axis. The value is `missing` when every evaluated axis has zero off-axis mass;
+empty and zero-mass profiles are rejected by `single_peakedness_summary`.
+"""
 single_peakedness_L1_off_axis(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L1_off_axis
+raw"""
+    best_single_peaked_axes(profile; kwargs...)
+
+Return the axis IDs that minimize `L0`, the off-axis support mass, in
+`single_peakedness_summary`. This convenience wrapper reports support-optimal
+axes, not necessarily the axes minimizing `L1` or `L1_off_axis`.
+"""
 best_single_peaked_axes(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L0_axis_ids

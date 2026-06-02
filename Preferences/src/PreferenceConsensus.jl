@@ -6,6 +6,32 @@ struct LinearOrderCatalog{K}
     max_kendall::Int
 end
 
+raw"""
+    ConsensusResult
+
+Result of an exhaustive Kendall/Kemeny consensus search. For profile rankings
+`r_i` with masses `w_i`, the selected consensus `c` minimizes
+
+```math
+\sum_i w_i d_K(r_i,c)
+```
+
+over all strict linear orders of the active candidate set. `min_total_distance`
+stores this objective, `avg_normalized_distance` divides it by
+`total_mass * binomial(m, 2)`, and `consensus_ballot`, `consensus_perm`, and
+`consensus_ranking` give equivalent strict-order representations.
+
+The result is produced from strict `Profile` or `WeightedProfile` inputs with
+positive total mass and at least two candidates. The normalized average distance
+lies in `[0, 1]`. When multiple minimizers exist, `all_minimizers` records them,
+`is_tied_minimizer` and `n_minimizers` describe the tie, and `tie_rule` records
+whether the chosen minimizer was unique, random, or deterministic
+pseudorandom.
+
+Interpretation: the consensus is the ranking minimizing total Kendall
+disagreement with the profile; the normalized distance is within-group
+incoherence, so `1 - avg_normalized_distance` is group coherence.
+"""
 struct ConsensusResult{K,B<:StrictRank}
     candidates::NTuple{K,Symbol}
     consensus_perm::SVector{K,UInt8}
@@ -61,6 +87,26 @@ function _empty_strict_profile(candidate_syms)
     return Profile(pool, Vector{typeof(exemplar)}(undef, 0))
 end
 
+raw"""
+    strict_profile(x; candidate_syms=nothing, col=:profile)
+
+Coerce supported profile-like inputs to a strict `Profile` or `WeightedProfile`
+without linearizing weak orders. Existing strict `Profile{<:StrictRank}` and
+`WeightedProfile{<:StrictRank}` inputs are returned unchanged; non-strict
+formal profiles throw `ArgumentError`. A `DataFrame` input reads the vector in
+`col` and delegates to the vector method. A vector input must contain ranking
+dictionaries mapping candidate symbols to rank positions and is converted to an
+unweighted strict `Profile`.
+
+Empty vectors require `candidate_syms` metadata so the candidate universe is
+known; otherwise they throw. Empty strict formal profiles can pass through here,
+but downstream measures that need positive mass reject them.
+
+Interpretation: this adapter fixes the active candidate set and strict ranking
+representation used by Kendall consensus, group divergence, overlap, and
+separation quantities. It does not impute, tie-break, or otherwise change
+preference content.
+"""
 strict_profile(x::Profile{<:StrictRank}) = x
 strict_profile(x::WeightedProfile{<:StrictRank}) = x
 
@@ -350,6 +396,31 @@ function _find_consensus_impl(profile, active_candidates::NTuple{K,Symbol};
     )
 end
 
+raw"""
+    consensus_kendall(profile[, active_candidates]; cache=GLOBAL_LINEAR_ORDER_CACHE, rng=nothing, tie_break_key=nothing)
+
+Compute the Kendall/Kemeny consensus ranking. For strict rankings `r_i` and
+masses `w_i`, the objective is
+
+```math
+\min_c \sum_i w_i d_K(r_i,c),
+```
+
+where the minimum ranges over every strict linear order of `active_candidates`.
+Distances are Kendall discordant-pair counts and the reported average is
+normalized by `binomial(m, 2)`.
+
+Inputs are strict `Profile` or `WeightedProfile` objects; `active_candidates`,
+when supplied, must match the profile pool order. Empty or zero-mass profiles
+throw `ArgumentError`, and at least two candidates are required. The result is a
+`ConsensusResult`. Tied minimizers are all retained; with `rng` the selected
+minimizer is random, otherwise a stable SHA-based pseudorandom rule chooses one
+from the sorted minimizer set.
+
+Interpretation: this returns the central strict ranking minimizing total
+Kendall disagreement with the profile, together with the profile's normalized
+incoherence around that consensus.
+"""
 function consensus_kendall(profile::Profile{<:StrictRank},
                            active_candidates;
                            cache = GLOBAL_LINEAR_ORDER_CACHE,
@@ -388,6 +459,24 @@ function consensus_kendall(profile::Union{Profile{<:StrictRank},WeightedProfile{
                              debug_all_minimizers = debug_all_minimizers)
 end
 
+raw"""
+    get_consensus_ranking(profile; cache=GLOBAL_LINEAR_ORDER_CACHE, rng=nothing, tie_break_key=nothing)
+    get_consensus_ranking(rankings; kwargs...)
+
+Return the selected Kendall consensus as `(ordered_symbols, ranking_dict)`. This
+is a projection of `consensus_kendall`: `ordered_symbols` is the best-to-worst
+candidate-symbol vector and `ranking_dict` maps each symbol to its rank
+position.
+
+Inputs are strict formal profiles or vectors accepted by `strict_profile`. Empty
+or zero-mass profiles follow `consensus_kendall` and throw unless the error
+occurs earlier during candidate inference. The ranking is a strict linear order
+over the active candidate set; ties among Kemeny minimizers use the same random
+or deterministic pseudorandom rule as `consensus_kendall`.
+
+Interpretation: this is a convenience representation of the group or profile
+consensus, not a different consensus rule.
+"""
 function get_consensus_ranking(profile::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRank}};
                                cache = GLOBAL_LINEAR_ORDER_CACHE,
                                rng = nothing,
@@ -419,6 +508,20 @@ function _strict_consensus_ballot(consensus::AbstractDict, pool::CandidatePool)
     return _strict_ballot_from_dict(consensus; candidate_syms = candidates(pool))[2]
 end
 
+raw"""
+    kendall_tau_dict(r1, r2)
+
+Return the Kendall tau distance between two ranking dictionaries. Each
+dictionary maps candidate symbols to strict rank positions; both rankings must
+cover the same candidate set. The value is the discordant-pair count
+`d_K(r1,r2)` in `0:binomial(m, 2)`.
+
+Empty dictionaries fail because a strict profile cannot infer a valid candidate
+universe with at least two candidates.
+
+Interpretation: this is the dictionary-facing form of `kendall_tau_distance`
+used by consensus adapters.
+"""
 function kendall_tau_dict(r1::AbstractDict, r2::AbstractDict)
     pool, b1 = _strict_ballot_from_dict(r1)
     _, b2 = _strict_ballot_from_dict(r2; candidate_syms = candidates(pool))
@@ -449,6 +552,20 @@ function _group_consensus_result(subdf;
                              debug_all_minimizers = debug_all_minimizers)
 end
 
+raw"""
+    consensus_for_group(subdf; kwargs...)
+
+Compute the Kendall/Kemeny consensus for one grouped subset and return a named
+tuple with `consensus_ranking`, `consensus_perm`, `consensus_result`,
+`consensus_set`, and tie diagnostics. `subdf` is accepted by `strict_profile`,
+typically a `DataFrame` whose `:profile` column contains ranking dictionaries.
+
+The mathematical definition, input restrictions, normalization, and empty or
+zero-mass behavior are those of `consensus_kendall`.
+
+Interpretation: this is the group-level consensus object used by downstream
+coherence, divergence, overlap, and separation summaries.
+"""
 function consensus_for_group(subdf;
                              cache = GLOBAL_LINEAR_ORDER_CACHE,
                              rng = nothing,
@@ -469,6 +586,24 @@ function consensus_for_group(subdf;
     )
 end
 
+raw"""
+    group_avg_distance(subdf; kwargs...)
+
+Compute a group's Kendall consensus and return its average normalized distance
+and coherence. If `c_g` is the group consensus and `p_g` the group's empirical
+ranking distribution, then
+
+```math
+W_g = \sum_r p_g(r) \frac{d_K(r,c_g)}{\binom{m}{2}},
+\qquad C_g = 1 - W_g.
+```
+
+Inputs and zero-mass behavior follow `consensus_kendall`. `avg_distance` is
+`W_g` in `[0, 1]`; `group_coherence` is `C_g` in `[0, 1]`.
+
+Interpretation: lower average distance means rankings in the group are more
+coherent around their Kendall consensus.
+"""
 function group_avg_distance(subdf;
                             cache = GLOBAL_LINEAR_ORDER_CACHE,
                             rng = nothing,
@@ -490,6 +625,26 @@ function group_avg_distance(subdf;
     )
 end
 
+raw"""
+    weighted_coherence(results_distance, proportion_map, key)
+
+Aggregate group coherences into manuscript quantity `C`:
+
+```math
+C = \sum_g \pi_g C_g,
+```
+
+where `C_g` is read from `results_distance.group_coherence` and `π_g` from
+`proportion_map[row[key]]`.
+
+Inputs are a DataFrame with one row per group, a group-proportion dictionary,
+and the grouping column name. This helper does not renormalize or validate the
+map; missing keys or malformed columns raise the ordinary Julia/DataFrames
+errors. Empty inputs return the empty sum `0.0`.
+
+Interpretation: `C` is average within-group consensus coherence, weighted by
+group population shares.
+"""
 function weighted_coherence(results_distance::AbstractDataFrame, proportion_map::Dict, key)
     return sum(row.group_coherence * proportion_map[row[key]] for row in eachrow(results_distance))
 end
@@ -505,6 +660,24 @@ end
 @inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
     kendall_tau_distance(ballot_i, ballot_j) / norm_factor
 
+raw"""
+    pairwise_group_divergence(profile_i, consensus_j, m)
+
+Return the directed normalized Kendall distance from group `i`'s profile to
+group `j`'s consensus:
+
+```math
+D_{i \to j} = \sum_r p_i(r) \frac{d_K(r,c_j)}{\binom{m}{2}}.
+```
+
+Inputs are a strict profile-like object accepted by `strict_profile`, a
+consensus represented as `ConsensusResult`, `StrictRank`, or ranking dictionary,
+and `m >= 2`. Candidate sets must match. Empty or zero-mass profile inputs
+throw through `average_normalized_distance`. The value lies in `[0, 1]`.
+
+Interpretation: this asks how far one group's members are from another group's
+consensus, so it is directed and need not equal `D_{j -> i}`.
+"""
 function pairwise_group_divergence(profile_i, consensus_j, m::Int)
     strict = strict_profile(profile_i)
     _candidate_set_matches(strict, consensus_j) || throw(ArgumentError(
@@ -631,11 +804,23 @@ function _aggregate_group_pairs(group_profiles, pairwise_value)
     return _unit_interval(total, "Grouped aggregate")
 end
 
-"""
+raw"""
     pairwise_group_overlap(profile_g, profile_h)
 
-Return the overlap `sum_r min(p_g(r), p_h(r))` between two empirical ranking
-distributions normalized within each group.
+Return the exact ranking-distribution overlap between two groups:
+
+```math
+O(g,h) = \sum_r \min(p_g(r), p_h(r)).
+```
+
+Inputs are strict profile-like objects accepted by `strict_profile`; both groups
+must have the same ordered candidate set and positive mass. The value lies in
+`[0, 1]`, with `1` for identical empirical ranking distributions and `0` for
+disjoint observed ranking support. Empty or zero-mass groups throw
+`ArgumentError`.
+
+Interpretation: overlap measures shared preference-profile support, independent
+of where the groups' consensus rankings lie in Kendall space.
 """
 function pairwise_group_overlap(profile_g, profile_h)
     strict_g = strict_profile(profile_g)
@@ -666,7 +851,7 @@ end
     return ntuple(j -> j == i ? ranking[i + 1] : j == i + 1 ? ranking[i] : ranking[j], N)
 end
 
-"""
+raw"""
     _radius1_smoothed_ranking_proportions(profile)
 
 Return the empirical ranking distribution after radius-1 Kendall smoothing.
@@ -703,15 +888,19 @@ function _radius1_smoothed_ranking_proportions(profile)
     return smoothed
 end
 
-"""
+raw"""
     smoothed_overlap(profile_g, profile_h)
 
 Return the radius-1 Kendall-smoothed overlap between two empirical ranking
-distributions.
+distributions. Each ranking of mass `p_r` spreads mass uniformly over its
+Kendall ball containing itself and the `m - 1` adjacent-swap neighbors, so each
+neighbor receives `p_r / m`; overlap is then `sum_r min(tilde p_g(r), tilde p_h(r))`.
 
-The smoothing kernel assigns mass `1 / m` to the ranking itself and each of the
-`m - 1` adjacent-swap neighbors in Kendall space, so this function changes only
-the underlying pairwise overlap object and not any grouped aggregation weights.
+Inputs, candidate-set checks, positive-mass requirements, and `[0, 1]` range are
+the same as `pairwise_group_overlap`. Empty or zero-mass groups throw.
+
+Interpretation: smoothed overlap treats nearly identical rankings as partially
+shared support while leaving grouped aggregation weights unchanged.
 """
 function smoothed_overlap(profile_g, profile_h)
     strict_g = strict_profile(profile_g)
@@ -734,12 +923,26 @@ function smoothed_overlap(profile_g, profile_h)
     return _unit_interval(overlap, "Smoothed pairwise group overlap")
 end
 
-"""
+raw"""
     pairwise_group_median_distance(consensus_g, consensus_h, pool)
     pairwise_group_median_distance(consensus_g::ConsensusResult, consensus_h::ConsensusResult)
+    pairwise_group_median_distance(profile_g, profile_h; kwargs...)
 
-Return the normalized Kendall distance between two group-median sets, averaged
-exactly over all median pairs.
+Return the normalized Kendall distance between group consensus sets. For two
+sets of tied Kendall minimizers `M_g` and `M_h`, the distance is
+
+```math
+D_{median}(g,h) = \frac{1}{|M_g||M_h|} \sum_{c \in M_g} \sum_{d \in M_h}
+\frac{d_K(c,d)}{\binom{m}{2}}.
+```
+
+Inputs may be consensus objects with an explicit `CandidatePool`, two
+`ConsensusResult`s sharing candidates, or two strict profile-like objects from
+which consensuses are computed. At least two candidates are required; mismatched
+candidate sets throw. The result lies in `[0, 1]`.
+
+Interpretation: this is undirected separation between group medians, averaging
+over all tied consensus rankings rather than only the selected representative.
 """
 function pairwise_group_median_distance(consensus_g, consensus_h, pool::CandidatePool)
     ballots_g = _consensus_ballots(consensus_g, pool)
@@ -797,12 +1000,23 @@ function pairwise_group_median_distance(profile_g, profile_h;
     return pairwise_group_median_distance(result_g, result_h, strict_g.pool)
 end
 
-"""
+raw"""
     pairwise_group_separation(profile_g, consensus_g, profile_h, consensus_h)
+    pairwise_group_separation(profile_g, profile_h; kwargs...)
 
-Return the overlap-adjusted pairwise separation
+Return overlap-adjusted pairwise group separation:
 
-`D_median(g, h) * (1 - O(g, h))`.
+```math
+Sep(g,h) = D_{median}(g,h)\,(1 - O(g,h)).
+```
+
+Inputs are strict profile-like objects and either supplied consensus objects or
+profiles from which consensuses are computed. Candidate sets must match, groups
+must have positive mass, and at least two candidates are required. The result is
+clamped/validated to `[0, 1]`.
+
+Interpretation: two groups are separated only when their consensus sets are far
+apart and their exact ranking supports do not strongly overlap.
 """
 function pairwise_group_separation(profile_g, consensus_g, profile_h, consensus_h)
     strict_g = strict_profile(profile_g)
@@ -836,6 +1050,25 @@ function pairwise_group_separation(profile_g, profile_h;
     return _unit_interval(distance * (1.0 - overlap), "Pairwise group separation")
 end
 
+raw"""
+    overall_divergence(group_profiles, consensus_map)
+
+Aggregate directed cross-group divergence, manuscript label `D`. With group
+shares `π_i`, group consensuses `c_j`, and `G` groups,
+
+```math
+D = \frac{1}{G-1} \sum_i \pi_i \sum_{j \ne i} D_{i \to j}.
+```
+
+`group_profiles` maps group labels to strict profile-like objects and
+`consensus_map` maps the same labels to `ConsensusResult`, `StrictRank`, or
+ranking-dictionary consensuses. Candidate sets must be consistent and total
+group mass must be positive. Empty total mass throws; with only one group the
+current arithmetic returns `NaN`.
+
+Interpretation: `D` is average distance from members of each group to outgroup
+consensuses, weighted by source-group population shares.
+"""
 function overall_divergence(group_profiles, consensus_map)
     groups = keys(group_profiles)
     k = length(groups)
@@ -858,11 +1091,24 @@ function overall_divergence(group_profiles, consensus_map)
     return total / (k - 1)
 end
 
-"""
+raw"""
     overall_overlap(group_profiles)
 
-Aggregate pairwise overlaps over unordered group pairs using the normalized
-population weights `2π_gπ_h / (1 - sum_r π_r^2)`.
+Aggregate exact pairwise overlaps over unordered group pairs. Pair weights are
+
+```math
+\omega_{gh} = \frac{2\pi_g\pi_h}{1 - \sum_r \pi_r^2},
+```
+
+computed from positive group masses, and the returned quantity is
+`sum_{g<h} omega_gh O(g,h)`.
+
+Inputs map group labels to strict profile-like objects with a common candidate
+set. Zero total group mass throws. If fewer than two positive-mass groups remain,
+the aggregate returns `0.0`; otherwise the range is `[0, 1]`.
+
+Interpretation: this is the between-group shared ranking-support component used
+to temper separation quantities.
 """
 function overall_overlap(group_profiles)
     _assert_group_profile_candidate_tuple_consistency(group_profiles)
@@ -871,14 +1117,16 @@ function overall_overlap(group_profiles)
     )
 end
 
-"""
+raw"""
     overall_overlap_smoothed(group_profiles)
 
 Aggregate radius-1 Kendall-smoothed pairwise overlaps over unordered group pairs
-using the same normalized population weights as `overall_overlap`.
+using the same normalized weights `omega_gh` as `overall_overlap`; only the
+underlying pairwise overlap object is replaced by `smoothed_overlap`.
 
-This preserves the existing grouped weighting and normalization logic exactly;
-only the underlying pairwise overlap object is replaced by `smoothed_overlap`.
+Inputs, zero-mass behavior, and range are the same as `overall_overlap`.
+Interpretation: this treats adjacent Kendall rankings as local shared support
+before aggregating between groups.
 """
 function overall_overlap_smoothed(group_profiles)
     _assert_group_profile_candidate_tuple_consistency(group_profiles)
@@ -887,11 +1135,23 @@ function overall_overlap_smoothed(group_profiles)
     )
 end
 
-"""
+raw"""
     overall_divergence_median(group_profiles, consensus_map)
 
-Aggregate exact pairwise median distances over unordered group pairs using the
-normalized population pair weights induced by `group_profiles`.
+Aggregate exact pairwise median distances over unordered group pairs:
+
+```math
+D_{median} = \sum_{g<h} \omega_{gh} D_{median}(g,h),
+```
+
+where `omega_gh` are the population pair weights from `overall_overlap`.
+
+Inputs are group profiles and consensus maps with common candidate sets. Zero
+total group mass throws; fewer than two positive-mass groups return `0.0`. The
+range is `[0, 1]`.
+
+Interpretation: unlike directed `D`, this compares group consensus sets to each
+other directly and symmetrically.
 """
 function overall_divergence_median(group_profiles, consensus_map)
     _assert_group_candidate_tuple_consistency(group_profiles, consensus_map)
@@ -904,11 +1164,22 @@ function overall_divergence_median(group_profiles, consensus_map)
     )
 end
 
-"""
+raw"""
     overall_separation(group_profiles, consensus_map)
 
-Aggregate exact pairwise separations `D_median * (1 - O)` over unordered group
-pairs using the normalized population pair weights induced by `group_profiles`.
+Aggregate overlap-adjusted pairwise separations over unordered group pairs:
+
+```math
+Sep = \sum_{g<h} \omega_{gh} Sep(g,h), \qquad
+Sep(g,h)=D_{median}(g,h)(1-O(g,h)).
+```
+
+Inputs are group profiles and consensus maps with common candidate sets. Zero
+total group mass throws; fewer than two positive-mass groups return `0.0`. The
+range is `[0, 1]`.
+
+Interpretation: this is high only when groups have distinct consensus rankings
+and little shared exact ranking support.
 """
 function overall_separation(group_profiles, consensus_map)
     _assert_group_candidate_tuple_consistency(group_profiles, consensus_map)
@@ -922,7 +1193,7 @@ function overall_separation(group_profiles, consensus_map)
     )
 end
 
-"""
+raw"""
     grouped_gsep(C, Sep)
 
 Return `sqrt(C * Sep)` after validating that both arguments lie in `[0, 1]`.
@@ -931,7 +1202,7 @@ function grouped_gsep(C::Real, Sep::Real)
     return sqrt(_unit_interval(C, "C") * _unit_interval(Sep, "Sep"))
 end
 
-"""
+raw"""
     overall_sstar_from_CD(C, D)
 
 Return the cleaned excess-separation statistic `D - (1 - C) / 2`.
@@ -946,9 +1217,23 @@ function overall_sstar_from_CD(C::Real, D::Real)
     return divergence - ((1.0 - coherence) / 2.0)
 end
 
+raw"""
+    S(C, D)
+
+Return the cleaned excess-separation statistic from coherence `C` and directed
+divergence `D`:
+
+```math
+S = D - \frac{1-C}{2}.
+```
+
+`C` and `D` are validated as unit-interval inputs, but `S` is not rebased to
+`[0, 1]` and can be negative. This is the current manuscript `S`; use `S_old`
+for the legacy support-separation statistic.
+"""
 S(C::Real, D::Real) = overall_sstar_from_CD(C, D)
 
-"""
+raw"""
     normalized_consensus_separation(W, D; atol = 1e-10)
 
 Return the normalized consensus-separation statistic
@@ -978,10 +1263,44 @@ function normalized_consensus_separation(W::Real, D::Real; atol::Real = 1.0e-10)
     return clamp(E, 0.0, 1.0)
 end
 
+raw"""
+    consensus_excess_separation(W, D; kwargs...)
+
+Compatibility alias for `normalized_consensus_separation(W, D; kwargs...)`.
+Returns `E = 1 - W/D`, with the same `D == 0 => 0.0` convention and unit-range
+validation.
+"""
 consensus_excess_separation(W::Real, D::Real; kwargs...) =
     normalized_consensus_separation(W, D; kwargs...)
+
+raw"""
+    group_E(W, D; kwargs...)
+
+Alias for `normalized_consensus_separation(W, D; kwargs...)`, used when `W` and
+`D` describe a group-level within-versus-outgroup distance contrast.
+"""
 group_E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
+
+raw"""
+    aggregate_E(W, D; kwargs...)
+
+Alias for `normalized_consensus_separation(W, D; kwargs...)`, used when `W` and
+`D` are aggregate coherence/divergence quantities.
+"""
 aggregate_E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
+
+raw"""
+    E(W, D; kwargs...)
+
+Manuscript shorthand for normalized consensus separation:
+
+```math
+E = 1 - \frac{W}{D}.
+```
+
+The implementation returns `0.0` when `D == 0`, validates nonnegative inputs,
+and clamps only tiny numerical excursions outside `[0, 1]`.
+"""
 E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
 
 function _within_group_average_normalized_kendall(profile)
@@ -1028,7 +1347,7 @@ function _cross_group_average_normalized_kendall(profile_i, profile_j)
     return total / (n_i * n_j)
 end
 
-"""
+raw"""
     overall_support_separation_old(group_profiles, group_sizes)
 
 Return the legacy support-separation contrast that used to back grouped `S`.
@@ -1074,6 +1393,18 @@ function overall_support_separation_old(group_profiles, group_sizes)
     return weight_sum > 0 ? total / weight_sum : NaN
 end
 
+raw"""
+    S_old(group_profiles, group_sizes)
+
+Legacy alias for `overall_support_separation_old`. This is the historical
+support-separation statistic based on average cross-group normalized Kendall
+distance minus the mean within-group dispersion for unordered group pairs. It is
+not the current cleaned `S(C,D)` statistic.
+
+Groups with nonpositive size are skipped; fewer than two remaining groups return
+`NaN`, and singleton groups are omitted from pair contributions because their
+within-group dispersion is undefined.
+"""
 S_old(group_profiles, group_sizes) = overall_support_separation_old(group_profiles, group_sizes)
 
 function _group_profiles_from_dataframe(grouped_consensus::AbstractDataFrame,
@@ -1104,6 +1435,19 @@ function _consensus_column(grouped_consensus)
     ))
 end
 
+raw"""
+    overall_divergences(grouped_consensus, whole_df, key)
+
+DataFrame adapter for `overall_divergence`. `grouped_consensus` must contain
+`key` and one consensus column named `:consensus_result`, `:consensus_ranking`,
+or `:x1`; `whole_df` must contain `key` and a `:profile` column accepted by
+`strict_profile`. Groups are rebuilt from `whole_df`, and the consensus map is
+read from `grouped_consensus`.
+
+The returned value is directed aggregate divergence `D`, with the same
+candidate-set, positive-mass, range, and one-group behavior as
+`overall_divergence`.
+"""
 function overall_divergences(grouped_consensus::AbstractDataFrame,
                              whole_df::AbstractDataFrame,
                              key)
@@ -1113,6 +1457,15 @@ function overall_divergences(grouped_consensus::AbstractDataFrame,
     return overall_divergence(group_profiles, consensus_map)
 end
 
+raw"""
+    overall_overlaps(grouped_consensus, whole_df, key)
+
+DataFrame adapter for `overall_overlap`. Groups are reconstructed from
+`whole_df[key]` and `whole_df.profile`; consensus columns in `grouped_consensus`
+are ignored except for group labels. The result is aggregate exact ranking
+overlap `O` in `[0, 1]`, with the same zero-mass and candidate-set requirements
+as `overall_overlap`.
+"""
 function overall_overlaps(grouped_consensus::AbstractDataFrame,
                           whole_df::AbstractDataFrame,
                           key)
@@ -1120,6 +1473,14 @@ function overall_overlaps(grouped_consensus::AbstractDataFrame,
     return overall_overlap(group_profiles)
 end
 
+raw"""
+    overall_overlaps_smoothed(grouped_consensus, whole_df, key)
+
+DataFrame adapter for `overall_overlap_smoothed`. It rebuilds group profiles
+from `whole_df` and returns radius-1 Kendall-smoothed aggregate overlap
+`O_smoothed`, using the same group weights and zero-mass conventions as
+`overall_overlap_smoothed`.
+"""
 function overall_overlaps_smoothed(grouped_consensus::AbstractDataFrame,
                                    whole_df::AbstractDataFrame,
                                    key)
@@ -1127,6 +1488,15 @@ function overall_overlaps_smoothed(grouped_consensus::AbstractDataFrame,
     return overall_overlap_smoothed(group_profiles)
 end
 
+raw"""
+    overall_divergences_median(grouped_consensus, whole_df, key)
+
+DataFrame adapter for `overall_divergence_median`. Consensus values are read
+from `:consensus_result`, `:consensus_ranking`, or `:x1`; group profiles are
+rebuilt from `whole_df`. The result is symmetric median-set divergence
+`D_median` in `[0, 1]`, with the same zero-mass and candidate-set conventions as
+`overall_divergence_median`.
+"""
 function overall_divergences_median(grouped_consensus::AbstractDataFrame,
                                     whole_df::AbstractDataFrame,
                                     key)
@@ -1136,6 +1506,14 @@ function overall_divergences_median(grouped_consensus::AbstractDataFrame,
     return overall_divergence_median(group_profiles, consensus_map)
 end
 
+raw"""
+    overall_separations(grouped_consensus, whole_df, key)
+
+DataFrame adapter for `overall_separation`. Consensus values are read from
+`grouped_consensus`, group profiles from `whole_df`, and the returned aggregate
+`Sep` combines median-set distance with exact ranking non-overlap. Range,
+zero-mass behavior, and candidate-set checks match `overall_separation`.
+"""
 function overall_separations(grouped_consensus::AbstractDataFrame,
                              whole_df::AbstractDataFrame,
                              key)
@@ -1227,6 +1605,23 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
     )
 end
 
+raw"""
+    compute_group_metrics(df, demo; cache=GLOBAL_LINEAR_ORDER_CACHE, rng=nothing, tie_break_context=nothing)
+
+Compute the manuscript pair `(C, D)` for groups defined by column `demo` in
+`df`. Each row's `:profile` entry is interpreted as a strict ranking dictionary
+through `strict_profile`; a Kendall consensus is computed for each group.
+
+`C = sum_g π_g C_g` is weighted group coherence, where `C_g = 1 - W_g`; `D` is
+`overall_divergence` from each group to outgroup consensuses. Both are on
+`[0, 1]` when the grouped inputs have at least two candidates and positive
+mass. Empty groups are absent from the DataFrames produced by `groupby`;
+zero-mass or malformed profile inputs throw downstream errors.
+
+Interpretation: this function returns only the compact `(C, D)` pair even though
+the internal detail computation also derives median divergence, overlap,
+separation, `S`, `E`, and legacy `S_old`.
+"""
 function compute_group_metrics(df::AbstractDataFrame, demo;
                                cache = GLOBAL_LINEAR_ORDER_CACHE,
                                rng = nothing,
@@ -1241,6 +1636,22 @@ function compute_group_metrics(df::AbstractDataFrame, demo;
     return details.C, details.D
 end
 
+raw"""
+    bootstrap_group_metrics(bt_profiles, demo; rng=nothing, tie_break_context=nothing)
+
+Compute grouped consensus metrics for bootstrap replicates. `bt_profiles` maps
+variant symbols to iterable replicate DataFrames, each accepted by
+`compute_group_metrics`'s internal detail path. The result maps each variant to
+a dictionary of vectors for `:C`, `:D`, `:D_median`, `:O`, `:O_smoothed`,
+`:Sep`, `:Gsep`, `:W`, `:S`, `:E`, and `:S_old`.
+
+Each replicate follows the same mathematical definitions, input restrictions,
+normalizations, and error behavior as the corresponding non-bootstrap group
+metrics.
+
+Interpretation: this preserves the replicate distribution of coherence,
+divergence, overlap, and separation quantities for uncertainty summaries.
+"""
 function bootstrap_group_metrics(bt_profiles, demo;
                                  rng = nothing,
                                  tie_break_context = nothing)

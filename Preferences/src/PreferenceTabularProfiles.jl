@@ -11,8 +11,22 @@ const _PROFILE_BUILD_META = IdDict{Any,NamedTuple}()
 """
     profile_build_meta(profile)
 
-Return diagnostics metadata stored when `profile` was created by
-`build_profile_from_scores`. Returns `nothing` when unavailable.
+Return diagnostics metadata recorded by `build_profile_from_scores`.
+
+This metadata documents the empirical map from tabular ratings to the finite
+preference profile: whether weights were used, whether ties and incomplete
+rows were allowed, how all-unranked rows were interpreted, how many input rows
+were kept, and how many were skipped because they had no ranked candidates,
+were incomplete, or had invalid weights.
+
+For weighted builds, `zero_rank_weight_mass` records the total weight of
+all-unranked rows that were skipped before profile construction; rows whose
+weight could not be parsed are counted in `zero_rank_weight_missing`. These
+fields matter for downstream missingness summaries because the constructed
+profile omits skipped rows, while some empirical tables still need to account
+for the sample or weighted population mass that supplied no rankings. Returns
+`nothing` when the profile was not built by this adapter or the metadata is no
+longer available.
 """
 @inline profile_build_meta(profile) = get(_PROFILE_BUILD_META, profile, nothing)
 
@@ -45,24 +59,35 @@ end
 """
     humanize_candidate_name(name)
 
-Normalize a candidate label for display by trimming whitespace and replacing
-underscores with spaces.
+Normalize a candidate column name for display by trimming surrounding
+whitespace and replacing underscores with spaces.
+
+This is presentation-only. Matching uses `canonical_candidate_key`, which also
+lowercases names.
 """
 @inline humanize_candidate_name(name::AbstractString) = replace(strip(String(name)), "_" => " ")
 
 """
     canonical_candidate_key(x)
 
-Normalize candidate identifiers for matching (`strip`, lowercase,
-underscore-to-space).
+Normalize candidate identifiers for empirical column matching.
+
+The key is `String(x)`, stripped of surrounding whitespace, lowercased, and
+with underscores replaced by spaces. This makes `"Candidate_A"`,
+`" candidate a "`, and `:candidate_a` match the same configured alternative,
+while still rejecting ambiguous duplicate normalized names.
 """
 @inline canonical_candidate_key(x) = lowercase(replace(strip(String(x)), "_" => " "))
 
 """
     candidate_display_symbols(candidate_cols)
 
-Convert candidate column names to display symbols after humanization.
-Throws if normalized labels are not unique.
+Convert candidate column names to display `Symbol`s after `humanize_candidate_name`.
+
+This is the default bridge from survey-score column names to the formal
+candidate labels stored in `CandidatePool`. It preserves the column order as
+the candidate order and throws if humanized labels are not unique, because
+non-unique labels would make the resulting preference profile ambiguous.
 """
 function candidate_display_symbols(candidate_cols::AbstractVector)
     labels = humanize_candidate_name.(String.(candidate_cols))
@@ -78,6 +103,9 @@ end
 
 Try to find a survey-weight column by exact name or case-insensitive match.
 Returns a `Symbol` or `nothing`.
+
+This helper only identifies a likely column. Weight values are validated later
+by `candidate_missingness_table` or `build_profile_from_scores`.
 """
 function guess_weight_col(df; preferred = (:peso, :weight, :weights))
     name_syms = Symbol.(names(df))
@@ -101,6 +129,11 @@ end
 Resolve a requested `candidate_set` against a configured `universe_cols`
 using canonicalized candidate names. If `candidate_set === nothing`, returns
 `universe_cols`.
+
+Only columns present in the input table are eligible. Each requested name is
+matched using `canonical_candidate_key`, so case, surrounding whitespace, and
+underscores are ignored. Ambiguous normalized names in the available universe
+throw an error rather than silently selecting an alternative.
 """
 function resolve_candidate_cols_from_set(df,
                                          universe_cols::Vector{String},
@@ -250,10 +283,12 @@ missing in addition to Julia `missing`. Matching uses `isequal`, so this can
 cover numeric survey codes, strings, or `nothing` when those encodings are
 actually present in the data.
 
-Warning: unweighted missingness describes sample completeness, while weighted
-missingness describes missingness in the weighted survey population. Survey
-weights do not generally solve item nonresponse bias. Weighted missingness can
-still be descriptively useful, but it should not be overinterpreted.
+Unweighted missingness is sample missingness: the share of observed rows whose
+candidate score is missing or sentinel-coded. Weighted missingness is weighted
+missingness: the share of the survey-weight mass whose candidate score is
+missing or sentinel-coded. These are distinct empirical quantities. Survey
+weights do not generally solve item nonresponse bias, but weighted missingness
+can be descriptively useful for understanding the represented population mass.
 """
 function candidate_missingness_table(df::AbstractDataFrame,
                                      candidate_cols;
@@ -343,8 +378,13 @@ end
 """
     normalize_numeric_score(v)
 
-Parse scalar score-like values into `Float64`, returning `missing` for
-non-numeric or non-finite values.
+Parse scalar score-like values into `Float64`.
+
+Real values and strings parseable by `tryparse(Float64, strip(v))` are treated
+as numeric scores when finite. Julia `missing`, non-numeric strings, non-real
+objects, `NaN`, and infinite values return `missing`. In the default tabular
+measurement adapter, `missing` means the row supplies no usable score for that
+candidate.
 """
 @inline function normalize_numeric_score(v)
     v === missing && return missing
@@ -366,7 +406,12 @@ end
 """
     normalize_nonnegative_weight(v)
 
-Parse a nonnegative finite weight. Returns `nothing` if invalid.
+Parse a nonnegative finite row weight.
+
+Only real, finite values greater than or equal to zero are accepted. Julia
+`missing`, strings, non-real objects, `NaN`, and infinite values return
+`nothing`. `build_profile_from_scores` treats `nothing` as an invalid weight
+and skips the row in weighted mode.
 """
 @inline function normalize_nonnegative_weight(v)
     v === missing && return nothing
@@ -379,7 +424,26 @@ end
 """
     row_to_weak_rank_from_scores(row, candidate_cols; ...)
 
-Convert one score row into a `WeakRank` ballot.
+Convert one survey-score row into a `WeakRank` ballot.
+
+This is the row-level empirical measurement map from tabular ratings to a
+formal weak preference. `candidate_cols` gives the alternatives, in candidate
+ID order. Each cell is passed through `score_normalizer`; by default, finite
+real values and finite strings parseable as `Float64` are numeric, while
+non-numeric values become unranked.
+
+Higher scores mean more preferred alternatives. With `allow_ties=true`, equal
+numeric scores receive the same rank, so equal survey ratings become ties in
+the resulting `WeakRank`; rank `1` is the most preferred score level. With
+`allow_ties=false`, candidates are sorted by descending score and ties in the
+raw scores are broken by candidate-column order.
+
+Missing scores leave candidates unranked when `allow_incomplete=true`. If
+`allow_incomplete=false`, any row with at least one missing candidate score is
+rejected as `:incomplete`. If every candidate score is missing, the row is
+rejected as `:no_ranked_candidates` unless
+`all_unranked_as_indifferent=true`, in which case all candidates are assigned
+rank `1` and the reason is `:all_indifferent_from_unranked`.
 
 Returns `(ballot, reason)` where `ballot` is `WeakRank` or `nothing`, and
 `reason` is one of:
@@ -442,13 +506,38 @@ end
 """
     build_profile_from_scores(table, candidate_cols, candidate_syms; ...)
 
-Build a `Profile` or `WeightedProfile` from row-like score data.
+Build a `Profile` or `WeightedProfile` from row-like survey-score data.
+
+This is the table-level empirical measurement map from candidate-score columns
+to a finite preference profile. `candidate_cols` are the input columns, and
+`candidate_syms` are the formal candidate labels stored in the profile's
+`CandidatePool`; the two vectors must have the same length and order.
 
 The table must support either `eachrow(table)` or direct iteration over rows.
 Rows must support `row[col]` lookup for each candidate column and (if weighted)
 for `weight_col`.
 
-Domain-specific score handling should be supplied via `score_normalizer`.
+Each row is converted by `row_to_weak_rank_from_scores`: higher numeric scores
+mean more preferred alternatives, equal scores become ties when
+`allow_ties=true`, missing candidate scores become unranked when
+`allow_incomplete=true`, and all-unranked rows are either skipped or treated as
+complete indifference according to `all_unranked_as_indifferent`.
+
+Domain-specific score handling, including survey sentinel values such as
+refusal or "do not know" codes, should be supplied via `score_normalizer`.
+The default `normalize_numeric_score` treats finite real values and finite
+parseable strings as scores and all other values as missing.
+
+In weighted mode, `weight_col` is required. `weight_normalizer` is expected to
+return a finite nonnegative row weight or `nothing`; rows with `nothing`
+weights are skipped. The default accepts zero weights. Construction is
+delegated to `WeightedProfile`, while downstream validation and summaries are
+responsible for rejecting invalid or zero-total weight mass.
+
+The returned profile is annotated with `profile_build_meta(profile)`, recording
+row counts, skipped-row reasons, configuration flags, and weighted zero-ranked
+mass. Downstream summaries use this to distinguish observed preference mass
+from rows that supplied no rankable information.
 """
 function build_profile_from_scores(table,
                                    candidate_cols::Vector{String},
@@ -826,6 +915,19 @@ proportion. Pattern rendering uses:
 - `>` for strict preference blocks,
 - `~` for ties within a block,
 - omission of unranked candidates (incomplete ballots).
+
+This summarizes the observed finite profile after tabular scores have already
+been mapped to ballots. For `WeightedProfile`s, `weighted=true` uses survey
+weights as mass; `weighted=false` uses one unit per ballot. For unweighted
+profiles, both modes use ballot counts. Proportions are normalized over
+non-empty rendered patterns only, so all-unranked skipped rows are not included
+here. Use `profile_ranksize_summary` or
+`profile_ranking_type_proportions` with build metadata when zero-ranked mass
+must be accounted for.
+
+If `candidate_set` is supplied, names are matched against the profile pool
+using `canonical_candidate_key`, then the profile is restricted before
+aggregation.
 """
 function profile_pattern_proportions(profile; weighted::Bool = true,
                                      candidate_set = nothing)
@@ -909,6 +1011,18 @@ Build a navigation summary for ranking sizes `k:-1:1`, splitting each size into
 strict and tied observed patterns.
 If `include_zero_rank=true`, zero-ranked mass is recovered from build metadata
 when available (`build_profile_from_scores` stores this metadata).
+
+The summary reports empirical mass by the number of explicitly ranked
+alternatives. Unranked candidates in incomplete `WeakRank` ballots are omitted
+from rendered patterns and do not contribute to `ranked_count`. Tied score
+levels are separated from strict patterns through `has_ties`.
+
+For `WeightedProfile`s, `weighted=true` uses profile weights and
+`weighted=false` uses ballot counts. The `zero_rank` field distinguishes
+observed all-unranked ballots from rows skipped during tabular profile
+construction. When weighted zero-ranked rows had invalid or missing weights,
+`zero_rank.missing_weight_rows` records how many could not contribute to
+weighted missingness accounting.
 """
 function profile_ranksize_summary(profile; k::Int, weighted::Bool = true,
                                   include_zero_rank::Bool = true)
@@ -973,6 +1087,17 @@ For each ranking size `r = k:-1:1`, return all logically possible ranking types
 (ordered block compositions), including zero-proportion types.
 If `include_zero_rank=true`, zero-ranked mass is recovered from build metadata
 when available (`build_profile_from_scores` stores this metadata).
+
+Ranking types describe the shape of a weak ranking after survey scores have
+been converted to ranks: `[1,1,2]` means two strict singleton levels followed
+by a tied pair. Candidate identities are ignored for this table; only ranked
+set size and tie structure remain.
+
+For `WeightedProfile`s, `weighted=true` uses profile weights and
+`weighted=false` uses ballot counts. The returned `proportion` column is
+normalized by total accounted mass, while `within_size_proportion` is
+normalized by the mass for that ranking size. The `zero_rank` field has the
+same missingness-accounting interpretation as in `profile_ranksize_summary`.
 """
 function profile_ranking_type_proportions(profile; k::Int, weighted::Bool = true,
                                           include_zero_rank::Bool = true)
