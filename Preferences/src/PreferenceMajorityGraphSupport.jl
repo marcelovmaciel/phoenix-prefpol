@@ -17,6 +17,17 @@ struct VoterTypeBasis
     reference_perm::Union{Nothing,Vector{Int}}
 end
 
+"""
+    MajoritySupportEdge
+
+One directed majority edge in the majority relation.
+
+`winner` and `loser` are pool-relative candidate ids for the ordered relation
+`winner -> loser`. `support_mass` is the profile mass preferring `winner` to
+`loser`; `opposition_mass` is the mass preferring `loser` to `winner`.
+`margin_mass = support_mass - opposition_mass`, and
+`normalized_margin = margin_mass / total_mass`.
+"""
 struct MajoritySupportEdge
     winner::Int
     loser::Int
@@ -26,6 +37,31 @@ struct MajoritySupportEdge
     normalized_margin::Float64
 end
 
+"""
+    MajorityGraphSupportResult
+
+Full voter-type decomposition of the majority relation.
+
+The result supports the question "who supports the majority relation?" by
+expanding a strict profile over a deterministic `VoterTypeBasis`. A voter type
+supports an edge `winner -> loser` when that ranking places `winner` above
+`loser`. `type_mass` stores raw counts or profile weights by basis type;
+`type_proportion` normalizes them by `total_mass`.
+
+`margins[i, j]` is the pairwise majority margin for candidate ids `i` and `j`,
+and `normalized_margins` divides by `total_mass`. `edges` omits tied pairs when
+`tie_policy = :omit`. `support_matrix[type_index, edge_index]` records whether
+a type supports an edge; `weighted_support` contains the type proportion for
+supporting cells and zero otherwise. `coverage` counts supported majority edges
+per type. `anchoring = type_proportion * coverage`, and
+`normalized_anchoring` divides by the number of majority edges.
+
+`support_share[type, edge]` is the type's conditional share among supporters of
+that edge. `overlap[e, f]` is profile share supporting both edges;
+`conditional_overlap[e, f]` is `Pr(supports e | supports f)`; and
+`jaccard_overlap[e, f]` divides joint support by union support. `core_mass_by_k`
+stores the profile share of types supporting at least `k` majority edges.
+"""
 struct MajorityGraphSupportResult
     pool::CandidatePool
     basis::VoterTypeBasis
@@ -47,6 +83,20 @@ struct MajorityGraphSupportResult
     core_mass_by_k::Dict{Int,Float64}
 end
 
+"""
+    GroupMajorityGraphSupportResult
+
+Group decomposition of a `MajorityGraphSupportResult`.
+
+`base` is the profile-level majority-support result. `groups` are symbolized
+group labels, with missing labels represented as `:NA`. `group_mass` and
+`group_type_mass` are normalized by the full profile mass, so group masses sum
+to one across observed groups. `group_type_proportion` normalizes type mass
+within each group. `group_edge_support` is each group's mass supporting each
+majority edge; `group_edge_margin` adds supporting group mass and subtracts
+opposing group mass. `group_anchoring` and `group_conditional_anchoring`
+aggregate edge coverage by group.
+"""
 struct GroupMajorityGraphSupportResult
     base::MajorityGraphSupportResult
     groups::Vector{Symbol}
@@ -198,9 +248,21 @@ end
     string(pool[edge.winner], " -> ", pool[edge.loser])
 
 """
-    majority_graph_support(profile; basis=nothing, basis_order=:lex, reference_order=nothing, tie_policy=:omit)
+    majority_graph_support(profile; basis=nothing, basis_order=:lex,
+        reference_order=nothing, tie_policy=:omit)
 
-Compute the full voter-type support structure behind majority edges.
+Compute the voter-type support structure behind the majority relation.
+
+The input must be a strict `Profile` or `WeightedProfile`. The function first
+forms pairwise majority margins from ranking-type masses. Each positive margin
+creates a directed edge `winner -> loser`; tied pairs are omitted when
+`tie_policy = :omit` and raise an error when `tie_policy = :error`.
+
+A voter type supports an edge when its strict ranking places the edge winner
+above the edge loser. The returned `MajorityGraphSupportResult` records which
+types support each majority edge, how much mass those types carry, how edge
+support coalitions overlap, and how much mass supports at least `k` edges of the
+majority graph.
 """
 function majority_graph_support(
     p::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRank}};
@@ -328,6 +390,17 @@ end
 @inline _integer_flip_count(margin_mass::Float64) =
     isapprox(margin_mass, round(margin_mass); atol = sqrt(eps(Float64))) ? floor(Int, margin_mass / 2) + 1 : missing
 
+"""
+    majority_edges_table(result)
+
+Return one row per majority edge.
+
+Columns: `edge_index`; winner/loser ids and labels; `support_mass`,
+`opposition_mass`, `margin_mass`, and `normalized_margin`; the mass and
+proportion thresholds `margin / 2` needed to reverse the pairwise majority; and
+`integer_flip_count`, the minimum integer number of unit-mass supporters that
+would have to switch sides when the margin is integer-valued.
+"""
 function majority_edges_table(result::MajorityGraphSupportResult)
     return DataFrame(
         edge_index = collect(1:length(result.edges)),
@@ -349,6 +422,16 @@ function _ranking_label(pool::CandidatePool, perm::AbstractVector{Int})
     return join((String(pool[id]) for id in perm), " > ")
 end
 
+"""
+    voter_type_table(result)
+
+Return one row per strict voter type in the result basis.
+
+Columns: stable `type_index`, display `ranking`, integer `perm`, optional
+Kendall `shell` from the reference order, raw `mass`, profile `proportion`,
+`coverage` count of supported majority edges, `anchoring = proportion *
+coverage`, and `normalized_anchoring = anchoring / number_of_edges`.
+"""
 function voter_type_table(result::MajorityGraphSupportResult)
     shell = result.basis.reference_perm === nothing ?
         fill(missing, length(result.basis.perms)) :
@@ -367,6 +450,16 @@ function voter_type_table(result::MajorityGraphSupportResult)
     )
 end
 
+"""
+    edge_support_table(result)
+
+Return one row per `(edge, voter type)` cell.
+
+Columns identify the type and edge, report whether the type `supports` the
+edge, the type's profile `type_proportion`, `weighted_support` equal to that
+proportion for supporters and zero otherwise, and `support_share`, the type's
+conditional share within the edge-supporting coalition.
+"""
 function edge_support_table(result::MajorityGraphSupportResult)
     type_index = Int[]
     ranking = String[]
@@ -399,6 +492,16 @@ function edge_support_table(result::MajorityGraphSupportResult)
                      support_share = support_share)
 end
 
+"""
+    edge_overlap_table(result)
+
+Return one row per ordered pair of majority edges.
+
+`overlap` is the profile share of voter types supporting both edges.
+`conditional_i_given_j` is `Pr(supports edge_i | supports edge_j)`, and
+`conditional_j_given_i` reverses the conditioning direction. `jaccard` is joint
+support divided by the mass supporting at least one of the two edges.
+"""
 function edge_overlap_table(result::MajorityGraphSupportResult)
     edge_i = Int[]
     edge_j = Int[]
@@ -429,6 +532,15 @@ function edge_overlap_table(result::MajorityGraphSupportResult)
                      jaccard = jaccard)
 end
 
+"""
+    core_table(result)
+
+Return one row per support threshold `k`.
+
+`core_mass` is the profile share of voter types that support at least `k`
+majority edges. At `k = number_of_edges`, this is the strict support core:
+types supporting all majority edges.
+"""
 function core_table(result::MajorityGraphSupportResult)
     ks = sort!(collect(keys(result.core_mass_by_k)))
     return DataFrame(k = ks, core_mass = [result.core_mass_by_k[k] for k in ks])
@@ -488,8 +600,14 @@ end
 """
     edge_effective_type_table(result)
 
-Effective ranking-type concentration diagnostics for each majority-edge
-supporting and opposing coalition.
+Return one row per majority edge with effective type diagnostics for each side.
+
+For both support and opposition sides, conditional ranking-type shares are
+squared and summed as HHI; `*_effective_types = 1 / HHI`. The effective
+threshold is `1 / effective_types`, and above-threshold fields list types whose
+conditional share is greater than that threshold. Columns also report side
+masses, side shares of the total profile, top type indices/rankings, and top
+shares within side.
 """
 function edge_effective_type_table(result::MajorityGraphSupportResult)
     edge_index = Int[]
@@ -595,6 +713,17 @@ function edge_effective_type_table(result::MajorityGraphSupportResult)
     )
 end
 
+"""
+    edge_effective_type_composition_table(result)
+
+Return one row per `(edge, voter type)` with support/opposition composition.
+
+Rows are classified as `side = "support"` when the type supports the majority
+edge and `"opposition"` otherwise. `conditional_share` is the type share within
+that side. `effective_threshold = 1 / neff` for the side's inverse-HHI effective
+number, `effective_weight = conditional_share / effective_threshold`, and
+`above_effective_threshold` is true when `effective_weight > 1`.
+"""
 function edge_effective_type_composition_table(result::MajorityGraphSupportResult)
     edge_index = Int[]
     edge_label = String[]
@@ -674,6 +803,15 @@ function _core_effective_row(result::MajorityGraphSupportResult, k::Int; reverse
             effective_types, top..., above...)
 end
 
+"""
+    core_effective_type_table(result)
+
+Return one row per support-core threshold `k`.
+
+The row unit is the set of types supporting at least `k` majority edges.
+Columns report `core_mass`, HHI, inverse-HHI `effective_types`, top type within
+the core, and the effective threshold plus above-threshold type listings.
+"""
 function core_effective_type_table(result::MajorityGraphSupportResult)
     nedges = length(result.edges)
     k_col = collect(0:nedges)
@@ -712,6 +850,16 @@ function core_effective_type_table(result::MajorityGraphSupportResult)
                      above_effective_rankings = above_effective_rankings)
 end
 
+"""
+    reverse_core_effective_type_table(result)
+
+Return one row per reverse-core threshold `k`.
+
+The reverse core at `k` is the set of types opposing at least `k` majority edges,
+where opposition means the type does not support the edge winner over loser.
+Columns mirror `core_effective_type_table`, using conditional shares inside this
+reverse-core set.
+"""
 function reverse_core_effective_type_table(result::MajorityGraphSupportResult)
     nedges = length(result.edges)
     k_col = collect(0:nedges)
@@ -750,6 +898,17 @@ function reverse_core_effective_type_table(result::MajorityGraphSupportResult)
                      above_effective_rankings = above_effective_rankings)
 end
 
+"""
+    core_effective_type_composition_table(result; reverse=false)
+
+Return one row per `(k, voter type)` for support-core or reverse-core membership.
+
+When `reverse = false`, `included` means the type supports at least `k` majority
+edges. When `reverse = true`, it means the type opposes at least `k` majority
+edges. Columns include support and reverse coverage, conditional share within
+the thresholded set, effective threshold, effective weight, and the
+above-threshold flag.
+"""
 function core_effective_type_composition_table(result::MajorityGraphSupportResult; reverse::Bool=false)
     nedges = length(result.edges)
     k_col = Int[]
@@ -804,6 +963,15 @@ function core_effective_type_composition_table(result::MajorityGraphSupportResul
     return df
 end
 
+"""
+    effective_type_diagnostics(result)
+
+Return a named tuple of effective-type summary and composition tables.
+
+Fields are `edge_summary`, `edge_composition`, `core_summary`,
+`reverse_core_summary`, `core_composition`, and `reverse_core_composition`.
+Each table uses inverse-HHI effective-number logic over conditional type shares.
+"""
 function effective_type_diagnostics(result::MajorityGraphSupportResult)
     return (
         edge_summary = edge_effective_type_table(result),
@@ -815,12 +983,30 @@ function effective_type_diagnostics(result::MajorityGraphSupportResult)
     )
 end
 
+"""
+    support_core_effective_composition_table(result)
+
+Compatibility summary table for support cores.
+
+Rows are support thresholds `k`; columns rename the core effective-number
+summary to `neff`, `n_effective_above_threshold`, and
+`above_threshold_rankings` for downstream reporting.
+"""
 support_core_effective_composition_table(result::MajorityGraphSupportResult) =
     rename(core_effective_type_table(result),
            :effective_types => :neff,
            :n_above_effective_threshold => :n_effective_above_threshold,
            :above_effective_rankings => :above_threshold_rankings)
 
+"""
+    support_core_above_threshold_type_table(result)
+
+Return support-core types above the effective threshold.
+
+Rows are `(k, type)` cells where the type is included in the support core and
+has conditional share greater than `1 / neff`. Columns include profile share,
+support coverage, conditional share, threshold, and effective weight.
+"""
 function support_core_above_threshold_type_table(result::MajorityGraphSupportResult)
     df = core_effective_type_composition_table(result)
     df = df[df.included .& df.above_effective_threshold, :]
@@ -830,12 +1016,30 @@ function support_core_above_threshold_type_table(result::MajorityGraphSupportRes
                   :conditional_share, :effective_threshold, :effective_weight)
 end
 
+"""
+    reverse_core_effective_composition_table(result)
+
+Compatibility summary table for reverse cores.
+
+Rows are reverse thresholds `k`, meaning types opposing at least `k` majority
+edges. Columns rename the reverse-core effective-number summary to `neff`,
+`n_effective_above_threshold`, and `above_threshold_rankings`.
+"""
 reverse_core_effective_composition_table(result::MajorityGraphSupportResult) =
     rename(reverse_core_effective_type_table(result),
            :effective_types => :neff,
            :n_above_effective_threshold => :n_effective_above_threshold,
            :above_effective_rankings => :above_threshold_rankings)
 
+"""
+    reverse_core_above_threshold_type_table(result)
+
+Return reverse-core types above the effective threshold.
+
+Rows are `(k, type)` cells where the type opposes at least `k` majority edges
+and has conditional share greater than `1 / neff`. Columns include profile
+share, reverse coverage, conditional share, threshold, and effective weight.
+"""
 function reverse_core_above_threshold_type_table(result::MajorityGraphSupportResult)
     df = core_effective_type_composition_table(result; reverse=true)
     df = df[df.included .& df.above_effective_threshold, :]
@@ -844,6 +1048,15 @@ function reverse_core_above_threshold_type_table(result::MajorityGraphSupportRes
                   :conditional_share, :effective_threshold, :effective_weight)
 end
 
+"""
+    edge_effective_composition_table(result)
+
+Compatibility edge-level effective-composition summary.
+
+Rows are majority edges. Columns report support and opposition total shares,
+HHI, inverse-HHI `*_neff`, effective thresholds, and numbers of types above the
+effective threshold on each side.
+"""
 function edge_effective_composition_table(result::MajorityGraphSupportResult)
     df = edge_effective_type_table(result)
     rename!(df, :support_share_total => :support_share,
@@ -858,6 +1071,15 @@ function edge_effective_composition_table(result::MajorityGraphSupportResult)
                   :opposition_effective_threshold, :opposition_n_effective_above_threshold)
 end
 
+"""
+    edge_above_threshold_type_table(result)
+
+Return edge-side types above their effective threshold.
+
+Rows are `(edge, side, type)` cells from `edge_effective_type_composition_table`
+where `above_effective_threshold` is true. `side` distinguishes support from
+opposition to the majority edge.
+"""
 function edge_above_threshold_type_table(result::MajorityGraphSupportResult)
     df = edge_effective_type_composition_table(result)
     df = df[df.above_effective_threshold, :]
@@ -867,6 +1089,16 @@ function edge_above_threshold_type_table(result::MajorityGraphSupportResult)
                   :effective_weight)
 end
 
+"""
+    countergraph_summary_table(result)
+
+Return a one-row summary of support-core and countergraph mass.
+
+The support core consists of types supporting all majority edges. The strict
+reverse core consists of types opposing all majority edges. Relaxed `E_minus_1`
+and `E_minus_2` columns lower the all-edge threshold by one or two edges. The
+largest countergraph type is selected by reverse coverage and type share.
+"""
 function countergraph_summary_table(result::MajorityGraphSupportResult)
     nedges = length(result.edges)
     reverse_mass(k) = sum(result.type_proportion[r] for r in eachindex(result.type_proportion)
@@ -910,6 +1142,17 @@ function boundary_distance_to_reverse(basis::VoterTypeBasis, type_index::Int, wi
     return pos_w < pos_l ? pos_l - pos_w : missing
 end
 
+"""
+    amenability_weight(delta; mode=:inverse, lambda=1.0)
+
+Weight a supporting type by its boundary distance to reversing an edge.
+
+`delta` is the adjacent-swap distance from a type supporting `winner -> loser`
+to a ranking where loser is above winner. Modes are `:inverse` (`1 / delta`),
+`:exponential` (`exp(-lambda * delta)`), `:adjacent` (one only for adjacent
+winner/loser), and `:none` (one for every supporter). Missing `delta` returns
+`missing`.
+"""
 function amenability_weight(delta; mode::Symbol=:inverse, lambda::Real=1.0)
     ismissing(delta) && return missing
     mode == :inverse && return 1.0 / Float64(delta)
@@ -919,6 +1162,18 @@ function amenability_weight(delta; mode::Symbol=:inverse, lambda::Real=1.0)
     throw(ArgumentError("Unsupported amenability mode: $mode"))
 end
 
+"""
+    type_breaker_table(result; amenability=:inverse, lambda=1.0, supporters_only=true)
+
+Return one row per candidate edge-breaking type relation.
+
+Rows are `(edge, type)` cells. A type can break only a majority edge it supports:
+the relation being broken is `winner -> loser`. `boundary_distance` is the
+adjacent-swap distance to place `loser` above `winner`. `raw_breaking_score` is
+`2 * type_proportion / normalized_margin`, comparing type mass to the mass
+threshold `normalized_margin / 2` needed to reverse the edge. `breaking_score`
+multiplies the raw score by `amenability_weight`.
+"""
 function type_breaker_table(
     result::MajorityGraphSupportResult;
     amenability::Symbol=:inverse,
@@ -972,6 +1227,18 @@ function type_breaker_table(
                      breaking_score = breaking_score)
 end
 
+"""
+    minimal_breaking_coalition_table(result; by=:mass, amenability=:inverse, lambda=1.0)
+
+Return the greedy minimal supporting coalition needed to break each edge.
+
+Rows are supporter types added to an edge-specific coalition for the relation
+`winner -> loser`. The coalition is sorted by `by = :mass`, `:breaking_score`,
+or `:amenability`. `threshold` is `normalized_margin / 2`; once cumulative
+supporter mass exceeds it, flipping those supporters to oppose the edge would
+reverse the pairwise majority. `flips_edge` marks the first row where that
+threshold is crossed.
+"""
 function minimal_breaking_coalition_table(
     result::MajorityGraphSupportResult;
     by::Symbol=:mass,
@@ -1060,6 +1327,19 @@ function _group_symbols(group_labels::AbstractVector)
     return labels, groups, group_index
 end
 
+"""
+    group_majority_graph_support(profile, group_labels; basis=nothing,
+        basis_order=:lex, reference_order=nothing, tie_policy=:omit)
+
+Compute group-level support for the profile's majority relation.
+
+The result keeps the same majority edges and voter-type basis as
+`majority_graph_support`. Missing group labels are coded as `:NA`. Group masses
+and group-type masses are normalized by total profile mass; group-type
+proportions are normalized within group. Edge support is group mass supporting
+`winner -> loser`; edge margin contribution adds support mass and subtracts
+opposition mass.
+"""
 function group_majority_graph_support(
     p::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRank}},
     group_labels::AbstractVector;
@@ -1129,6 +1409,16 @@ function group_majority_graph_support(
                                            group_conditional_anchoring)
 end
 
+"""
+    group_edge_power_table(group_result)
+
+Return one row per `(group, majority edge)`.
+
+Columns report group mass, edge winner/loser, `group_support` for the edge,
+`group_margin_contribution` against the edge's pairwise margin,
+`group_support_share_within_edge`, and `raw_group_breaking_score = 2 *
+group_support / normalized_margin`.
+"""
 function group_edge_power_table(group_result::GroupMajorityGraphSupportResult)
     group = Symbol[]
     group_mass = Float64[]
@@ -1164,6 +1454,16 @@ function group_edge_power_table(group_result::GroupMajorityGraphSupportResult)
                      raw_group_breaking_score = raw_group_breaking_score)
 end
 
+"""
+    group_breaker_table(group_result; amenability=:inverse, lambda=1.0)
+
+Return one row per `(group, majority edge)` with group breaking capacity.
+
+Only group mass in voter types that support the edge contributes.
+`amenability_weighted_support` weights each supporting type by boundary distance
+to reversing `winner -> loser`. `breaking_score = 2 *
+amenability_weighted_support / normalized_margin`.
+"""
 function group_breaker_table(group_result::GroupMajorityGraphSupportResult; amenability::Symbol=:inverse, lambda::Real=1.0)
     group = Symbol[]
     group_mass = Float64[]
@@ -1200,6 +1500,15 @@ function group_breaker_table(group_result::GroupMajorityGraphSupportResult; amen
                      breaking_score = breaking_score)
 end
 
+"""
+    group_anchor_table(group_result)
+
+Return one row per group with majority-relation anchoring.
+
+`anchoring` sums, over group type mass normalized by total profile mass, the
+number of majority edges each type supports. `conditional_anchoring` divides by
+the group's own mass, giving the group's average support coverage.
+"""
 function group_anchor_table(group_result::GroupMajorityGraphSupportResult)
     return DataFrame(
         group = group_result.groups,

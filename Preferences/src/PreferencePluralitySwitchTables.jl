@@ -35,6 +35,16 @@ function _candidate_filter_ids(pool::CandidatePool, candidates)
     return Set(_candidate_id(pool, c) for c in candidates)
 end
 
+"""
+    plurality_scores_table(profile; basis=nothing)
+
+Return first-choice plurality scores by candidate.
+
+Rows are candidates. `first_place_count` is the count or weight mass of ballots
+ranking the candidate first; `first_place_share` divides that mass by total
+profile mass. These are plurality, first-choice quantities, not pairwise
+majority counts or margins.
+"""
 function plurality_scores_table(p::StrictPreferenceProfile; basis=nothing)
     validate(p)
     scores = zeros(Float64, length(p.pool))
@@ -61,6 +71,19 @@ function plurality_scores_table(p::StrictPreferenceProfile; basis=nothing)
     )
 end
 
+"""
+    pairwise_vs_plurality_decomposition_table(profile, target, opponent; basis=nothing)
+
+Decompose target-versus-opponent support by current first choice.
+
+Rows are current first-choice candidates. `target_over_opponent_mass` and
+`opponent_over_target_mass` are pairwise preference masses among voters with
+that current first choice, and `pairwise_contribution` is their difference.
+`first_place_target_mass`, `first_place_opponent_mass`, and
+`plurality_contribution` count only first-choice votes for the target and
+opponent. This table explicitly separates pairwise-majority effects from
+plurality-score effects.
+"""
 function pairwise_vs_plurality_decomposition_table(
     p::StrictPreferenceProfile,
     target,
@@ -103,6 +126,16 @@ function pairwise_vs_plurality_decomposition_table(
     )
 end
 
+"""
+    candidate_position_by_current_first_table(profile, target; basis=nothing)
+
+Return the target candidate's rank position conditional on current first choice.
+
+Rows are `(current_first, target_position)` cells with positive mass. `mass` is
+count or weight mass in the cell, and `share_within_current_first` divides by
+all mass whose current first choice is that candidate. Positions are ordinal
+ranking positions, not pairwise margins.
+"""
 function candidate_position_by_current_first_table(
     p::StrictPreferenceProfile,
     target;
@@ -147,6 +180,17 @@ function candidate_position_by_current_first_table(
                      share_within_current_first = share)
 end
 
+"""
+    one_swap_target_table(profile, target; current_first_candidates=nothing, basis=nothing)
+
+Return first-choice pools that could move to `target` with one adjacent swap.
+
+Rows are current first-choice candidates with positive mass placing `target` in
+second position. Ballots already ranking `target` first are excluded. `mass` is
+the count or weight mass of such one-swap voters, and
+`share_within_current_first` conditions on non-target voters whose current first
+choice is that row's candidate after any candidate filter.
+"""
 function one_swap_target_table(
     p::StrictPreferenceProfile,
     target;
@@ -182,6 +226,18 @@ function one_swap_target_table(
     )
 end
 
+"""
+    plurality_swing_value_table(profile, target, opponent;
+        current_first_candidates=nothing, basis=nothing)
+
+Value one-swap target pools for the target-versus-opponent plurality margin.
+
+Rows come from `one_swap_target_table`. `one_swap_mass` is the mass with target
+in second position. `per_voter_swing` is `2` when the current first choice is
+the opponent, because the voter both subtracts from opponent and adds to target;
+it is `1` otherwise. The margin-before and margin-after columns are plurality
+score margins, not pairwise majority margins.
+"""
 function plurality_swing_value_table(
     p::StrictPreferenceProfile,
     target,
@@ -220,6 +276,17 @@ function plurality_swing_value_table(
                   :target_opponent_margin_after_if_pool_switches)
 end
 
+"""
+    exact_type_switch_table(profile, target; current_first_candidates=nothing, basis=nothing)
+
+Return exact ranking types that are switch pools for a target plurality gain.
+
+Rows are strict voter types with positive mass that do not rank `target` first,
+optionally restricted by current first choice. Columns identify the stable
+`type_index`, ranking, current first choice, target position, type mass, and
+profile share. This table describes plurality switch opportunities by exact
+ranking type; it does not recompute pairwise majority effects.
+"""
 function exact_type_switch_table(
     p::StrictPreferenceProfile,
     target;
@@ -257,6 +324,20 @@ function exact_type_switch_table(
                      target_position = target_position, mass = mass, share = share)
 end
 
+"""
+    group_target_switch_table(profile, group_labels, target, opponent;
+        current_first_candidates=nothing, basis=nothing)
+
+Return group-level target plurality switch opportunities.
+
+Rows are `(group, current_first)` cells with current-first or target-second
+mass. Missing group labels are represented as `:NA`. `current_first_mass` is the
+group mass currently led by that candidate; `target_second_mass` is the subset
+with `target` in second position. `per_voter_swing` is `2` for opponent-led
+cells and `1` otherwise, and `plurality_swing_value` is target-second mass times
+that swing. `group_share_of_pool` divides target-second mass by total profile
+mass. These are first-choice/plurality quantities, not pairwise margins.
+"""
 function group_target_switch_table(
     p::StrictPreferenceProfile,
     group_labels::AbstractVector,

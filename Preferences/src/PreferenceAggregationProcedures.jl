@@ -4,6 +4,16 @@
 # Pairwise majority aggregation
 ##############################
 
+"""
+    PairwiseMajority(counts)
+
+Pairwise majority-count aggregate for a profile.
+
+`counts[i, j]` is the voter mass preferring candidate `i` to candidate `j`,
+using pool-relative candidate ids. The diagonal is conventionally zero.
+Margins are `counts[i, j] - counts[j, i]`; wins are the sign of that margin,
+with ties represented by zero.
+"""
 struct PairwiseMajority{T<:Integer}
     counts::Matrix{T}  # counts[i,j] = voters preferring i over j
     function PairwiseMajority{T}(counts::Matrix{T}) where {T<:Integer}
@@ -80,6 +90,21 @@ function _accumulate_pairwise_counts!(counts::Matrix{Int}, pw::AbstractPairwise,
     return counts
 end
 
+"""
+    pairwise_majority(profile)
+    pairwise_majority(pm::PairwiseMajority)
+
+Aggregate a profile into pairwise majority counts.
+
+For each ordered pair `(i, j)`, the returned `PairwiseMajority.counts[i, j]`
+is the mass preferring candidate `i` to candidate `j`. Strict rankings
+contribute to every ordered pair implied by their order. Weak-rank ties,
+weak-rank missing pairs, pairwise ballot scores equal to `0`, and pairwise
+ballot scores equal to `missing` do not contribute to either direction.
+
+The current public aggregation method is for `Profile`; `WeightedProfile`
+inputs are intentionally not defined here.
+"""
 function pairwise_majority(p::Profile)
     N = length(p.pool)
     counts = zeros(Int, N, N)
@@ -91,9 +116,27 @@ end
 
 pairwise_majority(pm::PairwiseMajority) = pm
 
+"""
+    pairwise_majority_counts(pm_or_profile)
+
+Return the pairwise majority-count matrix.
+
+`counts[i, j]` is the mass preferring candidate `i` to candidate `j`.
+For profile inputs, counts are computed by `pairwise_majority(profile)`.
+The returned matrix is the stored matrix for `PairwiseMajority` inputs.
+"""
 pairwise_majority_counts(pm::PairwiseMajority) = pm.counts
 pairwise_majority_counts(p::Profile) = pairwise_majority_counts(pairwise_majority(p))
 
+"""
+    pairwise_majority_margins(pm_or_profile)
+
+Return the antisymmetric pairwise majority-margin matrix.
+
+Entry `[i, j]` is `counts[i, j] - counts[j, i]`: positive when candidate `i`
+beats candidate `j`, negative when `j` beats `i`, and zero for ties. The
+diagonal is zero.
+"""
 function pairwise_majority_margins(pm::PairwiseMajority)
     counts = pm.counts
     N = size(counts, 1)
@@ -111,6 +154,15 @@ end
 
 pairwise_majority_margins(p::Profile) = pairwise_majority_margins(pairwise_majority(p))
 
+"""
+    pairwise_majority_wins(pm_or_profile)
+
+Return the signed pairwise majority-win matrix.
+
+Entry `[i, j]` is `sign(counts[i, j] - counts[j, i])`, encoded as `1` when
+candidate `i` beats candidate `j`, `-1` when `i` loses to `j`, and `0` for a
+tie or diagonal entry.
+"""
 function pairwise_majority_wins(pm::PairwiseMajority)
     counts = pm.counts
     N = size(counts, 1)
