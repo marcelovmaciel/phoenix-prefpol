@@ -76,23 +76,55 @@ selected support classifications, observed support, and best-axis identifiers.
     rank(x, pool, name)
 
 Return a candidate's rank in a strict or weak ballot using the candidate IDs of
-`pool`. Lower ranks are better; weak rankings may return `missing` for unranked
+`pool`. Lower ranks are better. Strict rankings always return an `Int`; weak
+rankings may return `missing` for unranked candidates and equal ranks for tied
 candidates.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:b, :a, :c])
+
+rank(x, pool, :b)  # 1
+rank(x, pool, :c)  # 3
+```
 """ rank
 
 @doc raw"""
     prefers(x, pool, a, b)
 
 Return whether ballot `x` ranks candidate `a` strictly above candidate `b`.
-Weak-rank ties, missing entries, and unranked candidates follow the ballot's
-comparison semantics.
+For `WeakRank`, ties and pairs involving unranked candidates return `false`;
+use `indifferent` to test present ties.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:b, :a, :c])
+
+prefers(x, pool, :b, :c)  # true
+prefers(x, pool, :c, :b)  # false
+```
 """ prefers
 
 @doc raw"""
     indifferent(x, pool, a, b)
 
-Return whether candidates `a` and `b` are tied or otherwise indifferent in
-ballot `x`, using pool-relative candidate IDs.
+Return whether candidates `a` and `b` are tied in ballot `x`, using
+pool-relative candidate IDs. Distinct candidates in a valid `StrictRank` are
+never indifferent. For `WeakRank`, both candidates must be present and have the
+same rank; missing comparisons return `false`.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1, :c => 2))
+
+indifferent(w, pool, :a, :b)  # true
+```
 """ indifferent
 
 @doc raw"""
@@ -105,32 +137,77 @@ map every candidate to its position; weak ranks omit unranked candidates.
 @doc raw"""
     to_perm(x)
 
-Return candidate IDs in best-to-worst order. For weak ranks this is a
-deterministic ordering view with tied present ranks kept in candidate-ID order
-and unranked candidates appended.
+Return candidate IDs in best-to-worst order. For a `StrictRank`, this is the
+complete strict permutation. For a `WeakRank`, present rank buckets are sorted
+by rank, tied candidates are ordered by candidate ID, and unranked candidates
+are appended at the end. This is an ordering view, not a substantive
+tie-breaking rule.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1))
+
+to_perm(w)
+```
 """ to_perm
 
 @doc raw"""
-    to_pairwise(x, ...)
+    to_pairwise(x, pool; policy)
 
-Convert a ballot to pairwise-comparison form. Strict rankings produce complete
-pairwise comparisons; weak rankings use the supplied extension policy for ties
-and missing ranks.
+Convert a rank ballot to dense pairwise-comparison form. The returned
+`PairwiseDense` has `score(pw, i, j) == 1` when candidate ID `i` is above `j`,
+`-1` for the reverse, `0` for ties or the diagonal, and `missing` for undefined
+comparisons.
+
+Strict rankings produce complete pairwise comparisons. Weak rankings use the
+supplied `ExtensionPolicy`: for example, `NonePolicyMissing()` preserves
+undefined comparisons involving unranked candidates, while
+`BottomPolicyMissing()` treats present candidates as above unranked candidates.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1))
+
+pw = to_pairwise(w, pool; policy = BottomPolicyMissing())
+dense(pw)
+```
 """ to_pairwise
 
 @doc raw"""
     ordered_candidates(x, pool)
 
-Return candidate symbols in the order induced by ballot `x` and candidate pool
-`pool`.
+Return candidate symbols in the best-to-worst order induced by strict ballot
+`x` and candidate pool `pool`.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:b, :a, :c])
+
+ordered_candidates(x, pool)  # [:b, :a, :c]
+```
 """ ordered_candidates
 
 @doc raw"""
-    weakorder_symbol_groups(x, pool)
+    weakorder_symbol_groups(levels, pool)
 
-Return weak-order groups as candidate symbols. Groups are ordered from best to
-worst; the final group may contain unranked candidates depending on the weak
-rank.
+Map weak-order candidate-ID groups to candidate symbols. Pass the levels
+returned by `to_weakorder(w)`. Groups are ordered best to worst; equal symbols
+inside a group are tied, and the final group may contain unranked candidates.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1, :c => 2))
+
+weakorder_symbol_groups(to_weakorder(w), pool)
+```
 """ weakorder_symbol_groups
 
 @doc raw"""
@@ -149,6 +226,18 @@ unranked candidates and ties.
 """ compare_maybe
 
 @doc raw"""
+    PairwiseMajority(counts)
+
+Pairwise majority-count aggregate for a profile. `counts[i,j]` is the mass
+preferring candidate ID `i` to candidate ID `j`; margins are
+`counts[i,j] - counts[j,i]`, and wins are the sign of that margin.
+
+The count matrix records directional support and is not antisymmetric. The
+margin matrix is antisymmetric, and a positive margin `[i,j]` means row
+candidate `i` beats column candidate `j`.
+""" PairwiseMajority
+
+@doc raw"""
     ranking_signature(ranking)
 
 Return the canonical tuple signature of a strict ranking, using candidate
@@ -158,291 +247,657 @@ symbols when a pool is available.
 @doc raw"""
     ranking_proportions(profile)
 
-Return empirical proportions of observed strict ranking types. Weighted profiles
-use stored profile weights; unweighted profiles use ballot counts.
+Return the empirical distribution over observed strict ranking types. For a
+strict profile, each row has unit mass; for a weighted strict profile, stored
+weights are normalized to proportions:
+
+```math
+p_r = \frac{w_r}{\sum_s w_s}.
+```
+
+The result is a `Dict{Tuple,Float64}` keyed by best-to-worst candidate-symbol
+tuples. Empty or zero-mass inputs return an empty dictionary. This distribution
+is the input to reversal, overlap, and effective ranking support measures.
 """ ranking_proportions
 
 @doc raw"""
     reversal_pairs(unique_rankings)
 
-Pair observed strict rankings with their exact reversals. Each pair is reported
-once; unpaired rankings are omitted.
+Pair observed strict ranking signatures with their exact reversals. For a
+ranking
+
+```math
+r = (a_1,\ldots,a_m),
+```
+
+its paired opposite is `reverse(r) = (a_m,\ldots,a_1)`. The function returns
+`(paired, unpaired)`, pairing each exact reversal at most once.
+
+This helper does not count near-reversals or pairwise opposition without an
+observed exact reversed ranking type.
 """ reversal_pairs
 
 @doc raw"""
     kendall_tau_distance(x, y)
 
-Return the Kendall tau distance between two complete strict rankings: the number
-of unordered candidate pairs ordered differently by `x` and `y`.
+Return the Kendall tau distance between two complete strict rankings. For two
+strict rankings `x` and `y` on `m` alternatives,
+
+```math
+d_\tau(x,y) =
+\left|\left\{\{a,b\}: x \text{ and } y \text{ order } a,b
+\text{ differently}\right\}\right|.
+```
+
+The range is `0:binomial(m, 2)`. A value of `0` means identical orders; the
+maximum `binomial(m, 2)` means exact reversal.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:a, :b, :c])
+y = StrictRank(pool, [:c, :b, :a])
+
+kendall_tau_distance(x, y)  # 3 for m = 3
+```
 """ kendall_tau_distance
 
 @doc raw"""
     average_normalized_distance(profile, consensus)
 
-Return average Kendall distance from profile ballots to a consensus, normalized
-by `binomial(m, 2)` and weighted by profile mass where applicable.
+Return average Kendall distance from profile ballots to a consensus ranking,
+normalized by the maximum pair count:
+
+```math
+\bar d(p,c) =
+\frac{1}{W\binom{m}{2}} \sum_i w_i d_\tau(r_i,c),
+```
+
+where `w_i = 1` for `Profile`, `w_i` is the stored weight for
+`WeightedProfile`, and `W = sum_i w_i`. The value lies in `[0, 1]` for valid
+strict profiles with at least two candidates. It is a dispersion or incoherence
+around the proposed consensus.
 """ average_normalized_distance
 
 @doc raw"""
-    axes_up_to_reversal(pool_or_candidates)
+    axes_up_to_reversal(candidates)
 
-Enumerate candidate axes modulo reversal for single-peakedness calculations.
+Enumerate one representative from each linear-axis equivalence class modulo
+reversal. For example, `(:a, :b, :c)` and `(:c, :b, :a)` define the same
+single-peaked axis and only one representative is returned.
+
+```julia
+axes_up_to_reversal([:a, :b, :c])
+```
 """ axes_up_to_reversal
 
 @doc raw"""
     is_single_peaked(ranking, axis)
 
-Return whether a strict ranking is single-peaked on the supplied candidate axis.
+Return whether a strict best-to-worst ranking is single-peaked on `axis`. Axes
+are linear orders of candidates and are interpreted modulo reversal in summary
+functions. The ranking and axis must contain the same candidates exactly once.
+
+Example:
+
+```julia
+axis = [:a, :b, :c]
+is_single_peaked([:a, :b, :c], axis)
+is_single_peaked([:b, :a, :c], axis)
+```
 """ is_single_peaked
 
 @doc raw"""
     single_peaked_rankings(axis)
 
-Enumerate strict rankings that are single-peaked on a candidate axis.
+Enumerate all strict rankings that are single-peaked on a fixed axis. For `m`
+candidates there are `2^(m-1)` such rankings.
+
+```julia
+axis = (:a, :b, :c)
+single_peaked_rankings(axis)
+```
 """ single_peaked_rankings
 
 @doc raw"""
     single_peaked_distance(ranking, axis)
 
-Return the Kendall distance from a strict ranking to the nearest ranking that is
-single-peaked on `axis`.
+Return the Kendall distance from `ranking` to the nearest strict ranking that is
+single-peaked on `axis`:
+
+```math
+\min_{s \in SP(a)} d_\tau(r,s).
+```
+
+The returned distance is an unnormalized discordant-pair count. Summary
+functions normalize by `binomial(m, 2)`.
 """ single_peaked_distance
 
 @doc raw"""
-    profile_distribution(profile)
+    profile_distribution(profile; proportion_source=:auto)
 
-Return the observed strict ranking-type distribution for a profile, preserving
-weighted profile mass where applicable.
+Compress a strict `Profile` or `WeightedProfile` into observed ranking types and
+normalized proportions. Weighted profiles use stored survey/profile weights
+when `proportion_source = :survey_weight` or `:auto`; unweighted profiles use
+row counts. The result is used by single-peakedness summaries to score ranking
+support, not to sample individuals.
 """ profile_distribution
 
 @doc raw"""
     single_peakedness_summary(profile; kwargs...)
 
-Compute single-peakedness diagnostics over candidate axes, including `L0`, full
-profile normalized `L1`, conditional off-axis distance, and selected support
-classifications.
+Compute deviation from single-peakedness over candidate axes. For each axis
+`a`, let `SP(a)` be the set of strict rankings single-peaked on that axis,
+`p_r` the observed ranking-type proportion, and
+
+```math
+d_a(r) = \min_{s \in SP(a)} \frac{d_\tau(r,s)}{\binom{m}{2}}.
+```
+
+The per-axis measures are
+
+```math
+L_0(a) = \sum_{r \notin SP(a)} p_r, \qquad
+L_1(a) = \sum_r p_r d_a(r),
+```
+
+and
+
+```math
+L_{1,off}(a) =
+\frac{\sum_{r \notin SP(a)} p_r d_a(r)}{L_0(a)}
+```
+
+when `L0(a) > 0`, otherwise `missing`. `L0` is off-axis mass, `L1` is
+unconditional normalized Kendall distortion, and `L1_off_axis` conditions that
+distortion on the off-axis part. Axes are considered modulo reversal.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+p = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:b, :a, :c]),
+])
+
+res = single_peakedness_summary(p; axes = [[:a, :b, :c]])
+res.best_L0
+```
 """ single_peakedness_summary
 
 @doc raw"""
     single_peakedness_L0(profile; kwargs...)
 
-Return the best-axis off-axis mass from `single_peakedness_summary`.
+Return the best-axis off-axis mass `min_a L0(a)` from
+`single_peakedness_summary`. `L0 = 0` means all observed ranking mass is
+single-peaked on at least one evaluated axis.
 """ single_peakedness_L0
 
 @doc raw"""
     single_peakedness_L1(profile; kwargs...)
 
-Return the unconditional normalized Kendall distortion to the selected
-single-peaked axis.
+Return the best-axis unconditional normalized Kendall distortion `min_a L1(a)`
+from `single_peakedness_summary`. This counts both how much mass is off-axis and
+how far that mass is from the nearest on-axis ranking.
 """ single_peakedness_L1
 
 @doc raw"""
     single_peakedness_L1_off_axis(profile; kwargs...)
 
-Return normalized single-peakedness distortion conditional on off-axis mass;
-returns `missing` when the selected axis has no off-axis mass.
+Return the best conditional off-axis distortion from `single_peakedness_summary`.
+This is `L1` restricted to rankings not single-peaked on the selected axis and
+is `missing` when the selected axis has no off-axis mass.
 """ single_peakedness_L1_off_axis
 
 @doc raw"""
     best_single_peaked_axes(profile; kwargs...)
 
-Return support-optimal candidate axes from `single_peakedness_summary`.
+Return the axis IDs minimizing `L0`, the off-axis support mass, in
+`single_peakedness_summary`. These are support-optimal axes; they need not be
+the same axes minimizing `L1` or `L1_off_axis`.
 """ best_single_peaked_axes
 
 @doc raw"""
     can_polarization(profile)
 
-Return Can's pairwise-balance polarization statistic `Ψ`, computed from
-pairwise preference counts over all unordered candidate pairs.
+Return Can's pairwise-balance polarization statistic `Ψ`. For each unordered
+candidate pair `{a,b}`, let `n_ab` be the profile mass ranking `a` above `b`,
+`n_ba` the reverse mass, `n` the total mass, and `m` the number of candidates:
+
+```math
+\Psi(p) =
+\frac{1}{n\binom{m}{2}}
+\sum_{\{a,b\}}\left(n - |n_{ab} - n_{ba}|\right).
+```
+
+`Ψ = 0` under pairwise unanimity for every pair. `Ψ = 1` when every pairwise
+contest is exactly balanced. The measure is pairwise: it detects pairwise
+balance but does not identify whether disagreement is organized as exact
+reversal pairs.
+
+Examples:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+unanimous = Profile(pool, [StrictRank(pool, [:a, :b, :c]) for _ in 1:3])
+can_polarization(unanimous)  # 0.0
+
+cycle = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:b, :c, :a]),
+    StrictRank(pool, [:c, :a, :b]),
+])
+can_polarization(cycle)
+```
 """ can_polarization
 
 @doc raw"""
     total_reversal_component(profile)
 
-Return the exact-reversal mass component `R`, summing local masses
-`2min(p_r, p_reverse(r))` over observed reversal pairs.
+Return the exact-reversal mass component `R`. Let `p_r` be the profile
+proportion on strict ranking type `r`, and let `\bar r` denote the exact reverse
+ranking. Then
+
+```math
+R(p) = \sum_{\{r,\bar r\}} 2\min(p_r, p_{\bar r}).
+```
+
+`R` measures the amount of mass that can be matched into exact reversed ranking
+pairs. It is not a general disagreement index: pairwise cycles and near
+reversals do not contribute unless both exact ranking types are present.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+p = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:c, :b, :a]),
+])
+
+total_reversal_component(p)
+```
 """ total_reversal_component
 
 @doc raw"""
     reversal_hhi(profile)
 
-Return reversal concentration `κ`, the HHI of positive local exact-reversal
-masses. Returns `0.0` when no reversal mass is present.
+Return reversal concentration `κ`, the Herfindahl-Hirschman index of positive
+local exact-reversal masses. If `v_i` is the local mass in reversal pair `i` and
+`R = sum_i v_i`, define `s_i = v_i / R`; then
+
+```math
+\kappa(p) = \sum_i s_i^2.
+```
+
+For positive reversal mass, `κ` is high when reversal mass is concentrated in a
+single exact opposition pair and lower when it is dispersed. The implementation
+returns `0.0` when there is no positive exact-reversal mass.
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+p = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:c, :b, :a]),
+])
+
+reversal_hhi(p)
+```
 """ reversal_hhi
 
 @doc raw"""
     reversal_geometric(profile)
 
-Return the geometric exact-reversal index `sqrt(R * κ)`, with zero-reversal mass
-mapped to `0.0`.
+Return the geometric exact-reversal index
+
+```math
+G_R(p) = \sqrt{R(p)\kappa(p)},
+```
+
+where `R` is `total_reversal_component(p)` and `κ` is `reversal_hhi(p)`. The
+index combines amount and concentration: high values require both substantial
+exact-reversal mass and concentration of that mass in few reversal pairs. It
+returns `0.0` when there is no positive exact-reversal mass.
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+p = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:c, :b, :a]),
+])
+
+reversal_geometric(p)
+```
 """ reversal_geometric
 
 @doc raw"""
     effective_observed_rankings(profile)
 
-Return the inverse-HHI effective number of observed strict ranking types.
+Return the inverse-HHI effective number of observed strict ranking types:
+
+```math
+E_O = \left(\sum_r p_r^2\right)^{-1}.
+```
+
+`E_O = 1` when all mass is on one observed ranking type, and larger values mean
+mass is spread over more ranking types. Empty or zero-mass inputs throw.
 """ effective_observed_rankings
 
 @doc raw"""
     effective_reversal_rankings(profile)
 
-Return the inverse-HHI effective number of exact reversal pairs among positive
-local reversal masses.
+Return the inverse-HHI effective number of exact reversal pairs carrying
+positive local reversal mass. With
+
+```math
+v_q = 2\min(p_r,p_{\bar r}), \qquad R = \sum_q v_q,
+```
+
+the statistic is
+
+```math
+E_R = \left(\sum_q (v_q/R)^2\right)^{-1}.
+```
+
+It returns `0.0` when there is no exact reversal mass. Larger values mean the
+reversal component is spread across more exact opposition pairs.
 """ effective_reversal_rankings
 
 @doc raw"""
     effective_reversal_ranking_diagnostics(profile)
 
-Return diagnostics for effective reversal rankings, including reversal mass,
-concentration, effective count, and support information.
+Return a named tuple comparing effective exact-reversal support with effective
+observed ranking support. Fields include `ENRP = effective_reversal_rankings`,
+`EO = effective_observed_rankings`, and their ratio.
+
+Use this to distinguish a profile with many observed ranking types from one
+whose opposition is organized into many effective exact-reversal pairs.
 """ effective_reversal_ranking_diagnostics
 
 @doc raw"""
     ranking_support_diagnostics(profile; kwargs...)
 
-Return observed ranking-support diagnostics, including support size and
-effective observed rankings.
+Return descriptive diagnostics for observed strict-ranking support: possible
+rankings `m!`, number of observed ranking types, singleton support, maximum
+ranking mass, inverse-HHI effective support `EO`, and saturation/sparsity
+summaries.
+
+These diagnostics describe the empirical support of a profile; they are not a
+polarization index by themselves.
 """ ranking_support_diagnostics
 
 @doc raw"""
     consensus_kendall(profile; kwargs...)
 
-Compute a Kendall/Kemeny consensus over complete strict rankings by minimizing
-total Kendall distance over all strict orders on the active candidate set.
+Compute a Kendall/Kemeny consensus over complete strict rankings. For strict
+rankings `r_i` with masses `w_i`, it searches all strict orders `c` and solves
+
+```math
+\min_c \sum_i w_i d_\tau(r_i,c).
+```
+
+The returned `ConsensusResult` stores the selected consensus ballot, the total
+objective, the average normalized distance, and all tied minimizers. Empty or
+zero-mass profiles throw, and at least two candidates are required.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+p = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:a, :c, :b]),
+    StrictRank(pool, [:b, :a, :c]),
+])
+
+res = consensus_kendall(p)
+pretty(res.consensus_ballot, pool)
+```
 """ consensus_kendall
 
 @doc raw"""
     get_consensus_ranking(profile; kwargs...)
 
-Return a consensus ranking dictionary selected by `consensus_kendall`.
+Return the selected Kendall consensus as `(ordered_symbols, ranking_dict)`. This
+is a convenience projection of `consensus_kendall`, not a different consensus
+rule. Tie handling follows `consensus_kendall`.
+
+```julia
+ordered, ranks = get_consensus_ranking(p)
+```
 """ get_consensus_ranking
 
 @doc raw"""
     kendall_tau_dict(r1, r2)
 
 Dictionary-facing Kendall tau distance for complete ranking dictionaries over a
-common candidate set.
+common candidate set. Each dictionary maps candidate symbols to strict rank
+positions, and the result is the discordant-pair count in
+`0:binomial(m, 2)`.
 """ kendall_tau_dict
 
 @doc raw"""
     consensus_for_group(subdf; kwargs...)
 
-Compute group-level Kendall consensus information for data accepted by
-`strict_profile`, returning ranking, permutation, result object, and tie
-diagnostics.
+Compute one group's Kendall/Kemeny consensus using `strict_profile` input
+coercion. The return value includes the consensus ranking dictionary,
+permutation, full `ConsensusResult`, set of minimizing consensuses, and tie
+diagnostics. This is the group consensus `ρ_g` used by coherence, divergence,
+overlap, and separation summaries.
 """ consensus_for_group
 
 @doc raw"""
     group_avg_distance(subdf; kwargs...)
 
-Compute a group's average normalized distance to its Kendall consensus and the
-corresponding coherence `C_g = 1 - W_g`.
+Compute a group's average normalized distance `W_g` to its Kendall consensus and
+coherence `C_g = 1 - W_g`:
+
+```math
+W_g = \sum_r p_g(r)\frac{d_\tau(r,\rho_g)}{\binom{m}{2}},
+\qquad C_g = 1 - W_g.
+```
+
+`C_g` is within-group coherence around the group consensus, not between-group
+separation.
 """ group_avg_distance
 
 @doc raw"""
     weighted_coherence(results_distance, proportion_map, key)
 
-Aggregate group coherences as `C = sum_g π_g C_g`, using proportions supplied in
-`proportion_map`.
+Aggregate group coherences into manuscript quantity `C`:
+
+```math
+C = \sum_g \pi_g C_g,
+\qquad C_g = 1 - W_g.
+```
+
+`results_distance` supplies `group_coherence`, while `proportion_map` supplies
+group shares `π_g`. The helper aggregates the provided rows; it does not sample
+individuals.
 """ weighted_coherence
 
 @doc raw"""
     pairwise_group_divergence(profile_i, consensus_j, m)
 
-Return directed normalized Kendall divergence `D_{i -> j}` from group `i`'s
-profile to group `j`'s consensus.
+Return directed normalized Kendall divergence from group `i`'s profile to group
+`j`'s consensus:
+
+```math
+D_{i\to j} = \sum_r p_i(r)\frac{d_\tau(r,\rho_j)}{\binom{m}{2}}.
+```
+
+The object is directed: distance from group `i` to group `j`'s consensus need
+not equal the reverse. The function aggregates over the whole group/profile
+with profile weights where applicable; it does not sample individuals.
 """ pairwise_group_divergence
 
 @doc raw"""
     pairwise_group_overlap(profile_g, profile_h)
 
-Return exact overlap in empirical ranking distributions between two groups,
-`sum_r min(p_g(r), p_h(r))`.
+Return exact ranking-distribution overlap between two groups:
+
+```math
+O(g,h) = \sum_r \min(p_g(r), p_h(r)).
+```
+
+`O = 1` for identical empirical ranking distributions and `O = 0` for disjoint
+observed ranking support. This is distributional overlap, independent of where
+the group consensuses sit in Kendall space.
 """ pairwise_group_overlap
 
 @doc raw"""
     smoothed_overlap(profile_g, profile_h)
 
-Return radius-1 Kendall-smoothed ranking-distribution overlap between two
-groups.
+Return radius-1 Kendall-smoothed overlap. Each observed ranking spreads its mass
+uniformly over itself and its adjacent-swap Kendall neighbors before exact
+overlap is computed. This treats near-identical rankings as partial shared
+support while preserving the same group aggregation logic as `overall_overlap`.
 """ smoothed_overlap
 
 @doc raw"""
-    pairwise_group_median_distance(...)
+    pairwise_group_median_distance(consensus_g, consensus_h, pool)
 
-Return normalized Kendall distance between group consensus sets, averaging over
-tied minimizers when consensus results contain multiple minimizers.
+Return normalized Kendall distance between group consensus sets. When a group
+has tied Kemeny minimizers, the distance averages across all pairs of minimizers:
+
+```math
+D_{median}(g,h) = \frac{1}{|M_g||M_h|}\sum_{c\in M_g}\sum_{d\in M_h}
+\frac{d_\tau(c,d)}{\binom{m}{2}}.
+```
+
+This is an undirected consensus-to-consensus distance.
 """ pairwise_group_median_distance
 
 @doc raw"""
-    pairwise_group_separation(...)
+    pairwise_group_separation(profile_g, consensus_g, profile_h, consensus_h)
 
-Return overlap-adjusted pairwise group separation, `D_median(g,h) * (1 - O(g,h))`.
+Return overlap-adjusted pairwise group separation:
+
+```math
+Sep(g,h) = D_{median}(g,h)(1 - O(g,h)).
+```
+
+Groups are separated when their consensus sets are far apart and their exact
+ranking distributions do not strongly overlap.
 """ pairwise_group_separation
 
 @doc raw"""
     overall_divergence(group_profiles, consensus_map)
 
-Aggregate directed cross-group divergence with manuscript label `D` using group
-population shares.
+Aggregate directed cross-group divergence with manuscript label `D`:
+
+```math
+D =
+\frac{1}{K-1}
+\sum_i \pi_i
+\sum_{j \ne i}
+\frac{1}{n_i}
+\sum_{x \in G_i}
+\frac{d_\tau(x,\rho_j)}{\binom{m}{2}},
+```
+
+where `ρ_j` is group `j`'s Kendall consensus and `π_i` is group `i`'s mass
+share. The implementation sweeps or aggregates over the whole group/profile,
+using profile weights where applicable; it does not sample individuals.
 """ overall_divergence
 
 @doc raw"""
     overall_overlap(group_profiles)
 
-Aggregate exact pairwise group overlaps over unordered group pairs with
-population-pair weights.
+Aggregate exact pairwise group overlaps over unordered group pairs using
+population-pair weights:
+
+```math
+\omega_{gh} = \frac{2\pi_g\pi_h}{1 - \sum_r \pi_r^2},
+\qquad O = \sum_{g<h}\omega_{gh}O(g,h).
+```
+
+This summarizes shared ranking support between groups.
 """ overall_overlap
 
 @doc raw"""
     overall_overlap_smoothed(group_profiles)
 
-Aggregate radius-1 smoothed pairwise group overlaps using the same pair weights
-as `overall_overlap`.
+Aggregate radius-1 Kendall-smoothed pairwise overlaps using the same pair
+weights as `overall_overlap`. Only the pairwise overlap object changes from
+exact support overlap to smoothed local support overlap.
 """ overall_overlap_smoothed
 
 @doc raw"""
     overall_divergence_median(group_profiles, consensus_map)
 
-Aggregate pairwise median-set distances over unordered group pairs.
+Aggregate pairwise median-set distances over unordered group pairs:
+
+```math
+D_{median} = \sum_{g<h}\omega_{gh}D_{median}(g,h),
+```
+
+where `ω_gh` are the population-pair weights from `overall_overlap`. This is a
+symmetric consensus-set distance, unlike directed `overall_divergence`.
 """ overall_divergence_median
 
 @doc raw"""
     overall_separation(group_profiles, consensus_map)
 
-Aggregate overlap-adjusted pairwise separations over unordered group pairs.
+Aggregate overlap-adjusted pairwise separations over unordered group pairs:
+
+```math
+Sep = \sum_{g<h}\omega_{gh}Sep(g,h),
+\qquad Sep(g,h)=D_{median}(g,h)(1-O(g,h)).
+```
+
+This combines consensus distance with exact distributional overlap.
 """ overall_separation
 
 @doc raw"""
     grouped_gsep(C, Sep)
 
-Return `sqrt(C * Sep)` after validating both inputs on the unit interval.
+Return `sqrt(C * Sep)` after validating both inputs on the unit interval. This
+combines within-group coherence `C` and overlap-adjusted between-group
+separation `Sep`.
 """ grouped_gsep
 
 @doc raw"""
     S(C, D)
 
-Return cleaned excess separation `S = D - (1 - C) / 2`. This is not rebased to
-`[0, 1]` and may be negative.
+Return the legacy excess-separation statistic
+
+```math
+S(C,D) = D - \frac{1-C}{2}.
+```
+
+`S` may be negative and is not a bounded polarization index. It is retained for
+compatibility/diagnostics when comparing older separation summaries; prefer the
+current manuscript measures when applicable.
 """ S
 
 @doc raw"""
     normalized_consensus_separation(W, D; atol=1e-10)
 
-Return normalized consensus separation `E = 1 - W/D`, with `D == 0` mapped to
-`0.0` and small numerical excursions clamped.
+Return normalized consensus separation
+
+```math
+E = 1 - \frac{W}{D},
+```
+
+with `D == 0` mapped to `0.0` and small floating-point excursions clamped. `W`
+is within-group dispersion and `D` is cross-group divergence or separation,
+depending on the calling context.
 """ normalized_consensus_separation
 
 @doc raw"""
     consensus_excess_separation(W, D; kwargs...)
 
-Compatibility alias for `normalized_consensus_separation`.
+Compatibility alias for `normalized_consensus_separation(W, D; kwargs...)`.
 """ consensus_excess_separation
 
 @doc raw"""
     group_E(W, D; kwargs...)
 
-Group-level alias for normalized consensus separation `E = 1 - W/D`.
+Group-level alias for normalized consensus separation `E = 1 - W/D`, where `W`
+is within-group dispersion and `D` is the relevant directed outgroup distance.
 """ group_E
 
 @doc raw"""
@@ -454,7 +909,8 @@ Aggregate-level alias for normalized consensus separation `E = 1 - W/D`.
 @doc raw"""
     E(W, D; kwargs...)
 
-Manuscript shorthand for normalized consensus separation `E = 1 - W/D`.
+Manuscript shorthand for normalized consensus separation `E = 1 - W/D`. Use
+`normalized_consensus_separation` for the explicit name.
 """ E
 
 @doc raw"""

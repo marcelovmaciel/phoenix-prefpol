@@ -22,8 +22,19 @@ pool's canonical candidate order. Strict ranks have no missing entries and no
 ties. Pool-aware constructors reject wrong lengths, out-of-range IDs, duplicate
 IDs, and unknown names with `ArgumentError`.
 
-Example: with `pool = CandidatePool([:a, :b, :c])`,
-`ordered_candidates(StrictRank(pool, [:b, :a, :c]), pool) == [:b, :a, :c]`.
+Example:
+
+```julia
+using Preferences
+
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:b, :a, :c])
+
+rank(x, pool, :b)
+prefers(x, pool, :b, :c)
+ordered_candidates(x, pool)
+pretty(x, pool)
+```
 """
 struct StrictRank{N,Storage<:AbstractVector{Int}}
     # permutation of ids (best → worst), length N
@@ -45,8 +56,22 @@ encode ties. Candidate IDs are implementation-level positions in the common
 `CandidatePool`. Pool-aware constructors reject wrong vector lengths, unknown
 symbols, and ranks below `1` with `ArgumentError`.
 
-Example: `WeakRank(CandidatePool([:a, :b]), Dict(:a => 1))` ranks `:a` and
-leaves `:b` unranked.
+Examples:
+
+```julia
+using Preferences
+
+pool = CandidatePool([:a, :b, :c])
+
+# A tie between :a and :b.
+w = WeakRank(pool, Dict(:a => 1, :b => 1, :c => 2))
+weakorder_symbol_groups(to_weakorder(w), pool)
+
+# An incomplete weak ranking leaves :c unranked.
+u = WeakRank(pool, Dict(:a => 1, :b => 2))
+weakorder_symbol_groups(to_weakorder(u), pool)
+to_pairwise(u, pool; policy = BottomPolicyMissing())
+```
 """
 struct WeakRank{N,Storage<:AbstractVector{Union{Int,Missing}}}
     # ranks per id (1 = best), missing = unranked
@@ -224,6 +249,16 @@ The invariant is that the pool maps `nm` to the candidate ID used by the ballot.
 Lower rank numbers are better. Strict ranks have no missing/tie ranks; weak
 ranks may return `missing` for unranked candidates and equal integers for ties.
 Unknown candidate symbols throw `ArgumentError`.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:b, :a, :c])
+
+rank(x, pool, :b)      # 1
+rank(x, pool, :c)      # 3
+```
 """
 # rank(::StrictRank, pool, :name) -> Int
 function rank(x::StrictRank, pool::CandidatePool, nm::Symbol)::Int
@@ -251,6 +286,16 @@ The invariant is comparison by pool-relative candidate IDs and lower rank
 number as better. For weak ranks, pairs involving `missing` return `false`, and
 equal present ranks also return `false` because they are ties. Unknown symbols
 throw `ArgumentError`.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:b, :a, :c])
+
+prefers(x, pool, :b, :c)  # true
+prefers(x, pool, :c, :b)  # false
+```
 """
 # prefers(a,b): True iff rank(a) < rank(b)
 function prefers(x::StrictRank, pool::CandidatePool, a::Symbol, b::Symbol)::Bool
@@ -274,6 +319,16 @@ The invariant is comparison by pool-relative candidate IDs. In a valid
 `StrictRank`, two distinct candidates are never indifferent. In a `WeakRank`,
 both candidates must be present and have equal ranks; comparisons involving
 `missing` return `false`. Unknown symbols throw `ArgumentError`.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1, :c => 2))
+
+indifferent(w, pool, :a, :b)  # true
+prefers(w, pool, :a, :b)      # false
+```
 """
 # indifferent(a,b): True iff both present and equal rank
 function indifferent(x::StrictRank, pool::CandidatePool, a::Symbol, b::Symbol)::Bool
@@ -334,6 +389,15 @@ candidate pool. Strict ranks return the complete strict permutation. Weak ranks
 sort present alternatives by increasing rank and append unranked alternatives
 after all ranked alternatives; ties are ordered by candidate ID/order from the
 rank vector. This is not a tie-resolving linearization.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1))
+
+to_perm(w)  # tied present ids first, then the unranked id
+```
 """
 # Strict → perm (ids best→worst)
 @inline to_perm(x::StrictRank) = collect(perm(x))
@@ -377,6 +441,16 @@ sorted by increasing rank number, so earlier levels are better. If any
 candidates are `missing`, a final level contains the unranked IDs; this records
 incompleteness and should not be read as an ordinary tie without an explicit
 extension policy.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1))
+
+levels = to_weakorder(w)
+weakorder_symbol_groups(levels, pool)
+```
 """
 function to_weakorder(x::WeakRank)::Vector{Vector{Int}}
     rx = ranks(x)
@@ -418,6 +492,15 @@ Map weak-order candidate-ID groups to symbol groups. The domain is the output of
 The invariant is that every ID indexes the pool's canonical ordering. Ties and
 the possible final unranked group are preserved structurally. Out-of-range IDs
 throw `BoundsError`.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1, :c => 2))
+
+weakorder_symbol_groups(to_weakorder(w), pool)
+```
 """
 # Map weak-order id groups to symbol groups
 weakorder_symbol_groups(levels::Vector{Vector{Int}}, pool::CandidatePool) =
@@ -637,6 +720,16 @@ undefined pairs. Strict ranks have no missing comparisons. Weak-rank missing
 behavior is controlled by `policy`: for example, `NonePolicyMissing` preserves
 undefined pairs while `BottomPolicyMissing` ranks present alternatives above
 unranked ones. Pool size mismatches can cause indexing errors.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1))
+
+pw = to_pairwise(w, pool; policy = BottomPolicyMissing())
+dense(pw)
+```
 """
 # Public constructor: WeakRank/StrictRank → PairwiseDense
 function to_pairwise(x::WeakRank, pool::CandidatePool; policy::ExtensionPolicy)

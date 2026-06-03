@@ -35,9 +35,20 @@ end
 """
     pretty_pairwise(pb, pool; missingchar='·') -> String
 
-Tab-separated matrix view of a *single* ballot's pairwise comparisons.
-Accepts `PairwiseTriangularStatic` or `PairwiseTriangularView`. For `PairwiseTriangularMutable`,
-use the convenience method below.
+Return a tab-separated matrix view of a single ballot's pairwise comparisons.
+Rows and columns are candidate symbols from `pool`; cells are `1`, `-1`, `0`,
+or `missingchar`. This helper returns a plain `String`, is safe for scripts and
+logs, and does not use terminal colors.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:a, :b, :c])
+pw = to_pairwise(x, pool; policy = BottomPolicyMissing())
+
+pretty_pairwise(pw, pool)
+```
 """
 function pretty_pairwise(
     pb::Union{PairwiseTriangularStatic{N,T}, PairwiseTriangularView{N,T}},
@@ -103,9 +114,22 @@ end
     pretty(x::StrictRank, pool) -> StrictRankView
     pretty(levels::Vector{Vector{Int}}, pool; hide_unranked=false) -> WeakOrderView
 
-Return display wrappers using candidate symbols from `pool`. Strict ranks are
-shown in best-to-worst order. Weak-order `levels` are expected to come from
-`to_weakorder`; when `hide_unranked=true`, the final level is omitted.
+Return lightweight display wrappers using candidate symbols from `pool`. The
+wrappers print as human-readable rankings at the REPL, but they are not strings
+until passed to `string`. Strict ranks are shown in best-to-worst order.
+Weak-order `levels` are expected to come from `to_weakorder`; ties are joined by
+`~`, and `hide_unranked=true` omits the final unranked level.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+x = StrictRank(pool, [:b, :a, :c])
+w = WeakRank(pool, Dict(:a => 1, :b => 1, :c => 2))
+
+pretty(x, pool)
+pretty(to_weakorder(w), pool)
+```
 """
 function pretty(x::StrictRank, pool::CandidatePool)
     perm_ids = to_perm(x)
@@ -141,10 +165,11 @@ end
 """
     show_pairwise_preference_table_color(pw; pool) -> nothing
 
-Print a colored pairwise-preference table for a single `AbstractPairwise`
-object. Cells show `+`, `-`, `0`, `·`, or the diagonal marker according to the
-dense pairwise scores. This helper is display-only and does not define pairwise
-measurement semantics.
+Print a colored PrettyTables pairwise-preference table for a single
+`AbstractPairwise` object. Cells show `+`, `-`, `0`, `·`, or the diagonal marker
+according to the dense pairwise scores. This helper prints to `io` through
+PrettyTables' defaults and returns `nothing`; it is mainly for REPL exploration,
+not stable doctest output.
 """
 function show_pairwise_preference_table_color(pw::AbstractPairwise; pool::CandidatePool)
     M = dense(pw)
@@ -306,11 +331,29 @@ end
 """
     pretty_profile_table(p; hide_unranked=false) -> String
 
-Return a boxed text table summarizing distinct ballots in a `Profile` or
+Return a boxed unicode text table summarizing distinct ballots in a `Profile` or
 `WeightedProfile`. Unweighted profiles report counts and proportions when
 ballots repeat; weighted profiles aggregate stored survey weights by distinct
 ballot and report weight proportions. With `hide_unranked=true`, weak-order
 display labels omit the final unranked group.
+
+This helper returns a `String`, so it is safe for scripts, markdown snippets,
+and `print(pretty_profile_table(p))`. Use `show_profile_table_color` for a
+colorized REPL view.
+
+Example:
+
+```julia
+pool = CandidatePool([:a, :b, :c])
+p = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:a, :c, :b]),
+    StrictRank(pool, [:b, :a, :c]),
+])
+
+pretty_profile_table(p)
+print(pretty_profile_table(p))
+```
 """
 function pretty_profile_table(p::Profile; hide_unranked::Bool=false)
     data = _profile_table_data(p; hide_unranked=hide_unranked)
@@ -436,8 +479,10 @@ end
 """
     profile_table_string_color(p; hide_unranked=false) -> String
 
-Returns a unicode-box table string with ANSI colors embedded.
-Print it with `print(...)` or call `show_profile_table_color(p)`.
+Return a unicode-box table string with ANSI colors embedded. Print it with
+`print(...)` or call `show_profile_table_color(p)`. Because the returned string
+contains escape sequences, prefer `pretty_profile_table` for logs, doctests, and
+plain markdown output.
 """
 function profile_table_string_color(p::Profile; hide_unranked::Bool=false)
     data = _profile_table_data(p; hide_unranked=hide_unranked)
@@ -539,7 +584,8 @@ end
 
 Print a colored PrettyTables profile table to `io`. Row aggregation and
 `hide_unranked` behavior match `pretty_profile_table`; this helper has printing
-side effects and returns `nothing`.
+side effects and returns `nothing`. It is intended for interactive REPL
+inspection; do not doctest the colored table output.
 """
 function show_profile_table_color(p::Profile; hide_unranked::Bool=false, io::IO=stdout)
     data = _profile_table_data(p; hide_unranked=hide_unranked)
@@ -599,6 +645,17 @@ Return a tab-separated pairwise-majority matrix. `kind` selects `:wins`,
 `:counts`, or `:margins`; compatibility spellings `:totals` and `:margin` map
 to `:counts` and `:margins`. The table is a display view over
 `pairwise_majority` results and does not add measurement semantics.
+
+This helper returns a plain `String`, so it is safe for scripts. For margins,
+positive `[i,j]` means row candidate `i` beats column candidate `j`; the margin
+matrix is antisymmetric.
+
+Example:
+
+```julia
+pm = pairwise_majority(p)
+pretty_pairwise_majority_table(pm, pool; kind = :margins)
+```
 """
 function pretty_pairwise_majority_table(pm::PairwiseMajority, pool::CandidatePool; kind::Symbol=:wins)
     M = _pairwise_majority_matrix(pm, kind)
@@ -611,7 +668,9 @@ pretty_pairwise_majority_table(p::Profile, pool::CandidatePool; kind::Symbol=:wi
 """
     pretty_pairwise_majority(x, pool) -> String
 
-Convenience wrapper for `pretty_pairwise_majority_table(x, pool; kind=:wins)`.
+Return the sign-only pairwise majority-win table as a tab-separated `String`.
+This is a convenience wrapper for
+`pretty_pairwise_majority_table(x, pool; kind=:wins)` and is safe for scripts.
 """
 pretty_pairwise_majority(p::PairwiseMajority, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:wins)
@@ -621,7 +680,9 @@ pretty_pairwise_majority(p::Profile, pool::CandidatePool) =
 """
     pretty_pairwise_majority_counts(x, pool) -> String
 
-Convenience wrapper for `pretty_pairwise_majority_table(x, pool; kind=:counts)`.
+Return the directional pairwise support counts as a tab-separated `String`.
+This is a convenience wrapper for
+`pretty_pairwise_majority_table(x, pool; kind=:counts)` and is safe for scripts.
 """
 pretty_pairwise_majority_counts(p::PairwiseMajority, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:counts)
@@ -631,7 +692,10 @@ pretty_pairwise_majority_counts(p::Profile, pool::CandidatePool) =
 """
     pretty_pairwise_majority_margins(x, pool) -> String
 
-Convenience wrapper for `pretty_pairwise_majority_table(x, pool; kind=:margins)`.
+Return the antisymmetric majority-margin table as a tab-separated `String`.
+This is a convenience wrapper for
+`pretty_pairwise_majority_table(x, pool; kind=:margins)` and is safe for
+scripts. Positive row-over-column entries indicate majority wins.
 """
 pretty_pairwise_majority_margins(p::PairwiseMajority, pool::CandidatePool) =
     pretty_pairwise_majority_table(p, pool; kind=:margins)
@@ -644,7 +708,9 @@ pretty_pairwise_majority_margins(p::Profile, pool::CandidatePool) =
 
 Print a colored PrettyTables matrix for pairwise-majority wins, counts, or
 margins. This display helper delegates the underlying majority calculation to
-`pairwise_majority` and returns `nothing`.
+`pairwise_majority` and returns `nothing`. It is intended for interactive REPL
+inspection; use the `pretty_pairwise_majority_*` string helpers in scripts and
+avoid doctesting colored PrettyTables output.
 """
 function show_pairwise_majority_table_color(pm::PairwiseMajority;
                                             pool::CandidatePool,

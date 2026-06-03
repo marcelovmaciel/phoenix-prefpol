@@ -19,7 +19,16 @@ of the pool. Candidate IDs are not semantic labels: they are positions in this
 pool and should only be compared within the same pool. Empty pools and duplicate
 labels throw `ArgumentError`.
 
-Example: `CandidatePool([:a, :b])[:b] == 2`.
+Example:
+
+```julia
+using Preferences
+
+pool = CandidatePool([:a, :b, :c])
+pool[:b]        # candidate id 2
+pool[2]         # candidate label :b
+candidates(pool)
+```
 """
 struct CandidatePool{N,Storage<:AbstractVector{Symbol}}
     names::Storage  # SVector{N,Symbol} if N ≤ MAX_STATIC_N, else Vector{Symbol}

@@ -16,6 +16,21 @@ as `pool`, and candidate IDs inside ballots are implementation-level positions
 in that common pool. `Profile` does not attach weights. Missing and tie behavior
 is inherited from the ballot representation. Construction rejects mixed concrete
 ballot types and pool-size mismatches with `ArgumentError`.
+
+Example:
+
+```julia
+using Preferences
+
+pool = CandidatePool([:a, :b, :c])
+p = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:b, :a, :c]),
+])
+
+nballots(p)
+pretty_profile_table(p)
+```
 """
 struct Profile{B}
     pool::CandidatePool
@@ -45,6 +60,22 @@ parallel numeric entries, not replicated rows. Candidate IDs remain positions in
 the common pool. Construction checks weight element type is `<: Real` and length
 matches ballots; `validate(...; strict=true)` checks finite nonnegative weights.
 Missing and tie behavior is inherited from the ballots.
+
+Example:
+
+```julia
+using Preferences
+
+pool = CandidatePool([:a, :b, :c])
+ballots = [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:c, :b, :a]),
+]
+wp = WeightedProfile(pool, ballots, [0.75, 0.25])
+
+weights(wp)
+total_weight(wp)
+```
 """
 struct WeightedProfile{B,W<:Real}
     pool::CandidatePool

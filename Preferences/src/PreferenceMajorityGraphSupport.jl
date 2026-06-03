@@ -42,10 +42,10 @@ end
 
 Full voter-type decomposition of the majority relation.
 
-The result supports the question "who supports the majority relation?" by
-expanding a strict profile over a deterministic `VoterTypeBasis`. A voter type
-supports an edge `winner -> loser` when that ranking places `winner` above
-`loser`. `type_mass` stores raw counts or profile weights by basis type;
+The result supports the question "which ranking types support which majority
+edges?" by expanding a strict profile over a deterministic `VoterTypeBasis`. A
+voter type supports an edge `winner -> loser` when that ranking places `winner`
+above `loser`. `type_mass` stores raw counts or profile weights by basis type;
 `type_proportion` normalizes them by `total_mass`.
 
 `margins[i, j]` is the pairwise majority margin for candidate ids `i` and `j`,
@@ -262,7 +262,27 @@ A voter type supports an edge when its strict ranking places the edge winner
 above the edge loser. The returned `MajorityGraphSupportResult` records which
 types support each majority edge, how much mass those types carry, how edge
 support coalitions overlap, and how much mass supports at least `k` edges of the
-majority graph.
+majority graph. The support core at threshold `k` consists of ranking types
+supporting at least `k` majority edges.
+
+Example:
+
+```julia
+using Preferences
+
+pool = CandidatePool([:a, :b, :c])
+p = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:b, :c, :a]),
+    StrictRank(pool, [:c, :a, :b]),
+])
+
+res = majority_graph_support(p)
+majority_edges_table(res)
+voter_type_table(res)
+edge_support_table(res)
+core_table(res)
+```
 """
 function majority_graph_support(
     p::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRank}};
@@ -391,9 +411,9 @@ end
     isapprox(margin_mass, round(margin_mass); atol = sqrt(eps(Float64))) ? floor(Int, margin_mass / 2) + 1 : missing
 
 """
-    majority_edges_table(result)
+    majority_edges_table(result) -> DataFrame
 
-Return one row per majority edge.
+Return one row per majority edge as a `DataFrame`.
 
 Columns: `edge_index`; winner/loser ids and labels; `support_mass`,
 `opposition_mass`, `margin_mass`, and `normalized_margin`; the mass and
@@ -423,9 +443,9 @@ function _ranking_label(pool::CandidatePool, perm::AbstractVector{Int})
 end
 
 """
-    voter_type_table(result)
+    voter_type_table(result) -> DataFrame
 
-Return one row per strict voter type in the result basis.
+Return one row per strict voter type in the result basis as a `DataFrame`.
 
 Columns: stable `type_index`, display `ranking`, integer `perm`, optional
 Kendall `shell` from the reference order, raw `mass`, profile `proportion`,
@@ -451,9 +471,9 @@ function voter_type_table(result::MajorityGraphSupportResult)
 end
 
 """
-    edge_support_table(result)
+    edge_support_table(result) -> DataFrame
 
-Return one row per `(edge, voter type)` cell.
+Return one row per `(edge, voter type)` cell as a `DataFrame`.
 
 Columns identify the type and edge, report whether the type `supports` the
 edge, the type's profile `type_proportion`, `weighted_support` equal to that
@@ -493,9 +513,9 @@ function edge_support_table(result::MajorityGraphSupportResult)
 end
 
 """
-    edge_overlap_table(result)
+    edge_overlap_table(result) -> DataFrame
 
-Return one row per ordered pair of majority edges.
+Return one row per ordered pair of majority edges as a `DataFrame`.
 
 `overlap` is the profile share of voter types supporting both edges.
 `conditional_i_given_j` is `Pr(supports edge_i | supports edge_j)`, and
@@ -533,9 +553,9 @@ function edge_overlap_table(result::MajorityGraphSupportResult)
 end
 
 """
-    core_table(result)
+    core_table(result) -> DataFrame
 
-Return one row per support threshold `k`.
+Return one row per support threshold `k` as a `DataFrame`.
 
 `core_mass` is the profile share of voter types that support at least `k`
 majority edges. At `k = number_of_edges`, this is the strict support core:
