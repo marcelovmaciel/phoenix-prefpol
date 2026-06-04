@@ -22,6 +22,51 @@ main = ["Psi", "R", "HHI", "RHHI", "C", "D"]
 global = ["Psi", "R", "HHI", "RHHI"]
 group = ["C", "D"]
 
+[global_plots]
+plot_root = "PrefPol/composable_running/output/publication/plots/global"
+run_manifest = "PrefPol/composable_running/output/publication/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/publication/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/publication/manifests/plot_manifest.csv"
+
+[group_plots]
+plot_root = "PrefPol/composable_running/output/publication/plots/group"
+run_manifest = "PrefPol/composable_running/output/publication/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/publication/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/publication/manifests/plot_manifest.csv"
+group_plot_manifest = "PrefPol/composable_running/output/publication/manifests/group_plot_manifest.csv"
+measures = ["C", "D"]
+measure_labels = { C = "C", D = "D" }
+complement_measures = []
+basename = "paper_group_heatmap_panel_C_D"
+
+[group_plots.o_smoothed]
+enabled = false
+
+[extra_measures]
+run_manifest = "PrefPol/composable_running/output/publication/manifests/run_manifest.csv"
+extra_measure_manifest = "PrefPol/composable_running/output/publication/manifests/extra_measure_manifest.csv"
+output_dir = "PrefPol/composable_running/output/publication/extra_measures"
+
+[effective_rankings]
+source = "PrefPol/composable_running/output/publication/extra_measures/effective_counts/effective_counts_summary.csv"
+table_root = "PrefPol/composable_running/output/publication/tables"
+table_manifest = "PrefPol/composable_running/output/publication/manifests/table_manifest.csv"
+
+[extra_plots]
+extra_plot_root = "PrefPol/composable_running/output/publication/extra_plots"
+table_root = "PrefPol/composable_running/output/publication/tables/effective_rankings"
+extra_plot_manifest = "PrefPol/composable_running/output/publication/manifests/extra_plot_manifest.csv"
+formats = ["png"]
+
+[extra_plots.variance_decomposition]
+source = "PrefPol/composable_running/output/publication/measures/decomposition_table.csv"
+value_kind = "variance"
+
+[lambda_table]
+run_manifest = "PrefPol/composable_running/output/publication/manifests/run_manifest.csv"
+appendix_dir = "PrefPol/composable_running/output/publication/appendices/lambda"
+appendix_manifest = "PrefPol/composable_running/output/publication/manifests/lambda_table_manifest.csv"
+
 [paper_artifacts.collection]
 output_root = "PrefPol/composable_running/output/publication"
 destination_root = "PrefPol/composable_running/output/publication/paper_artifacts"

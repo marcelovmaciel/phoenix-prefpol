@@ -560,6 +560,21 @@ function main(args = ARGS)
     opts = parse_plot_args(args)
     cfg = load_orchestration_config(opts["config"])
     settings = plot_settings(cfg, opts)
+
+    if settings.dry_run && !isempty(settings.targets)
+        targets = settings.targets
+        opts["year"] !== nothing && (targets = [target for target in targets if target.wave_id == string(opts["year"])])
+        opts["scenario"] !== nothing && (targets = [target for target in targets if target.scenario_name == string(opts["scenario"])])
+        override_m = parse_m_values(opts["m"])
+        override_m !== nothing && (targets = [
+            (wave_id = target.wave_id, scenario_name = target.scenario_name, m_values = override_m)
+            for target in targets
+        ])
+        isempty(targets) && error("No global plot targets selected from plot_specs.toml.")
+        print_plot_plan(targets, settings, opts)
+        return nothing
+    end
+
     run_manifest = successful_run_manifest(settings.run_manifest)
     isfile(settings.measure_manifest) || error("Measure manifest not found: $(settings.measure_manifest). Run 04_measures first.")
     targets = plot_targets(run_manifest, cfg, opts, settings)
