@@ -4,7 +4,7 @@
 #
 #   julia +1.11.9 --project=PrefPol \
 #     PrefPol/composable_running/run_single_peakedness.jl \
-#     --config PrefPol/config/single_peakedness.toml
+#     --config PATH
 #
 # The script reads the existing wave/orchestration conventions, ensures the
 # selected linearized BRK artifacts exist, calls Preferences.single_peakedness_summary,
@@ -404,7 +404,8 @@ end
 
 function main(args = ARGS)
     opts = parse_single_peakedness_args(args)
-    cfg = load_orchestration_config(opts["config"] === nothing ? joinpath(DEFAULT_CONFIG_DIR, "single_peakedness.toml") : opts["config"])
+    default_config = joinpath(REPOSITORY_ROOT, "PrefPol", "local_config", "single_peakedness.toml")
+    cfg = load_orchestration_config(opts["config"] === nothing ? default_config : opts["config"])
     run_cfg = run_settings(cfg, opts)
     sp_cfg = single_peakedness_settings(cfg, opts)
     targets = selected_single_peakedness_targets(cfg, opts)

@@ -24,11 +24,6 @@ It runs only the measures used in the article: `Psi`, `R`, `HHI`, `RHHI`, `C`,
 and `D`. Outputs are isolated under
 `PrefPol/composable_running/output/publication/`.
 
-Extended configs such as `PrefPol/config/orchestration_b30_r10_k10.toml` remain
-available for the author's full working pipeline and diagnostics, but are not
-the primary article reproduction path. `PrefPol/config/smoke_test.toml` is for
-mechanical validation, not article reproduction.
-
 ```@contents
 Depth = 2
 ```

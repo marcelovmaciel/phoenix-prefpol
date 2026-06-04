@@ -7,7 +7,7 @@ using TOML
 
 const COMPOSABLE_ROOT = @__DIR__
 const REPO_ROOT = normpath(joinpath(COMPOSABLE_ROOT, "..", ".."))
-const DEFAULT_CONFIG = joinpath(REPO_ROOT, "PrefPol", "config", "smoke_test.toml")
+const DEFAULT_CONFIG = joinpath(REPO_ROOT, "PrefPol", "local_config", "smoke_test.toml")
 const DEFAULT_OUTPUT_ROOT = joinpath(COMPOSABLE_ROOT, "output")
 const DEFAULT_YEAR = nothing
 const DEFAULT_SCENARIO = nothing
@@ -44,8 +44,8 @@ function parse_smoke_args(args)
             Phase 10:
               Runs the B=R=K=2 composable smoke workflow and validates the
               required manifests, plots, tables, Lambda outputs, and collected
-              paper artifacts. By default this runs every target configured in
-              PrefPol/config/smoke_test.toml.
+              paper artifacts. By default this runs every configured smoke
+              target.
             """)
             exit(0)
         else

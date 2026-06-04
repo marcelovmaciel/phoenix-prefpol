@@ -2,7 +2,7 @@
 
 const COMPOSABLE_ROOT = @__DIR__
 const REPO_ROOT = normpath(joinpath(COMPOSABLE_ROOT, "..", ".."))
-const DEFAULT_CONFIG = joinpath(REPO_ROOT, "PrefPol", "config", "orchestration.toml")
+const DEFAULT_CONFIG = joinpath(REPO_ROOT, "PrefPol", "config", "publication.toml")
 const DEFAULT_ARTIFACT_CONFIG = joinpath(REPO_ROOT, "PrefPol", "config", "paper_artifacts.toml")
 
 function parse_paper_args(args)
@@ -35,7 +35,7 @@ function parse_paper_args(args)
               julia +1.11.9 --project=PrefPol PrefPol/composable_running/run_all_paper.jl [--config PATH] [--artifact-config PATH] [--year YEAR] [--scenario NAME] [--m VALUE_OR_RANGE] [--backend NAME] [--linearizer NAME] [--force] [--dry-run] [--skip-plots] [--skip-collection]
 
             Runs the full composable paper workflow in stage order using the
-            configured targets from PrefPol/config/orchestration.toml by
+            configured targets from PrefPol/config/publication.toml by
             default. This wrapper does not run automatically; invoke it
             explicitly when a paper-scale run is intended.
             """)

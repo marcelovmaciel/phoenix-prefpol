@@ -4,7 +4,7 @@
 #
 #   julia +1.11.9 --project=PrefPol/running/plotting_env \
 #     PrefPol/composable_running/make_single_peakedness_report_artifacts.jl \
-#     --config PrefPol/config/single_peakedness_report_artifacts.toml
+#     --config PATH
 #
 # This script is orchestration-only. Plotting and table artifact logic lives in
 # PreferencePlots.
@@ -17,7 +17,7 @@ using PreferencePlots
 using TOML
 
 function parse_args(args)
-    config = joinpath(REPO_ROOT, "PrefPol", "config", "single_peakedness_report_artifacts.toml")
+    config = joinpath(REPO_ROOT, "PrefPol", "local_config", "single_peakedness_report_artifacts.toml")
     i = 1
     while i <= length(args)
         arg = args[i]

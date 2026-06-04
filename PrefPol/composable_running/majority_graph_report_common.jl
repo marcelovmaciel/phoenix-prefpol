@@ -101,7 +101,7 @@ function parse_common_args(args)
         i += 1
     end
     return (;
-        config = get(opts, "config", joinpath(MGS_REPO_ROOT, "PrefPol", "config", "paper_b2.toml")),
+        config = get(opts, "config", joinpath(MGS_REPO_ROOT, "PrefPol", "local_config", "paper_b2.toml")),
         input = get(opts, "input", nothing),
         output = get(opts, "output", nothing),
         input_root = get(opts, "input-root", nothing),

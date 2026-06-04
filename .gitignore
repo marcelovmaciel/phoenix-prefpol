@@ -18,6 +18,7 @@ PrefPol/.git/
 
 # Downloaded/raw datasets and archive bundles
 PrefPol/data/
+PrefPol/local_config/
 replication_package_reboot.zip
 PrefPol/README.md
 

@@ -34,7 +34,7 @@ When running plotting stages directly, use the plotting environment:
 julia +1.11.9 --project=PrefPol/running/plotting_env
 ```
 
-The paper and smoke wrappers select the plotting environment automatically for
+The paper wrapper selects the plotting environment automatically for
 plot stages. This environment currently lives under the obsolete `running/`
 folder only as a transitional location; future cleanup should move it to a
 non-legacy path such as `PrefPol/plotting_env/` and then update these commands.
@@ -49,28 +49,6 @@ sets, scenarios, demographic groupings, and year-specific metadata.
 config. It controls the submitted article target years/scenarios, m ranges,
 B/R/K, cache/output roots, imputer backends, linearizer policies, and the
 publication measure set.
-
-`PrefPol/config/orchestration_b30_r10_k10.toml` is retained for the author's
-full working pipeline. It may include measures or artifacts not used in the
-publication and is not the primary reproduction path for the submitted article.
-
-`PrefPol/config/orchestration.toml` is the older orchestration config for the
-working pipeline. Use an explicit `--config` path for publication, smoke, and
-extended runs.
-
-`PrefPol/config/smoke_test.toml` is the mechanical smoke-test config. It uses
-small replication counts and smoke-sized target selections to validate the
-orchestration machinery; it is not the article reproduction run.
-
-`PrefPol/config/paper_b2.toml` is a low-replication working config with the
-paper target years/scenarios and paper artifact layout, but it also preserves
-extended diagnostic measures. For the submitted article's measure set, use
-`PrefPol/config/publication.toml`. `paper_b2.toml` sets `B = 2`, `R = 2`, and
-`K = 2`; its outputs are isolated under:
-
-```text
-PrefPol/composable_running/output/paper_b2/
-```
 
 `PrefPol/config/plot_specs.toml` controls global plot targets, group heatmap
 targets, plotting filters, formats, measure labels, complement rules, extra
@@ -88,8 +66,7 @@ In short:
 
 - Wave/data definitions: `2006.toml`, `2018.toml`, `2022.toml`
 - Publication target years/scenarios: `publication.toml`
-- Extended and mechanical target sets: `orchestration_b30_r10_k10.toml`, `orchestration.toml`, `smoke_test.toml`, `paper_b2.toml`
-- B/R/K: the selected orchestration config
+- B/R/K: `publication.toml`
 - Imputer backends: `[run].imputer_backends`
 - Linearizer policies: `[run].linearizer_policies`
 - Measures: `[run].measures` and `[measure_sets]`
@@ -117,89 +94,25 @@ isolates outputs, cache, manifests, and collected paper artifacts under:
 PrefPol/composable_running/output/publication/
 ```
 
-Config validation:
-
-```bash
-julia +1.11.9 --project=PrefPol \
-  PrefPol/composable_running/stages/00_validate_configs.jl \
-  --config PrefPol/config/smoke_test.toml
-```
-
-Smoke run:
-
-```bash
-julia +1.11.9 --project=PrefPol \
-  PrefPol/composable_running/run_all_smoke.jl \
-  --config PrefPol/config/smoke_test.toml
-```
-
-The smoke run is for mechanical validation of wrappers, stage wiring, and
-configuration parsing with small counts. It is not the article reproduction
-run.
-
-Paper-scope B=R=K=2 run:
-
-```bash
-julia +1.11.9 --project=PrefPol \
-  PrefPol/composable_running/run_all_paper.jl \
-  --config PrefPol/config/paper_b2.toml
-```
-
-Extended and diagnostic runs:
-
-`PrefPol/config/orchestration_b30_r10_k10.toml` is retained for the author's
-full working pipeline. Extended configs may include measures or artifacts not
-used in the publication, and they are not the primary reproduction path for the
-article. Command template:
-
-```bash
-julia +1.11.9 --project=PrefPol \
-  PrefPol/composable_running/run_all_paper.jl \
-  --config PrefPol/config/orchestration_b30_r10_k10.toml \
-  --artifact-config PrefPol/config/paper_artifacts_b30_r10_k10.toml
-```
-
-Do not use true paper-scale settings for smoke checks or low-replication
-operations tests.
-
-Single-peakedness report artifacts:
-
-```bash
-julia +1.11.9 --project=PrefPol \
-  PrefPol/composable_running/run_single_peakedness.jl \
-  --config PrefPol/config/single_peakedness.toml
-
-julia +1.11.9 --project=PrefPol/running/plotting_env \
-  PrefPol/composable_running/make_single_peakedness_report_artifacts.jl \
-  --config PrefPol/config/single_peakedness_report_artifacts.toml
-```
-
-The former graph-only plotting package is now `PreferencePlots`. It contains
-both majority-graph plots and reusable PythonPlot/CSV report artifacts for
-single-peakedness diagnostics. `PrefPol/composable_running/` remains
-orchestration-only: run diagnostics for the desired m values, generate figures
-and tables with `make_single_peakedness_report_artifacts.jl`, then write the
-report manually from those artifacts. This workflow does not generate a PDF.
-
 ## Stage Commands
 
 Use stage-by-stage execution when debugging, rerunning one failed stage,
 validating intermediate outputs, or avoiding a full wrapper rerun. The commands
-below use the paper-scope B=R=K=2 config.
+below use the publication-facing config.
 
 ```bash
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/00_validate_configs.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/01_bootstrap.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/02_impute.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/03_linearize.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/05_plot_global.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/06_plot_group.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/07_extra_measures.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/08_extra_plots.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/09_tables.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/10_lambda_table.jl --config PrefPol/config/paper_b2.toml
-julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/11_collect_paper_artifacts.jl --config PrefPol/config/paper_b2.toml --artifact-config PrefPol/config/paper_artifacts.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/00_validate_configs.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/01_bootstrap.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/02_impute.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/03_linearize.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/05_plot_global.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/06_plot_group.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/07_extra_measures.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/08_extra_plots.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/09_tables.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/10_lambda_table.jl --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/11_collect_paper_artifacts.jl --config PrefPol/config/publication.toml --artifact-config PrefPol/config/paper_artifacts.toml
 ```
 
 The wrapper order is:
@@ -254,10 +167,10 @@ Default generated state lives under:
 PrefPol/composable_running/output/
 ```
 
-The B=R=K=2 paper-scope run uses:
+The publication-facing run uses:
 
 ```text
-PrefPol/composable_running/output/paper_b2/
+PrefPol/composable_running/output/publication/
 ```
 
 Important subfolders:
@@ -275,9 +188,6 @@ Important subfolders:
 - `manifests/`: stage manifests and collection manifests
 - `logs/`: reserved for logs
 - `cache/`: pipeline cache for observed, resample, imputed, linearized, measure, and result artifacts
-
-The smoke config uses the default output root and `cache_smoke`. The
-`paper_b2.toml` config isolates both outputs and cache under `output/paper_b2/`.
 
 ## Manifests
 
@@ -307,16 +217,16 @@ Inspect all manifests:
 find PrefPol/composable_running/output -path '*manifests*' -type f -print
 ```
 
-Inspect paper-scope B=R=K=2 manifests:
+Inspect publication manifests:
 
 ```bash
-find PrefPol/composable_running/output/paper_b2/manifests -type f -print | sort
+find PrefPol/composable_running/output/publication/manifests -type f -print | sort
 ```
 
 Inspect a manifest directly:
 
 ```bash
-julia +1.11.9 --project=PrefPol -e 'using CSV, DataFrames; println(CSV.read("PrefPol/composable_running/output/paper_b2/manifests/run_manifest.csv", DataFrame))'
+julia +1.11.9 --project=PrefPol -e 'using CSV, DataFrames; println(CSV.read("PrefPol/composable_running/output/publication/manifests/run_manifest.csv", DataFrame))'
 ```
 
 ## Paper Artifact Collection
@@ -332,20 +242,20 @@ The default collection destination is:
 PrefPol/composable_running/output/paper_artifacts/
 ```
 
-For the B=R=K=2 paper-scope config, the override destination is:
+For the publication-facing config, the override destination is:
 
 ```text
-PrefPol/composable_running/output/paper_b2/paper_artifacts/
+PrefPol/composable_running/output/publication/paper_artifacts/
 ```
 
 The current artifact spec uses `copy_mode = "copy"` and
-`update_writing_imgs = false`, so the B=R=K=2 run does not update
+`update_writing_imgs = false`, so the publication run does not update
 `writing/imgs/`.
 
 Inspect collected artifacts:
 
 ```bash
-find PrefPol/composable_running/output/paper_b2/paper_artifacts -type f -maxdepth 1 -print | sort
+find PrefPol/composable_running/output/publication/paper_artifacts -type f -maxdepth 1 -print | sort
 ```
 
 ## Troubleshooting
@@ -355,8 +265,7 @@ current environment.
 
 If imputation fails, check R, `RCall`, and R package availability. MICE-backed
 paths require the R-side dependencies used by the project, including `haven`,
-`mice`, and `PerMallows` where relevant. Dependency-light smoke checks may use
-other backends only when explicitly configured.
+`mice`, and `PerMallows` where relevant.
 
 If a plot stage fails immediately, make sure it is run with
 `--project=PrefPol/running/plotting_env` or through a wrapper. The plotting
@@ -366,7 +275,7 @@ the obsolete `PrefPol/running/` workflow directory.
 
 If a plot stage warns that it is using fallback defaults, check
 `PrefPol/config/plot_specs.toml` and any orchestration overrides. Paper runs
-should use configured plot targets, not fallback smoke defaults.
+should use configured plot targets.
 
 If a table stage fails, check `PrefPol/config/table_specs.toml`, the
 `extra_measure_manifest.csv`, and the effective-count source under
@@ -395,22 +304,12 @@ stage or rerun the wrapper.
 
 Latest known status:
 
-- Smoke workflow: `run_all_smoke.jl --config PrefPol/config/smoke_test.toml`
-  passed without skips.
-- Paper-scope B=R=K=2 workflow: `run_all_paper.jl --config
-  PrefPol/config/paper_b2.toml` completed without skip flags on 2026-04-29.
-  Outputs were written under `PrefPol/composable_running/output/paper_b2/`.
 - Publication-facing config validation: `00_validate_configs.jl --config
   PrefPol/config/publication.toml` passed on 2026-06-04.
 - Full publication-facing workflow: not recorded here.
-- Extended B=30, R=10, K=10 working workflow: not run.
 
-The publication-facing config and the paper-scope B=R=K=2 run use the three main article targets:
+The publication-facing config uses the three main article targets:
 
 - `2006 / main_2006`
 - `2018 / main_2018`
 - `2022 / main_2022`
-
-The B=R=K=2 and extended working configs also record `2022 / no_forcing` as
-a diagnostic target, matching the current orchestration shape, but the current
-executable stage target selection runs the main `[[targets]]` set.

@@ -816,20 +816,18 @@ Future handling:
 ## Configuration Model
 
 Keep year-level TOMLs focused on data and wave definitions. Add
-orchestration-level TOMLs for run behavior and paper specs.
+publication-level TOMLs for run behavior and paper specs.
 
 Recommended new files:
 
 ```text
-PrefPol/config/orchestration.toml
-PrefPol/config/smoke_test.toml
+PrefPol/config/publication.toml
 PrefPol/config/plot_specs.toml
 PrefPol/config/table_specs.toml
 PrefPol/config/paper_artifacts.toml
 ```
 
-Alternative: merge plot/table/artifact specs into `orchestration.toml` once
-the schema stabilizes. Start separate for readability.
+Plot, table, and artifact specs stay separate for readability.
 
 ### Year-Level TOMLs
 
@@ -1551,12 +1549,12 @@ small exported helper in `PrefPol/src/`, not a `composable_running/lib`.
 Example commands:
 
 ```bash
-julia --project=PrefPol PrefPol/composable_running/stages/01_bootstrap.jl --config PrefPol/config/smoke_test.toml
-julia --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --config PrefPol/config/orchestration.toml
-julia --project=PrefPol PrefPol/composable_running/stages/09_tables.jl --config PrefPol/config/orchestration.toml
-julia --project=PrefPol PrefPol/composable_running/stages/10_lambda_table.jl --config PrefPol/config/orchestration.toml
-julia --project=PrefPol PrefPol/composable_running/stages/11_collect_paper_artifacts.jl --config PrefPol/config/orchestration.toml
-julia --project=PrefPol PrefPol/composable_running/run_all_paper.jl --config PrefPol/config/orchestration.toml
+julia --project=PrefPol PrefPol/composable_running/stages/01_bootstrap.jl --config PrefPol/config/publication.toml
+julia --project=PrefPol PrefPol/composable_running/stages/04_measures.jl --config PrefPol/config/publication.toml
+julia --project=PrefPol PrefPol/composable_running/stages/09_tables.jl --config PrefPol/config/publication.toml
+julia --project=PrefPol PrefPol/composable_running/stages/10_lambda_table.jl --config PrefPol/config/publication.toml
+julia --project=PrefPol PrefPol/composable_running/stages/11_collect_paper_artifacts.jl --config PrefPol/config/publication.toml
+julia --project=PrefPol PrefPol/composable_running/run_all_paper.jl --config PrefPol/config/publication.toml
 ```
 
 ## Smoke Test
@@ -1572,12 +1570,6 @@ Concrete smoke test:
 - imputer backend: `mice` if R/RCall is available, otherwise `zero` as fallback
 - linearizer policy: `pattern_conditional`
 - measures: `:Psi`, `:R`, `:RHHI`, `:C`, `:D`, `:O`, `:S`, `:lambda_sep`
-
-Smoke command:
-
-```bash
-julia --project=PrefPol PrefPol/composable_running/run_all_smoke.jl --config PrefPol/config/smoke_test.toml
-```
 
 Smoke success criteria:
 
@@ -1627,8 +1619,7 @@ Phase 2: Identify config/path/manifest utilities already in `PrefPol/src/`.
 
 Phase 2b: Config schema completion.
 
-- Create `PrefPol/config/orchestration.toml`, `PrefPol/config/smoke_test.toml`,
-  `PrefPol/config/plot_specs.toml`, `PrefPol/config/table_specs.toml`, and
+- Create `PrefPol/config/publication.toml`, `PrefPol/config/plot_specs.toml`, `PrefPol/config/table_specs.toml`, and
   `PrefPol/config/paper_artifacts.toml`.
 - Plotting, table, and artifact stages must not rely on permanent fallback
   defaults.
@@ -1715,8 +1706,6 @@ Do not touch:
 
 Assigned files:
 
-- `PrefPol/config/orchestration.toml`
-- `PrefPol/config/smoke_test.toml`
 - `PrefPol/config/plot_specs.toml`
 - `PrefPol/config/table_specs.toml`
 - `PrefPol/config/paper_artifacts.toml`

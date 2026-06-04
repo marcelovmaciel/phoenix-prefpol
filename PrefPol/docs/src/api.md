@@ -49,10 +49,8 @@ compute_group_measure_details
 ## Extended and Diagnostic Measures
 
 These helpers remain part of the supported API for diagnostics, appendices,
-legacy comparisons, and extended configs such as
-`PrefPol/config/orchestration_b30_r10_k10.toml`. They are not the main
-manuscript-facing measure set unless a manuscript config explicitly requests
-them.
+and legacy comparisons. They are not the main manuscript-facing measure set
+unless a manuscript config explicitly requests them.
 
 ```@docs; canonical=false
 normalized_consensus_separation
