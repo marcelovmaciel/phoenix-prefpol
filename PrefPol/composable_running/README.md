@@ -62,9 +62,11 @@ extended runs.
 small replication counts and smoke-sized target selections to validate the
 orchestration machinery; it is not the article reproduction run.
 
-`PrefPol/config/paper_b2.toml` is the paper-scope low-replication config. It
-uses the paper main targets and paper-facing outputs, but sets `B = 2`,
-`R = 2`, and `K = 2`. Its outputs are isolated under:
+`PrefPol/config/paper_b2.toml` is a low-replication working config with the
+paper target years/scenarios and paper artifact layout, but it also preserves
+extended diagnostic measures. For the submitted article's measure set, use
+`PrefPol/config/publication.toml`. `paper_b2.toml` sets `B = 2`, `R = 2`, and
+`K = 2`; its outputs are isolated under:
 
 ```text
 PrefPol/composable_running/output/paper_b2/

@@ -37,14 +37,16 @@ The run covers the configured paper targets:
 - 2018 / `main_2018`, `m = 2, 3, 4, 5`
 - 2022 / `main_2022`, `m = 2, 3, 4, 5`
 
-The measure stage runs:
+The extended measure stage runs:
 
 - imputer backends: `mice`, `zero`
 - linearizers: `pattern_conditional`, `random_ties`
-- measures: `Psi`, `R`, `HHI`, `RHHI`, `C`, `D`, `O`, `S`, `lambda_sep`
+- manuscript-facing measures: `Psi`, `R`, `HHI`, `RHHI`, `C`, `D`
+- diagnostic/extended measures: `O`, `S`, `lambda_sep`
 
-Paper-facing plots and tables are collected from the `mice` /
-`pattern_conditional` rows, matching `paper_artifacts_b30_r10_k10.toml`.
+This config preserves the author's broader working outputs. The primary
+publication-facing measure set remains the six measures in
+`PrefPol/config/publication.toml`.
 
 The variance decomposition plot is configured as absolute variance:
 

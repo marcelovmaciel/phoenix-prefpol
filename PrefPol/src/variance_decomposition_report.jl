@@ -1,14 +1,17 @@
 const DEFAULT_VARIANCE_DECOMPOSITION_ESTIMATOR = :existing_nested_moments
 """
-Default measure order for paper variance-decomposition reports.
+Default measure order for manuscript-facing variance-decomposition reports.
 
-These symbols refer to measures already computed in PrefPol pipeline results;
-formal definitions of `:C`, `:D`, `:Psi`, `:R`, and related quantities live in
-`Preferences`.
+The public paper set is `:Psi`, `:R`, `:HHI`, `:RHHI`, `:C`, and `:D`, matching
+`PrefPol/config/publication.toml`. These symbols refer to measures already
+computed in PrefPol pipeline results; formal definitions live in `Preferences`.
 """
-const DEFAULT_PAPER_VARIANCE_MEASURES = [:C, :D, :HHI, :Psi, :R, :RHHI]
+const DEFAULT_PAPER_VARIANCE_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D]
 """
-Display labels used by PrefPol variance-decomposition paper tables and plots.
+Display labels used by PrefPol variance-decomposition tables and plots.
+
+The default paper reports use the six manuscript-facing labels above; extended
+labels remain available when diagnostic measures are explicitly requested.
 """
 const DEFAULT_PAPER_VARIANCE_MEASURE_LABELS = Dict(
     :Psi => "Ψ",

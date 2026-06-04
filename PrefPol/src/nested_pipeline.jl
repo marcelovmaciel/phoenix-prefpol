@@ -195,9 +195,10 @@ Validate and construct a nested-pipeline spec.
 
 The constructor normalizes measure names, candidate names, and grouping columns,
 then checks supported resampling, imputation, linearization, and consensus-tie
-policies. Grouped measures such as `:C`, `:D`, `:S`, `:E`, and `:lambda_sep`
-require at least one grouping column; global reversal/polarization measures do
-not.
+policies. Manuscript-facing grouped measures `:C` and `:D` require at least
+one grouping column. Extended grouped measures such as `:O`, `:O_smoothed`,
+`:S`, `:E`, `:S_old`, and `:lambda_sep` remain supported for diagnostics and
+legacy configs.
 """
 function PipelineSpec(wave_id::AbstractString,
                       active_candidates;
@@ -1077,8 +1078,10 @@ demographic column.
 `demo` selects a metadata column whose values define groups. The function builds
 group-specific formal profiles, obtains group consensus rankings via
 `Preferences.consensus_kendall`, and returns the applied grouped quantities used
-by the paper tables (`C`, `W`, `D`, `O`, `Sep`, `S`, `E`, `lambda_sep`, and
-related intervals/diagnostics). It does not read or write cache. Formal
+by manuscript and diagnostic tables. The manuscript-facing grouped measures are
+`C` and `D`; extended rows such as `W`, `O`, `O_smoothed`, `Sep`, `S`, `E`,
+`lambda_sep`, and `S_old` are retained for diagnostics, appendices, legacy
+comparisons, and extended configs. It does not read or write cache. Formal
 consensus, overlap, and distance definitions live in `Preferences`.
 """
 function compute_group_measure_details(bundle::AnnotatedProfile,
@@ -1884,9 +1887,10 @@ end
 """
     augment_pipeline_result_with_lambda_sep(result; include_w=true, audit_message=nothing)
 
-Append grouped `:lambda_sep` rows derived from cached grouped `:D` and `:W`
-(or from grouped `:C` when `:W` must be derived), then recompute summaries and
-variance components. No pipeline stage artifacts are rewritten.
+Append diagnostic grouped `:lambda_sep` rows derived from cached grouped `:D`
+and `:W` (or from grouped `:C` when `:W` must be derived), then recompute
+summaries and variance components. This supports extended reports and older
+caches; no pipeline stage artifacts are rewritten.
 """
 function augment_pipeline_result_with_lambda_sep(result::PipelineResult;
                                                  include_w::Bool = true,
@@ -1965,10 +1969,11 @@ end
 """
     augment_pipeline_result_with_E(result; include_w=true, audit_message=nothing)
 
-Append grouped normalized consensus-separation `:E` rows from cached grouped
-`D` and `W`/`C` leaf rows, then recompute pooled summaries and the variance
-decomposition. This documents a reporting augmentation, not a new formal measure
-definition; see `Preferences` for the underlying consensus quantities.
+Append diagnostic grouped normalized consensus-separation `:E` rows from cached
+grouped `D` and `W`/`C` leaf rows, then recompute pooled summaries and the
+variance decomposition. This documents a reporting augmentation, not a new
+formal measure definition or a manuscript-facing default; see `Preferences` for
+the underlying consensus quantities.
 """
 function augment_pipeline_result_with_E(result::PipelineResult;
                                         include_w::Bool = true,

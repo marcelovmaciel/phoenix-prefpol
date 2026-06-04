@@ -30,7 +30,29 @@ pretty_print_ranksize_summary
 pretty_print_ranking_type_proportions
 ```
 
-## Consensus and Group Measures
+## Manuscript-Facing Measures
+
+The publication-facing replication config,
+`PrefPol/config/publication.toml`, runs the article's measure set:
+`Psi`, `R`, `HHI`, `RHHI`, `C`, and `D`. In PrefPol, `Psi`, `R`, `HHI`,
+and `RHHI` are global profile measures, while `C` and `D` are computed by
+the grouped-measure pipeline through `compute_group_measure_details`.
+
+```@docs; canonical=false
+Ψ
+calc_total_reversal_component
+calc_reversal_HHI
+fast_reversal_geometric
+compute_group_measure_details
+```
+
+## Extended and Diagnostic Measures
+
+These helpers remain part of the supported API for diagnostics, appendices,
+legacy comparisons, and extended configs such as
+`PrefPol/config/orchestration_b30_r10_k10.toml`. They are not the main
+manuscript-facing measure set unless a manuscript config explicitly requests
+them.
 
 ```@docs; canonical=false
 normalized_consensus_separation
@@ -40,10 +62,13 @@ aggregate_E
 E
 S
 S_old
-compute_group_measure_details
-augment_pipeline_result_with_E
-augment_pipeline_result_with_lambda_sep
 ```
+
+The nested pipeline can also compute grouped `:O`, `:O_smoothed`, `:Sep`,
+`:G`, `:Gsep`, `:W`, `:E`, `:S`, `:S_old`, and `:lambda_sep` rows when an
+extended config requests them. Their formal definitions are delegated to
+`Preferences`; PrefPol's role is to construct applied survey profiles and
+cache/report the requested rows.
 
 ## Nested Pipeline Types
 
@@ -112,6 +137,18 @@ variance_decomposition_fine_table
 variance_decomposition_pooled_table
 variance_decomposition_by_m_plot_table
 variance_decomposition_year_scenario_boxplot_table
+```
+
+## Internal Pipeline Augmentations
+
+These result-level helpers derive diagnostic rows from already cached grouped
+`C`, `D`, and `W` rows. They are useful for older caches and extended reports,
+but they do not define the publication-facing measure set and do not rewrite
+stage cache artifacts.
+
+```@docs; canonical=false
+augment_pipeline_result_with_E
+augment_pipeline_result_with_lambda_sep
 ```
 
 ## Plotting Helpers

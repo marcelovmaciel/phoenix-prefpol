@@ -96,8 +96,8 @@ end
     fine = PrefPol.variance_decomposition_fine_table(input)
     labels = unique(fine.measure_label)
 
-    @test unique(fine.measure) == [:C, :D, :HHI, :Psi, :R, :RHHI]
-    @test labels == ["C", "D", "κ", "Ψ", "R", "RHHI"]
+    @test unique(fine.measure) == [:Psi, :R, :HHI, :RHHI, :C, :D]
+    @test labels == ["Ψ", "R", "κ", "RHHI", "C", "D"]
     @test !(:D_median in fine.measure)
 
     explicit = PrefPol.variance_decomposition_fine_table(

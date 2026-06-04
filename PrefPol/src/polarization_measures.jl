@@ -125,21 +125,25 @@ normalized_consensus_separation(args...; kwargs...) = Preferences.normalized_con
 """
     consensus_excess_separation(args...; kwargs...)
 
-Delegate to `Preferences.consensus_excess_separation`; retained in PrefPol for
-legacy applied scripts.
+Delegate to `Preferences.consensus_excess_separation`. This extended grouped
+quantity is retained for diagnostics and legacy applied scripts; it is not part
+of the default manuscript-facing measure set.
 """
 consensus_excess_separation(args...; kwargs...) = Preferences.consensus_excess_separation(args...; kwargs...)
 """
     group_E(args...; kwargs...)
 
-Delegate to the group-level normalized consensus separation helper in
-`Preferences`.
+Delegate to the group-level normalized consensus-separation helper in
+`Preferences`. Retained for diagnostic `E` reporting outside the default
+publication measure set.
 """
 group_E(args...; kwargs...) = Preferences.group_E(args...; kwargs...)
 """
     aggregate_E(args...; kwargs...)
 
 Delegate to `Preferences.aggregate_E` for formal aggregation semantics.
+Retained for diagnostic `E` reporting outside the default publication measure
+set.
 """
 aggregate_E(args...; kwargs...) = Preferences.aggregate_E(args...; kwargs...)
 """
@@ -153,14 +157,16 @@ E(args...; kwargs...) = Preferences.E(args...; kwargs...)
     S(args...; kwargs...)
 
 Delegate to `Preferences.S`; PrefPol may also derive cached grouped `:S` rows
-from applied `C` and `D` pipeline output.
+from applied `C` and `D` pipeline output. `S` is an extended diagnostic measure,
+not part of `PrefPol/config/publication.toml`'s manuscript-facing set.
 """
 S(args...; kwargs...) = Preferences.S(args...; kwargs...)
 """
     S_old(args...; kwargs...)
 
 Delegate to `Preferences.S_old`, retained for legacy support-separation
-comparisons in applied PrefPol reports.
+comparisons in applied PrefPol reports. It is diagnostic/legacy API, not a
+manuscript-facing default.
 """
 S_old(args...; kwargs...) = Preferences.S_old(args...; kwargs...)
 
