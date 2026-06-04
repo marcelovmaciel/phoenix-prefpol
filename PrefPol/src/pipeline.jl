@@ -1545,7 +1545,7 @@ function apply_group_metrics_for_year_streaming(
                     end
                     isempty(var_map) && (pm.next!(prog); continue)
 
-                    res = bootstrap_group_metrics(
+                    res = Preferences.bootstrap_group_metrics(
                         var_map,
                         dem_sym;
                         tie_break_context = (
@@ -1652,7 +1652,7 @@ function compute_and_cache_group_metrics_per_df!(
                     end
                     isempty(var_map) && (pm.next!(pbar); continue)
 
-                    res = bootstrap_group_metrics(
+                    res = Preferences.bootstrap_group_metrics(
                         var_map,
                         dem_sym;
                         tie_break_context = (
@@ -1721,7 +1721,7 @@ function accumulate_cached_group_metrics_for_year!(
                         end
                         isempty(var_map) && error("Missing data for $cache_path")
 
-                        res = bootstrap_group_metrics(
+                        res = Preferences.bootstrap_group_metrics(
                             var_map,
                             dem_sym;
                             tie_break_context = (
