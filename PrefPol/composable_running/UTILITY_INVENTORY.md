@@ -88,15 +88,15 @@ More specialized paper heatmaps live in `PrefPol/ext/PrefPolPlottingExt.jl`.
 If stage scripts need reusable table preparation for those heatmaps, promote
 that helper to `PrefPol/src/` or the extension during Phase 3 or Phase 7.
 
-### Lambda and Variance Helpers
+### Group Measure and Variance Helpers
 
-- `augment_pipeline_result_with_lambda_sep(result; include_w = false)`
 - `compute_group_measure_details(...)`
 - variance decomposition report/table/plot helpers exported from
   `variance_decomposition_report.jl`
 
-Use the existing Lambda implementation. It defines `lambda_sep` as aggregate
-`D / W`, not as a mean of group-level ratios.
+Diagnostic lambda backfills are intentionally not part of the exported public API.
+Stage scripts that still need the appendix-only backfill may call
+`PrefPol.augment_pipeline_result_with_lambda_sep` by qualified name.
 
 ## Existing Private Utilities
 

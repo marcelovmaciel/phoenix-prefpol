@@ -22,16 +22,6 @@ resolve_active_candidate_set
 ```@docs; canonical=false
 load_raw_pref_data
 build_profile
-profile_pattern_proportions
-ranked_count
-has_ties
-ranking_type_support
-ranking_type_template
-profile_ranksize_summary
-profile_ranking_type_proportions
-pretty_print_profile_patterns
-pretty_print_ranksize_summary
-pretty_print_ranking_type_proportions
 ```
 
 ## Manuscript-Facing Measures

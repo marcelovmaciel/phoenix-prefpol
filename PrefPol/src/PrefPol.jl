@@ -110,19 +110,9 @@ include("nested_pipeline.jl")
 include("variance_decomposition_report.jl")
 
 
-export project_root, eseb_22, CANDIDATOS_eseb2022
+export project_root
 export load_raw_pref_data,
-       build_profile,
-       profile_pattern_proportions,
-       pretty_print_profile_patterns,
-       ranked_count,
-       has_ties,
-       ranking_type_support,
-       ranking_type_template,
-       profile_ranksize_summary,
-       profile_ranking_type_proportions,
-       pretty_print_ranksize_summary,
-       pretty_print_ranking_type_proportions
+       build_profile
 
 export SurveyWaveConfig,
        load_survey_wave_config,
@@ -146,8 +136,6 @@ export SurveyWaveConfig,
        BatchRunResult,
        load_observed_data,
        compute_group_measure_details,
-       augment_pipeline_result_with_E,
-       augment_pipeline_result_with_lambda_sep,
        pipeline_measure_table,
        pipeline_summary_table,
        pipeline_variance_decomposition_table,
