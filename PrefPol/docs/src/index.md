@@ -19,6 +19,14 @@ julia +1.11.9 --project=PrefPol \
   --config PrefPol/config/publication.toml
 ```
 
+Validate the publication configuration with:
+
+```bash
+julia +1.11.9 --project=PrefPol \
+  PrefPol/composable_running/stages/00_validate_configs.jl \
+  --config PrefPol/config/publication.toml
+```
+
 `PrefPol/config/publication.toml` is the clean manuscript-facing entry point.
 It runs only the measures used in the article: `Psi`, `R`, `HHI`, `RHHI`, `C`,
 and `D`. Outputs are isolated under

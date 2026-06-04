@@ -1,7 +1,9 @@
 # PrefPol.jl Documentation
 
 This directory contains local HTML documentation for the applied `PrefPol` Julia
-package in this monorepo.
+package in this monorepo. The public documentation is scoped to the
+ESEB/Brazil article replication path; formal preference and social-choice APIs
+are documented by `Preferences`.
 
 The publication-facing replication command is:
 
@@ -11,8 +13,15 @@ julia +1.11.9 --project=PrefPol \
   --config PrefPol/config/publication.toml
 ```
 
-`PrefPol/config/publication.toml` is the clean manuscript-facing entry point;
-extended and diagnostic configs are secondary to article reproduction.
+Validate the publication configuration with:
+
+```bash
+julia +1.11.9 --project=PrefPol \
+  PrefPol/composable_running/stages/00_validate_configs.jl \
+  --config PrefPol/config/publication.toml
+```
+
+`PrefPol/config/publication.toml` is the clean manuscript-facing entry point.
 
 From the repository root, instantiate and build the docs with a Julia 1.11.9
 executable:

@@ -4,6 +4,10 @@
 CurrentModule = PrefPol
 ```
 
+This page lists the `PrefPol` APIs used by the public Brazil/ESEB article
+replication path. Broader formal preference APIs are documented in the sibling
+`Preferences` package.
+
 ## Survey Configuration
 
 ```@docs; canonical=false
@@ -45,28 +49,6 @@ calc_reversal_HHI
 fast_reversal_geometric
 compute_group_measure_details
 ```
-
-## Extended and Diagnostic Measures
-
-These helpers remain part of the supported API for diagnostics, appendices,
-and legacy comparisons. They are not the main manuscript-facing measure set
-unless a manuscript config explicitly requests them.
-
-```@docs; canonical=false
-normalized_consensus_separation
-consensus_excess_separation
-group_E
-aggregate_E
-E
-S
-S_old
-```
-
-The nested pipeline can also compute grouped `:O`, `:O_smoothed`, `:Sep`,
-`:G`, `:Gsep`, `:W`, `:E`, `:S`, `:S_old`, and `:lambda_sep` rows when an
-extended config requests them. Their formal definitions are delegated to
-`Preferences`; PrefPol's role is to construct applied survey profiles and
-cache/report the requested rows.
 
 ## Nested Pipeline Types
 
@@ -137,18 +119,6 @@ variance_decomposition_by_m_plot_table
 variance_decomposition_year_scenario_boxplot_table
 ```
 
-## Internal Pipeline Augmentations
-
-These result-level helpers derive diagnostic rows from already cached grouped
-`C`, `D`, and `W` rows. They are useful for older caches and extended reports,
-but they do not define the publication-facing measure set and do not rewrite
-stage cache artifacts.
-
-```@docs; canonical=false
-augment_pipeline_result_with_E
-augment_pipeline_result_with_lambda_sep
-```
-
 ## Plotting Helpers
 
 These functions are available when the `CairoMakie` extension is loaded.
@@ -164,14 +134,8 @@ plot_pipeline_group_heatmap
 save_pipeline_plot
 ```
 
-## Full Public API
+## Public Index
 
 ```@index
 Modules = [PrefPol]
-```
-
-```@autodocs
-Modules = [PrefPol]
-Public = true
-Private = false
 ```
