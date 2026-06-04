@@ -73,6 +73,23 @@ binding, see [Full Public API](api_full.md).
 - `ranking_support_diagnostics`
 
 
+## Single-Peakedness Diagnostics
+
+- `axes_up_to_reversal`
+- `is_single_peaked`
+- `single_peaked_rankings`
+- `single_peaked_distance`
+- `profile_distribution`
+- `single_peakedness_summary`
+- `single_peakedness_L0`
+- `single_peakedness_L1`
+- `single_peakedness_L1_off_axis`
+- `best_single_peaked_axes`
+- `SinglePeakedAxisSummary`
+- `SinglePeakedSupportClassification`
+- `SinglePeakednessResult`
+
+
 ## Consensus and Group Diagnostics
 
 - `ConsensusResult`

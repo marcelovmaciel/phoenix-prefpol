@@ -2,6 +2,9 @@ cd(@__DIR__)
 
 using Documenter
 
+push!(LOAD_PATH, joinpath(@__DIR__, ".."))
+using Preferences
+
 
 makedocs(;
     sitename = "Preferences.jl",
@@ -20,6 +23,7 @@ makedocs(;
         "Weak Orders and Linearization" => "weak_orders.md",
         "Annotated Profiles" => "annotated_profiles.md",
         "Global Profile Diagnostics" => "global_measures.md",
+        "Single-Peakedness Diagnostics" => "single_peakedness.md",
         "Group Diagnostics" => "group_measures.md",
         "Majority-Graph Support" => "majority_support.md",
         "Majority-Graph Roles" => "majority_roles.md",

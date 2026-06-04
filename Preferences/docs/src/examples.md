@@ -45,6 +45,19 @@ opposed = Profile(pool, [
 
 For interpretation, see [Global Profile Diagnostics](global_measures.md).
 
+## Single-Peakedness
+
+Single-peakedness checks whether rankings fit a one-dimensional candidate axis.
+
+```julia
+axis = [:a, :b, :c]
+
+is_single_peaked([:b, :a, :c], axis)
+single_peaked_rankings(axis)
+```
+
+See [Single-Peakedness Diagnostics](single_peakedness.md).
+
 ## Group `C` and `D`
 
 ```julia
