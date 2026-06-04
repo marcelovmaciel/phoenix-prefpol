@@ -24,9 +24,6 @@ PrefPol/README.md
 # Generated intermediate data and figures
 intermediate_data/
 PrefPol/intermediate_data/
-PrefPol/running/imgs/
-PrefPol/exploratory/imgs/
-PrefPol/exploratory/imgs (Copy)/
 PrefPol/old_+group/
 
 # LaTeX/Org export artifacts
@@ -42,6 +39,7 @@ PrefPol/design_notes/preprocessing_with_figures.pdf
 PrefPol/design_notes/preprocessing_with_figures.tex
 
 # Local notes and audit docs
+_archive/
 codex_instructions.org
 marginalia.org
 pinning_julia_project.org

@@ -5,8 +5,8 @@ without a separate implementation task.
 
 This document records the migration that produced the current
 `PrefPol/composable_running/` workflow. It was written from the old
-`PrefPol/running/` scripts, but those scripts are now obsolete and should not
-guide new refactoring except as historical parity evidence. The active
+legacy runner scripts, but those scripts have been archived/removed and should not
+guide new refactoring. The active
 publication workflow is `PrefPol/composable_running/`.
 
 ## Goal
@@ -121,12 +121,10 @@ Values not currently captured in year TOMLs:
 - table specs
 - artifact collection specs
 
-### `PrefPol/running/` Legacy Inventory
+### Legacy Runner Inventory
 
-These files were migration sources for the composable pipeline. They are not
-the current workflow. Future cleanup should archive or remove the old
-`PrefPol/running/*.jl` scripts after confirming that `PrefPol/composable_running`
-has the needed publication outputs. Preserve or move only
+The old runner files were migration sources for the composable pipeline. They are not
+the current workflow and have been archived/removed. Preserve or move only
 `PrefPol/running/plotting_env` until the plotting stages are updated to use a
 new environment path.
 
@@ -146,7 +144,7 @@ Legacy scripts:
 | `appendix_lambda_grouping_tables.jl` | Reformats Lambda CSV into per-year LaTeX grouping tables. | Legacy source; staged replacement is `10_lambda_table.jl`. |
 | `augment_grouped_S_cache.jl` | One-off cache migration to append grouped S to old cached results. | Archive/remove after confirming no old caches need migration. |
 | `clear_running_caches.jl` | Deletes targeted generated outputs. | Archive/remove with old workflow; generated outputs should not be source. |
-| `plotting_setup.jl` | Plotting environment bootstrap for `PrefPol/running/plotting_env`. | Keep only until plotting environment is moved to a non-legacy path. |
+| archived plotting setup helper | Former bootstrap helper for `PrefPol/running/plotting_env`. | Archived; current plotting stages call the plotting environment directly. |
 | `running.jl` | Legacy broad operational script. | Background only. |
 | `scenario_refactor_inventory_before.md` | Historical inventory notes. | Documentation context. |
 | `scenario_refactor_report.md` | Paper scenario/refactor notes. | Paper requirements context. |
@@ -306,7 +304,7 @@ that destination.
 Current small-run outputs live under:
 
 ```text
-PrefPol/running/output/all_scenarios_small/
+archived legacy small-run output root
 ```
 
 Current nested cache layout includes:
@@ -338,7 +336,7 @@ Reads:
 
 Writes:
 
-- `PrefPol/running/output/all_scenarios_small/run_manifest.csv`
+- archived legacy `run_manifest.csv`
 - root `measure_table.csv`, `summary_table.csv`, `panel_table.csv`,
   `decomposition_table.csv`, `effective_numbers_table.csv`,
   `effective_numbers_summary_table.csv`
@@ -1610,11 +1608,10 @@ Phase 7 means: implement group plotting by creating or completing
 Stage `07_extra_measures.jl` belongs to Phase 8 and must not be implemented as
 part of Phase 7.
 
-Phase 0: Inventory legacy scripts in `PrefPol/running/`.
+Phase 0: Inventory legacy runner scripts.
 
 - Done in this planning task.
-- Treat all old `PrefPol/running/*.jl` scripts as legacy migration evidence, not
-  as active workflow code.
+- Treat all old runner scripts as legacy migration evidence, not as active workflow code.
 - Keep only the plotting environment until it is moved to a non-legacy path.
 
 Phase 1: Create `PrefPol/composable_running/` structure.
@@ -1683,12 +1680,12 @@ Phase 10: Run B=R=K=2 smoke test.
 
 - Validate all required stage outputs and manifests.
 
-Phase 11: Archive/remove old `PrefPol/running/` scripts.
+Phase 11: Archive/remove old runner scripts.
 
 - Treat the old scripts as obsolete once smoke and paper workflows pass.
 - Move `PrefPol/running/plotting_env` to a non-legacy path before deleting the
-  directory.
-- Remove generated `PrefPol/running/output` artifacts rather than preserving
+  remaining legacy workflow directory.
+- Remove generated legacy runner output artifacts rather than preserving
   them as source.
 
 ## Multi-Agent Implementation Plan
@@ -1697,8 +1694,8 @@ Phase 11: Archive/remove old `PrefPol/running/` scripts.
 
 Assigned files:
 
-- `PrefPol/running/*.jl`
-- `PrefPol/running/*.md`
+- archived legacy runner scripts
+- archived legacy runner docs
 
 Expected output:
 
@@ -1884,8 +1881,8 @@ Tests:
 Do not touch:
 
 - active `PrefPol/composable_running/` stage behavior unless implementing an
-  approved cleanup task. Old `PrefPol/running/` scripts may be archived/removed
-  after plotting_env is moved and parity is confirmed.
+  approved cleanup task. Old runner scripts have been archived/removed;
+  `plotting_env` remains until it is moved to a non-legacy path.
 
 ## Non-Negotiable Style Constraints
 

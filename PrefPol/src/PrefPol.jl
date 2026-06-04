@@ -110,7 +110,6 @@ include("variance_decomposition.jl")
 include("nested_pipeline.jl")
 include("variance_decomposition_report.jl")
 
-#include("newplotting.jl")
 
 export project_root, eseb_22, CANDIDATOS_eseb2022
 export load_raw_pref_data,
