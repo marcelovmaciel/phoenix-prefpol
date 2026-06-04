@@ -628,7 +628,7 @@ end
 raw"""
     weighted_coherence(results_distance, proportion_map, key)
 
-Aggregate group coherences into manuscript quantity `C`:
+Aggregate group coherences into aggregate quantity `C`:
 
 ```math
 C = \sum_g \pi_g C_g,
@@ -1053,7 +1053,7 @@ end
 raw"""
     overall_divergence(group_profiles, consensus_map)
 
-Aggregate directed cross-group divergence, manuscript label `D`. With group
+Aggregate directed cross-group divergence as quantity `D`. With group
 shares `π_i`, group consensuses `c_j`, and `G` groups,
 
 ```math
@@ -1205,11 +1205,14 @@ end
 raw"""
     overall_sstar_from_CD(C, D)
 
-Return the cleaned excess-separation statistic `D - (1 - C) / 2`.
+Return the excess-divergence component `D - (1 - C) / 2` from the
+consensus-relative `C`-`D` decomposition.
 
-`C` and `D` are validated on their native grouped-measure scales, but the
-returned statistic is kept on its raw excess-separation scale and is not
-rebased to `[0, 1]`.
+For admissible profile-derived `C` and `D`, Appendix-style reasoning gives
+`D >= (1 - C) / 2`, so this diagnostic is nonnegative. `C` and `D` are
+validated on their native unit-interval scales, but the helper does not enforce
+the theoretical cross-constraint; a negative raw result means the numeric inputs
+are invalid for this diagnostic.
 """
 function overall_sstar_from_CD(C::Real, D::Real)
     coherence = _unit_interval(C, "C")
@@ -1220,29 +1223,36 @@ end
 raw"""
     S(C, D)
 
-Return the cleaned excess-separation statistic from coherence `C` and directed
+Return the excess-divergence component from coherence `C` and directed
 divergence `D`:
 
 ```math
 S = D - \frac{1-C}{2}.
 ```
 
-`C` and `D` are validated as unit-interval inputs, but `S` is not rebased to
-`[0, 1]` and can be negative. This is the current manuscript `S`; use `S_old`
-for the legacy support-separation statistic.
+Under the consensus-relative definitions of `C` and `D`, admissible
+profile-derived inputs satisfy `D >= (1 - C) / 2`, so `S >= 0`. `S` is derived
+from `C` and `D`; it is not a legacy measure and not an arbitrary composite
+polarization score.
+
+The function validates only the unit-interval scale of `C` and `D`. If arbitrary
+numeric inputs violate the theoretical bound, the raw result can be negative;
+such inputs are invalid for this diagnostic rather than examples of admissible
+negative `S`. Use `S_old` for the legacy support-separation statistic.
 """
 S(C::Real, D::Real) = overall_sstar_from_CD(C, D)
 
 raw"""
     normalized_consensus_separation(W, D; atol = 1e-10)
 
-Return the normalized consensus-separation statistic
+Return the normalized excess-divergence ratio
 
     E = 1 - W / D
 
-where `W` is within-group dispersion and `D` is distance to outgroup
-consensuses. If `D == 0`, returns `0.0`, the no-separation convention.
-Tiny numerical excursions outside `[0, 1]` are clamped; larger violations
+where `W = (1 - C) / 2` is the within-group dispersion baseline from the
+`C`-`D` decomposition and `D` is directed divergence to outgroup consensuses.
+When `D > 0`, `E = S / D`; when `D == 0`, the package convention returns
+`0.0`. Tiny numerical excursions outside `[0, 1]` are clamped; larger violations
 throw an error.
 """
 function normalized_consensus_separation(W::Real, D::Real; atol::Real = 1.0e-10)
@@ -1266,9 +1276,9 @@ end
 raw"""
     consensus_excess_separation(W, D; kwargs...)
 
-Compatibility alias for `normalized_consensus_separation(W, D; kwargs...)`.
-Returns `E = 1 - W/D`, with the same `D == 0 => 0.0` convention and unit-range
-validation.
+Alias in the derived `C`-`D` decomposition family for
+`normalized_consensus_separation(W, D; kwargs...)`. Returns `E = 1 - W/D`, with
+the same `D == 0 => 0.0` convention and unit-range validation.
 """
 consensus_excess_separation(W::Real, D::Real; kwargs...) =
     normalized_consensus_separation(W, D; kwargs...)
@@ -1276,30 +1286,34 @@ consensus_excess_separation(W::Real, D::Real; kwargs...) =
 raw"""
     group_E(W, D; kwargs...)
 
-Alias for `normalized_consensus_separation(W, D; kwargs...)`, used when `W` and
-`D` describe a group-level within-versus-outgroup distance contrast.
+Alias in the derived `C`-`D` decomposition family for
+`normalized_consensus_separation(W, D; kwargs...)`, used when `W` and `D`
+describe a group-level within-versus-outgroup distance contrast.
 """
 group_E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
 
 raw"""
     aggregate_E(W, D; kwargs...)
 
-Alias for `normalized_consensus_separation(W, D; kwargs...)`, used when `W` and
-`D` are aggregate coherence/divergence quantities.
+Alias in the derived `C`-`D` decomposition family for
+`normalized_consensus_separation(W, D; kwargs...)`, used when `W` and `D` are
+aggregate coherence/divergence quantities.
 """
 aggregate_E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
 
 raw"""
     E(W, D; kwargs...)
 
-Manuscript shorthand for normalized consensus separation:
+Shorthand for the normalized excess-divergence ratio in the derived `C`-`D`
+decomposition family:
 
 ```math
 E = 1 - \frac{W}{D}.
 ```
 
-The implementation returns `0.0` when `D == 0`, validates nonnegative inputs,
-and clamps only tiny numerical excursions outside `[0, 1]`.
+For `D > 0`, `E = S/D`. The implementation returns `0.0` when `D == 0`,
+validates nonnegative inputs, and clamps only tiny numerical excursions outside
+`[0, 1]`.
 """
 E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
 
@@ -1399,7 +1413,7 @@ raw"""
 Legacy alias for `overall_support_separation_old`. This is the historical
 support-separation statistic based on average cross-group normalized Kendall
 distance minus the mean within-group dispersion for unordered group pairs. It is
-not the current cleaned `S(C,D)` statistic.
+not the current derived excess-divergence diagnostic `S(C,D)`.
 
 Groups with nonpositive size are skipped; fewer than two remaining groups return
 `NaN`, and singleton groups are omitted from pair contributions because their
@@ -1608,7 +1622,7 @@ end
 raw"""
     compute_group_metrics(df, demo; cache=GLOBAL_LINEAR_ORDER_CACHE, rng=nothing, tie_break_context=nothing)
 
-Compute the manuscript pair `(C, D)` for groups defined by column `demo` in
+Compute the pair `(C, D)` for groups defined by column `demo` in
 `df`. Each row's `:profile` entry is interpreted as a strict ranking dictionary
 through `strict_profile`; a Kendall consensus is computed for each group.
 
@@ -1619,8 +1633,9 @@ mass. Empty groups are absent from the DataFrames produced by `groupby`;
 zero-mass or malformed profile inputs throw downstream errors.
 
 Interpretation: this function returns only the compact `(C, D)` pair even though
-the internal detail computation also derives median divergence, overlap,
-separation, `S`, `E`, and legacy `S_old`.
+the internal detail computation also derives `S` and `E` from the same `C`-`D`
+decomposition, plus median divergence, overlap, experimental separation
+diagnostics, and legacy `S_old`.
 """
 function compute_group_metrics(df::AbstractDataFrame, demo;
                                cache = GLOBAL_LINEAR_ORDER_CACHE,
@@ -1650,7 +1665,8 @@ normalizations, and error behavior as the corresponding non-bootstrap group
 metrics.
 
 Interpretation: this preserves the replicate distribution of coherence,
-divergence, overlap, and separation quantities for uncertainty summaries.
+divergence, derived `C`-`D` excess diagnostics, overlap, experimental separation
+quantities, and legacy `S_old` for uncertainty summaries.
 """
 function bootstrap_group_metrics(bt_profiles, demo;
                                  rng = nothing,

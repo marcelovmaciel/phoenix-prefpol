@@ -586,8 +586,8 @@ end
 raw"""
     reversal_hhi(p)
 
-Return the HHI concentration of local exact-reversal masses, manuscript label
-`κ` when this measure is used as the reversal concentration term. With
+Return the HHI concentration of local exact-reversal masses, commonly
+reported as `κ` when this measure is used as the reversal concentration term. With
 `v_q = 2\min(p_r, p_{reverse(r)})` and `R = \sum_q v_q`,
 
 ```math

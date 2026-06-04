@@ -706,7 +706,7 @@ separation.
 @doc raw"""
     weighted_coherence(results_distance, proportion_map, key)
 
-Aggregate group coherences into manuscript quantity `C`:
+Aggregate group coherences into aggregate quantity `C`:
 
 ```math
 C = \sum_g \pi_g C_g,
@@ -786,7 +786,7 @@ ranking distributions do not strongly overlap.
 @doc raw"""
     overall_divergence(group_profiles, consensus_map)
 
-Aggregate directed cross-group divergence with manuscript label `D`:
+Aggregate directed cross-group divergence as quantity `D`:
 
 ```math
 D =
@@ -862,54 +862,58 @@ separation `Sep`.
 @doc raw"""
     S(C, D)
 
-Return the legacy excess-separation statistic
+Return the excess-divergence component from the consensus-relative `C`-`D`
+decomposition:
 
 ```math
 S(C,D) = D - \frac{1-C}{2}.
 ```
 
-`S` may be negative and is not a bounded polarization index. It is retained for
-compatibility/diagnostics when comparing older separation summaries; prefer the
-current manuscript measures when applicable.
+For admissible profile-derived inputs, `D >= (1-C)/2`, so `S >= 0`. The raw
+numeric function may return a negative value only when arbitrary inputs violate
+that theoretical bound; treat those inputs as invalid for this diagnostic.
+`S_old` is the separate legacy support-separation statistic.
 """ S
 
 @doc raw"""
     normalized_consensus_separation(W, D; atol=1e-10)
 
-Return normalized consensus separation
+Return the normalized excess-divergence ratio
 
 ```math
 E = 1 - \frac{W}{D},
 ```
 
-with `D == 0` mapped to `0.0` and small floating-point excursions clamped. `W`
-is within-group dispersion and `D` is cross-group divergence or separation,
-depending on the calling context.
+with `D == 0` mapped to `0.0` and small floating-point excursions clamped. In
+the `C`-`D` decomposition, `W = (1-C)/2`; when `D > 0`, `E = S/D`.
 """ normalized_consensus_separation
 
 @doc raw"""
     consensus_excess_separation(W, D; kwargs...)
 
-Compatibility alias for `normalized_consensus_separation(W, D; kwargs...)`.
+Alias in the derived `C`-`D` decomposition family for
+`normalized_consensus_separation(W, D; kwargs...)`.
 """ consensus_excess_separation
 
 @doc raw"""
     group_E(W, D; kwargs...)
 
-Group-level alias for normalized consensus separation `E = 1 - W/D`, where `W`
-is within-group dispersion and `D` is the relevant directed outgroup distance.
+Group-level alias in the derived `C`-`D` decomposition family for
+`E = 1 - W/D`, where `W` is within-group dispersion and `D` is the relevant
+directed outgroup distance.
 """ group_E
 
 @doc raw"""
     aggregate_E(W, D; kwargs...)
 
-Aggregate-level alias for normalized consensus separation `E = 1 - W/D`.
+Aggregate-level alias in the derived `C`-`D` decomposition family for
+`E = 1 - W/D`.
 """ aggregate_E
 
 @doc raw"""
     E(W, D; kwargs...)
 
-Manuscript shorthand for normalized consensus separation `E = 1 - W/D`. Use
+Shorthand for the normalized excess-divergence ratio `E = 1 - W/D`. Use
 `normalized_consensus_separation` for the explicit name.
 """ E
 

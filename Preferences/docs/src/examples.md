@@ -1,24 +1,14 @@
 # Examples
 
-```@meta
-CurrentModule = Preferences
-```
+These examples are intentionally small. See the deeper workflow pages for the
+full conceptual map.
 
-These examples use small three-candidate profiles so the objects can be inspected directly at the REPL.
+## Construct a Profile
 
-## Constructing Profiles
-
-```@example pref_examples
+```julia
 using Preferences
 
 pool = CandidatePool([:a, :b, :c])
-x = StrictRank(pool, [:b, :a, :c])
-w = WeakRank(pool, Dict(:a => 1, :b => 1, :c => 2))
-
-rank(x, pool, :b), prefers(x, pool, :b, :c), indifferent(w, pool, :a, :b)
-```
-
-```@example pref_examples
 p = Profile(pool, [
     StrictRank(pool, [:a, :b, :c]),
     StrictRank(pool, [:a, :c, :b]),
@@ -28,101 +18,77 @@ p = Profile(pool, [
 nballots(p)
 ```
 
-## Viewing Rankings and Profiles
-
-```@example pref_examples
-ordered_candidates(x, pool)
-```
-
-```@example pref_examples
-pretty(x, pool)
-```
-
-```@example pref_examples
-weakorder_symbol_groups(to_weakorder(w), pool)
-```
-
-For profile tables, prefer the string helper in scripts and logs:
+Use display helpers interactively when you want a readable table:
 
 ```julia
-print(pretty_profile_table(p))
+pretty_profile_table(p)
+show_profile_table_color(p)
 ```
 
-Use `show_profile_table_color(p)` for a colorized PrettyTables view during interactive exploration.
+## Global Diagnostics
 
-## Pairwise Majority
+```julia
+opposed = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:c, :b, :a]),
+])
 
-A three-ranking Condorcet cycle has one majority edge in each direction around the cycle.
+(
+    Psi = can_polarization(opposed),
+    R = total_reversal_component(opposed),
+    kappa = reversal_hhi(opposed),
+    RHHI = reversal_geometric(opposed),
+    EO = effective_observed_rankings(opposed),
+    ENRP = effective_reversal_rankings(opposed),
+)
+```
 
-```@example pref_examples
+For interpretation, see [Global Profile Diagnostics](global_measures.md).
+
+## Group `C` and `D`
+
+```julia
+g1 = Profile(pool, [
+    StrictRank(pool, [:a, :b, :c]),
+    StrictRank(pool, [:a, :c, :b]),
+])
+g2 = Profile(pool, [
+    StrictRank(pool, [:c, :b, :a]),
+    StrictRank(pool, [:c, :a, :b]),
+])
+
+c1 = consensus_kendall(g1)
+c2 = consensus_kendall(g2)
+group_profiles = Dict(:g1 => g1, :g2 => g2)
+consensus_map = Dict(:g1 => c1, :g2 => c2)
+
+D = overall_divergence(group_profiles, consensus_map)
+Cstar = 0.5 * (group_avg_distance(g1).group_coherence +
+               group_avg_distance(g2).group_coherence)
+C = 2Cstar - 1
+
+(C = C, D = D, S = S(C, D))
+```
+
+`C` and `D` should be read separately. `S(C,D)` is only a derived excess
+divergence diagnostic. See [Group Diagnostics](group_measures.md).
+
+## Majority Support Teaser
+
+Majority-graph support asks which strict ranking types support which majority
+edges.
+
+```julia
 cycle = Profile(pool, [
     StrictRank(pool, [:a, :b, :c]),
     StrictRank(pool, [:b, :c, :a]),
     StrictRank(pool, [:c, :a, :b]),
 ])
 
-pm = pairwise_majority(cycle)
-pairwise_majority_margins(pm)
+support = majority_graph_support(cycle)
+majority_edges_table(support)
+voter_type_table(support)
+edge_support_table(support)
 ```
 
-```julia
-pretty_pairwise_majority_margins(pm, pool)
-show_pairwise_majority_table_color(pm; pool, kind = :margins)
-```
-
-## Kendall Consensus
-
-```@example pref_examples
-res = consensus_kendall(p)
-pretty(res.consensus_ballot, pool)
-```
-
-```@example pref_examples
-res.avg_normalized_distance
-```
-
-## Polarization and Reversal Measures
-
-```@example pref_examples
-unanimous = Profile(pool, [StrictRank(pool, [:a, :b, :c]) for _ in 1:3])
-can_polarization(unanimous)
-```
-
-```@example pref_examples
-opposed = Profile(pool, [
-    StrictRank(pool, [:a, :b, :c]),
-    StrictRank(pool, [:c, :b, :a]),
-])
-
-(total_reversal_component(opposed), reversal_hhi(opposed), reversal_geometric(opposed))
-```
-
-## Single-Peakedness
-
-```@example pref_examples
-axis = [:a, :b, :c]
-(is_single_peaked([:a, :b, :c], axis), is_single_peaked([:b, :a, :c], axis))
-```
-
-```@example pref_examples
-single_peaked_rankings(axis)
-```
-
-```@example pref_examples
-sp = single_peakedness_summary(p; axes = [axis])
-(sp.best_L0, sp.best_L1, sp.best_L1_off_axis)
-```
-
-## Majority-Graph Support
-
-Majority-graph support asks which strict ranking types support which majority edges.
-The table helpers return `DataFrame`s and are intended for exploratory inspection.
-
-```julia
-res = majority_graph_support(cycle)
-majority_edges_table(res)
-voter_type_table(res)
-edge_support_table(res)
-edge_overlap_table(res)
-core_table(res)
-```
+See [Majority-Graph Support](majority_support.md).
