@@ -340,9 +340,9 @@ function load_linearized_artifact_source(path::AbstractString, active_candidates
     end
     artifact = JLD2.load(path, "artifact")
     bundle = artifact isa AnnotatedProfile ? artifact :
-             dataframe_to_annotated_profile(DataFrame(artifact); ballot_kind=:strict)
-    df = artifact isa DataFrame ? DataFrame(artifact) : annotated_profile_to_dataframe(bundle)
-    profile = strict_profile(bundle)
+             Preferences.dataframe_to_annotated_profile(DataFrame(artifact); ballot_kind=:strict)
+    df = artifact isa DataFrame ? DataFrame(artifact) : Preferences.annotated_profile_to_dataframe(bundle)
+    profile = Preferences.strict_profile(bundle)
     nrow(df) == nballots(profile) ||
         error("Cached linearized artifact row count $(nrow(df)) does not match profile ballots $(nballots(profile)).")
     active = active_candidates === nothing ? join(string.(candidates(profile.pool)), "|") : active_candidates

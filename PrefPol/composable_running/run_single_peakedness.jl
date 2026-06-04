@@ -137,7 +137,7 @@ function linearized_artifact_bundle(path::AbstractString)
     artifact isa AbstractDataFrame || error(
         "Expected linearized artifact $(path) to be a DataFrame; got $(typeof(artifact)).",
     )
-    return pp.dataframe_to_annotated_profile(artifact; ballot_kind = :strict), DataFrame(artifact)
+    return pp.Preferences.dataframe_to_annotated_profile(artifact; ballot_kind = :strict), DataFrame(artifact)
 end
 
 function first_present_column(df::AbstractDataFrame, candidates)

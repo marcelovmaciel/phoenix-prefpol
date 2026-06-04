@@ -460,12 +460,12 @@ end
     metadata!(noisy_bundle_df, "profile_kind", "linearized")
 
     pure_details = PrefPol.compute_group_measure_details(
-        PrefPol.dataframe_to_annotated_profile(pure_bundle_df),
+        PrefPol.Preferences.dataframe_to_annotated_profile(pure_bundle_df),
         :grp;
         tie_policy = :average,
     )
     noisy_details = PrefPol.compute_group_measure_details(
-        PrefPol.dataframe_to_annotated_profile(noisy_bundle_df),
+        PrefPol.Preferences.dataframe_to_annotated_profile(noisy_bundle_df),
         :grp;
         tie_policy = :average,
     )

@@ -880,7 +880,7 @@ function _weak_profile_bundle(imputed::ImputedData, spec::PipelineSpec)
     )
     metadata!(df, "candidates", candidate_syms)
     metadata!(df, "profile_kind", "weak")
-    return dataframe_to_annotated_profile(df; ballot_kind = :weak)
+    return Preferences.dataframe_to_annotated_profile(df; ballot_kind = :weak)
 end
 
 function _resolve_nested_linearizer(weak_bundle::AnnotatedProfile,
@@ -914,7 +914,7 @@ function _linearize_imputed(imputed::ImputedData,
     )
     rng = _rng_from_seed(seed)
     tie_break = _resolve_nested_linearizer(weak_bundle, spec)
-    strict_bundle = linearize_annotated_profile(
+    strict_bundle = Preferences.linearize_annotated_profile(
         weak_bundle;
         rng = rng,
         tie_break = tie_break,
@@ -1108,7 +1108,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     C_raw = 0.0
 
     for (group, idxs) in grouped
-        subbundle = subset_annotated_profile(bundle, idxs)
+        subbundle = Preferences.subset_annotated_profile(bundle, idxs)
         profile = Preferences.strict_profile(subbundle)
         tie_key = _merge_tie_break_context(
             tie_break_context,
@@ -2344,7 +2344,7 @@ function _load_linearized_artifact(path::AbstractString,
     artifact = load_stage_artifact(path)
     bundle = artifact isa AnnotatedProfile ?
              artifact :
-             dataframe_to_annotated_profile(artifact; ballot_kind = :strict)
+             Preferences.dataframe_to_annotated_profile(artifact; ballot_kind = :strict)
 
     return LinearizedProfile(
         b,
@@ -2494,7 +2494,7 @@ function ensure_linearizations!(pipeline::NestedStochasticPipeline,
                 _save_stage_artifact(
                     cache_dir,
                     :linearized,
-                    compact_profile_artifact_dataframe(linearized.bundle);
+                    Preferences.compact_profile_artifact_dataframe(linearized.bundle);
                     b = b,
                     r = r,
                     k = k,
@@ -2825,7 +2825,7 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
 
             for k in 1:spec.K
                 linearized = _linearize_imputed(imputed, spec, k)
-                linearized_artifact = compact_profile_artifact_dataframe(linearized.bundle)
+                linearized_artifact = Preferences.compact_profile_artifact_dataframe(linearized.bundle)
                 linearized_path, linearized_hash = _save_stage_artifact(
                     cache_dir,
                     :linearized,

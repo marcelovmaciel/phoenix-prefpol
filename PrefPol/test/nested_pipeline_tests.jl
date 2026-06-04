@@ -45,7 +45,7 @@ function _legacy_raw_group_coherence(bundle, demo::Symbol)
     c_raw = 0.0
 
     for (_, idxs) in grouped
-        subbundle = PrefPol.subset_annotated_profile(bundle, idxs)
+        subbundle = PrefPol.Preferences.subset_annotated_profile(bundle, idxs)
         profile = PrefPol.Preferences.strict_profile(subbundle)
         result = PrefPol.Preferences.consensus_kendall(
             profile;
@@ -442,7 +442,7 @@ end
     metadata!(df, "candidates", [:A, :B, :C])
     metadata!(df, "profile_kind", "linearized")
 
-    bundle = PrefPol.dataframe_to_annotated_profile(df)
+    bundle = PrefPol.Preferences.dataframe_to_annotated_profile(df)
     avg = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :average)
     hash = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :hash)
     interval = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :interval)
@@ -505,7 +505,7 @@ end
     metadata!(df, "candidates", [:A, :B, :C])
     metadata!(df, "profile_kind", "linearized")
 
-    bundle = PrefPol.dataframe_to_annotated_profile(df)
+    bundle = PrefPol.Preferences.dataframe_to_annotated_profile(df)
     avg = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :average)
     hash = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :hash)
     interval = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :interval)
@@ -560,7 +560,7 @@ end
     )
     metadata!(identical_df, "candidates", [:A, :B, :C])
     metadata!(identical_df, "profile_kind", "linearized")
-    identical_bundle = PrefPol.dataframe_to_annotated_profile(identical_df)
+    identical_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(identical_df)
     identical_details = PrefPol.compute_group_measure_details(identical_bundle, :grp; tie_policy = :average)
 
     @test isapprox(
@@ -593,7 +593,7 @@ end
     )
     metadata!(positive_df, "candidates", [:A, :B, :C])
     metadata!(positive_df, "profile_kind", "linearized")
-    positive_bundle = PrefPol.dataframe_to_annotated_profile(positive_df)
+    positive_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(positive_df)
 
     positive_avg = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :average)
     positive_hash = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :hash)
@@ -611,7 +611,7 @@ end
     )
     metadata!(identical_df, "candidates", [:A, :B, :C])
     metadata!(identical_df, "profile_kind", "linearized")
-    identical_bundle = PrefPol.dataframe_to_annotated_profile(identical_df)
+    identical_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(identical_df)
     identical_details = PrefPol.compute_group_measure_details(identical_bundle, :grp; tie_policy = :average)
 
     @test isapprox(identical_details.S_old, 0.0; atol = 0.01)
@@ -622,7 +622,7 @@ end
     )
     metadata!(negative_df, "candidates", [:A, :B, :C])
     metadata!(negative_df, "profile_kind", "linearized")
-    negative_bundle = PrefPol.dataframe_to_annotated_profile(negative_df)
+    negative_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(negative_df)
     negative_details = PrefPol.compute_group_measure_details(negative_bundle, :grp; tie_policy = :average)
 
     @test negative_details.S_old < 0.0
@@ -635,7 +635,7 @@ end
     )
     metadata!(relabeled_df, "candidates", [:A, :B, :C])
     metadata!(relabeled_df, "profile_kind", "linearized")
-    relabeled_bundle = PrefPol.dataframe_to_annotated_profile(relabeled_df)
+    relabeled_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(relabeled_df)
 
     original_df = vcat(
         DataFrame(grp = :A, profile = [abc, abc]),
@@ -644,7 +644,7 @@ end
     )
     metadata!(original_df, "candidates", [:A, :B, :C])
     metadata!(original_df, "profile_kind", "linearized")
-    original_bundle = PrefPol.dataframe_to_annotated_profile(original_df)
+    original_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(original_df)
 
     @test isapprox(
         PrefPol.compute_group_measure_details(original_bundle, :grp; tie_policy = :average).S_old,
@@ -664,7 +664,7 @@ end
     )
     metadata!(surviving_pair_df, "candidates", [:A, :B, :C])
     metadata!(surviving_pair_df, "profile_kind", "linearized")
-    surviving_pair_bundle = PrefPol.dataframe_to_annotated_profile(surviving_pair_df)
+    surviving_pair_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(surviving_pair_df)
 
     @test isapprox(
         PrefPol.compute_group_measure_details(surviving_pair_bundle, :grp; tie_policy = :average).S_old,
@@ -678,7 +678,7 @@ end
     )
     metadata!(no_valid_pair_df, "candidates", [:A, :B, :C])
     metadata!(no_valid_pair_df, "profile_kind", "linearized")
-    no_valid_pair_bundle = PrefPol.dataframe_to_annotated_profile(no_valid_pair_df)
+    no_valid_pair_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(no_valid_pair_df)
 
     @test isnan(PrefPol.compute_group_measure_details(no_valid_pair_bundle, :grp; tie_policy = :average).S_old)
 end
@@ -1040,9 +1040,9 @@ end
     weak_df = PrefPol.profile_dataframe(df; score_cols = [:A, :B, :C], demo_cols = [:grp], kind = :weak)
     metadata!(weak_df, "candidates", [:A, :B, :C])
     metadata!(weak_df, "profile_kind", "weak")
-    weak_bundle = PrefPol.dataframe_to_annotated_profile(weak_df; ballot_kind = :weak)
-    strict_bundle = PrefPol.linearize_annotated_profile(weak_bundle; rng = MersenneTwister(1))
-    artifact = PrefPol.compact_profile_artifact_dataframe(strict_bundle)
+    weak_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(weak_df; ballot_kind = :weak)
+    strict_bundle = PrefPol.Preferences.linearize_annotated_profile(weak_bundle; rng = MersenneTwister(1))
+    artifact = PrefPol.Preferences.compact_profile_artifact_dataframe(strict_bundle)
 
     mktempdir() do dir
         compact_path = joinpath(dir, "compact.jld2")
@@ -1105,8 +1105,8 @@ end
     )
     metadata!(weak_df, "candidates", [:A, :B, :C])
     metadata!(weak_df, "profile_kind", "weak")
-    weak_bundle = PrefPol.dataframe_to_annotated_profile(weak_df; ballot_kind = :weak)
-    artifact = PrefPol.compact_profile_artifact_dataframe(weak_bundle)
+    weak_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(weak_df; ballot_kind = :weak)
+    artifact = PrefPol.Preferences.compact_profile_artifact_dataframe(weak_bundle)
 
     mktempdir() do dir
         weak_path = joinpath(dir, "weak_profile.jld2")
@@ -1135,7 +1135,7 @@ end
     )
     metadata!(bad_df, "candidates", [:A, :B, :C])
     metadata!(bad_df, "profile_kind", "weak")
-    bad_bundle = PrefPol.dataframe_to_annotated_profile(bad_df)
+    bad_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(bad_df)
 
     @test_throws ArgumentError PrefPol._assert_complete_weak_orders(
         bad_bundle;

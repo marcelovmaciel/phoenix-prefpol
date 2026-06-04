@@ -978,7 +978,7 @@ function generate_profiles_for_year(year::Int,
                     metadata!(df, "candidates", Symbol.(trimmed))
                     metadata!(df, "profile_kind", "weak")
 
-                    profiles[i] = dataframe_to_annotated_profile(df; ballot_kind = :weak)
+                    profiles[i] = Preferences.dataframe_to_annotated_profile(df; ballot_kind = :weak)
                 end
                 var_map[variant] = profiles
             end
@@ -1054,7 +1054,7 @@ function _coerce_loaded_profile_artifact(artifact, kind::Symbol)
            !(eltype(artifact.profile) <: AbstractDict)
             decode_profile_column!(artifact)
         end
-        return dataframe_to_annotated_profile(artifact; ballot_kind = kind)
+        return Preferences.dataframe_to_annotated_profile(artifact; ballot_kind = kind)
     end
 
     throw(ArgumentError(
@@ -1159,8 +1159,8 @@ function generate_profiles_for_year_streamed_from_index(
                             kind       = :weak)
                     metadata!(df, "candidates", cand_syms)
                     metadata!(df, "profile_kind", "weak")
-                    bundle = dataframe_to_annotated_profile(df; ballot_kind = :weak)
-                    artifact = compact_profile_artifact_dataframe(bundle)
+                    bundle = Preferences.dataframe_to_annotated_profile(df; ballot_kind = :weak)
+                    artifact = Preferences.compact_profile_artifact_dataframe(bundle)
 
                     JLD2.@save fprof artifact
                     @info "writing $(basename(fprof))"
@@ -1264,8 +1264,8 @@ function linearize_profiles_for_year_streamed_from_index(
                         bundle;
                         context = "year=$year scenario=$scen m=$m variant=$(String(var)) replicate=$i",
                     )
-                    strict_bundle = linearize_annotated_profile(bundle; rng = rng)
-                    artifact = compact_profile_artifact_dataframe(strict_bundle)
+                    strict_bundle = Preferences.linearize_annotated_profile(bundle; rng = rng)
+                    artifact = Preferences.compact_profile_artifact_dataframe(strict_bundle)
 
                     JLD2.@save flin artifact
                     @info "writing $(basename(flin))"

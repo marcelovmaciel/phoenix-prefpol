@@ -103,7 +103,7 @@ function strict_profile_from_linearized(path::AbstractString)
     artifact isa AbstractDataFrame || error(
         "Expected cached linearized artifact $(artifact_path) to be a DataFrame; got $(typeof(artifact)).",
     )
-    return pp.dataframe_to_annotated_profile(artifact; ballot_kind = :strict).profile
+    return pp.Preferences.dataframe_to_annotated_profile(artifact; ballot_kind = :strict).profile
 end
 
 function ranking_masses(profile)
