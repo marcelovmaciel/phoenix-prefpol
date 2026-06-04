@@ -53,9 +53,9 @@ const EX_RHHI = sqrt(EX_R * EX_HHI)
 @testset "linear order catalog cache uses exact candidate tuples" begin
     cache = Dict{Tuple{Vararg{Symbol}},Any}()
 
-    cat_abc = PrefPol.get_linear_order_catalog((:a, :b, :c); cache = cache)
-    cat_abd = PrefPol.get_linear_order_catalog((:a, :b, :d); cache = cache)
-    cat_abc_again = PrefPol.get_linear_order_catalog((:a, :b, :c); cache = cache)
+    cat_abc = PrefPol.Preferences.get_linear_order_catalog((:a, :b, :c); cache = cache)
+    cat_abd = PrefPol.Preferences.get_linear_order_catalog((:a, :b, :d); cache = cache)
+    cat_abc_again = PrefPol.Preferences.get_linear_order_catalog((:a, :b, :c); cache = cache)
 
     @test length(cat_abc.orders) == factorial(3)
     @test length(cat_abd.orders) == factorial(3)
@@ -64,7 +64,7 @@ const EX_RHHI = sqrt(EX_R * EX_HHI)
 
     for k in 2:7
         tup = Tuple(Symbol("c$i") for i in 1:k)
-        cat = PrefPol.get_linear_order_catalog(tup; cache = cache)
+        cat = PrefPol.Preferences.get_linear_order_catalog(tup; cache = cache)
         @test length(cat.orders) == factorial(k)
         @test cat.max_kendall == binomial(k, 2)
     end
@@ -220,8 +220,8 @@ end
         ([:a, :c, :b], 1),
         ([:b, :a, :c], 1),
     ])
-    strict_unique = PrefPol.strict_profile(prof_unique)
-    res_unique = PrefPol.consensus_kendall(strict_unique, (:a, :b, :c))
+    strict_unique = PrefPol.Preferences.strict_profile(prof_unique)
+    res_unique = PrefPol.Preferences.consensus_kendall(strict_unique, (:a, :b, :c))
 
     @test res_unique.consensus_ranking == ranking_dict([:a, :b, :c])
     @test res_unique.consensus_perm == SA[0x01, 0x02, 0x03]
@@ -239,16 +239,16 @@ end
 
     # Tied minimizers for two opposite 2-candidate ballots
     prof_tie = [ranking_dict([:a, :b]), ranking_dict([:b, :a])]
-    strict_tie = PrefPol.strict_profile(prof_tie)
-    res_tie = PrefPol.consensus_kendall(strict_tie, (:a, :b))
-    res_tie_repeat = PrefPol.consensus_kendall(strict_tie, (:a, :b))
-    res_tie_key_alt = PrefPol.consensus_kendall(
+    strict_tie = PrefPol.Preferences.strict_profile(prof_tie)
+    res_tie = PrefPol.Preferences.consensus_kendall(strict_tie, (:a, :b))
+    res_tie_repeat = PrefPol.Preferences.consensus_kendall(strict_tie, (:a, :b))
+    res_tie_key_alt = PrefPol.Preferences.consensus_kendall(
         strict_tie,
         (:a, :b);
         tie_break_key = (case = :alt, replicate = 2),
     )
-    res_tie_rng_1 = PrefPol.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(1))
-    res_tie_rng_2 = PrefPol.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(2))
+    res_tie_rng_1 = PrefPol.Preferences.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(1))
+    res_tie_rng_2 = PrefPol.Preferences.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(2))
 
     @test res_tie.consensus_perm in (SA[0x01, 0x02], SA[0x02, 0x01])
     @test res_tie.min_total_distance == 1.0
@@ -285,8 +285,8 @@ end
     )
     expanded = PrefPol.Preferences.Profile(pool, [abc, abc, cba])
 
-    res_weighted = PrefPol.consensus_kendall(weighted, (:a, :b, :c))
-    res_expanded = PrefPol.consensus_kendall(expanded, (:a, :b, :c))
+    res_weighted = PrefPol.Preferences.consensus_kendall(weighted, (:a, :b, :c))
+    res_expanded = PrefPol.Preferences.consensus_kendall(expanded, (:a, :b, :c))
 
     @test res_weighted.consensus_perm == res_expanded.consensus_perm
     @test res_weighted.min_total_distance == res_expanded.min_total_distance

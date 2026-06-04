@@ -28,7 +28,7 @@ function fast_reversal_geometric(paired_accum, proportion_rankings::Dict)
 end
 
 function _strict_profile_tuple_strings(profile)
-    strict = strict_profile(profile)
+    strict = Preferences.strict_profile(profile)
     tuples = Tuple[]
     sizehint!(tuples, Preferences.nballots(strict))
 
@@ -55,7 +55,7 @@ profile artifacts or annotated profiles, extracts the formal strict profile, and
 delegates the polarization statistic to `Preferences`.
 """
 function Ψ(profile)
-    return Preferences.can_polarization(strict_profile(profile))
+    return Preferences.can_polarization(Preferences.strict_profile(profile))
 end
 
 function get_paired_rankings_and_proportions(profile)
@@ -72,7 +72,7 @@ end
 Applied wrapper for the total reversal component defined in `Preferences`.
 """
 function calc_total_reversal_component(profile)
-    return Preferences.total_reversal_component(strict_profile(profile))
+    return Preferences.total_reversal_component(Preferences.strict_profile(profile))
 end
 
 """
@@ -81,7 +81,7 @@ end
 Applied wrapper for reversal concentration (`Preferences.reversal_hhi`).
 """
 function calc_reversal_HHI(profile)
-    return Preferences.reversal_hhi(strict_profile(profile))
+    return Preferences.reversal_hhi(Preferences.strict_profile(profile))
 end
 
 """
@@ -90,7 +90,7 @@ end
 Applied wrapper for the reversal geometric measure defined in `Preferences`.
 """
 function fast_reversal_geometric(profile)
-    return Preferences.reversal_geometric(strict_profile(profile))
+    return Preferences.reversal_geometric(Preferences.strict_profile(profile))
 end
 
 kendall_tau_dict(args...; kwargs...) = Preferences.kendall_tau_dict(args...; kwargs...)

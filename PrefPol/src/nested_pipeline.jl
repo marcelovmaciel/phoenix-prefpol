@@ -1109,7 +1109,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
 
     for (group, idxs) in grouped
         subbundle = subset_annotated_profile(bundle, idxs)
-        profile = strict_profile(subbundle)
+        profile = Preferences.strict_profile(subbundle)
         tie_key = _merge_tie_break_context(
             tie_break_context,
             (demographic = String(demo), group = string(group)),

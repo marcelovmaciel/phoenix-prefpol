@@ -46,7 +46,7 @@ function _legacy_raw_group_coherence(bundle, demo::Symbol)
 
     for (_, idxs) in grouped
         subbundle = PrefPol.subset_annotated_profile(bundle, idxs)
-        profile = PrefPol.strict_profile(subbundle)
+        profile = PrefPol.Preferences.strict_profile(subbundle)
         result = PrefPol.Preferences.consensus_kendall(
             profile;
             cache = PrefPol.Preferences.GLOBAL_LINEAR_ORDER_CACHE,
