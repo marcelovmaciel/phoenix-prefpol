@@ -26,12 +26,25 @@ intermediate_data/
 PrefPol/intermediate_data/
 PrefPol/old_+group/
 
+# Publication pipeline outputs: keep only directory scaffolding
+PrefPol/composable_running/output/**
+!PrefPol/composable_running/output/
+!PrefPol/composable_running/output/.gitignore
+!PrefPol/composable_running/output/**/
+!PrefPol/composable_running/output/**/.gitkeep
+!PrefPol/composable_running/output/paper_artifacts/.gitkeep
+
+# Generated binary/cache artifacts
+*.jld2
+*.csv~
+*.log
+*.tmp
+
 # LaTeX/Org export artifacts
 **/.auctex-auto/
 *.aux
 *.fdb_latexmk
 *.fls
-*.log
 *.out
 *.synctex.gz
 *.toc
