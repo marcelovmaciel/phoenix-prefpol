@@ -45,12 +45,22 @@ non-legacy path such as `PrefPol/plotting_env/` and then update these commands.
 `PrefPol/config/2022.toml` define the survey waves: data sources, candidate
 sets, scenarios, demographic groupings, and year-specific metadata.
 
-`PrefPol/config/orchestration.toml` is the default paper orchestration config.
-It controls the configured paper target years/scenarios, m ranges, B/R/K,
-cache/output roots, imputer backends, linearizer policies, and measures.
+`PrefPol/config/publication.toml` is the clean manuscript-facing orchestration
+config. It controls the submitted article target years/scenarios, m ranges,
+B/R/K, cache/output roots, imputer backends, linearizer policies, and the
+publication measure set.
+
+`PrefPol/config/orchestration_b30_r10_k10.toml` is retained for the author's
+full working pipeline. It may include measures or artifacts not used in the
+publication and is not the primary reproduction path for the submitted article.
+
+`PrefPol/config/orchestration.toml` is the older orchestration config for the
+working pipeline. Use an explicit `--config` path for publication, smoke, and
+extended runs.
 
 `PrefPol/config/smoke_test.toml` is the mechanical smoke-test config. It uses
-small replication counts and smoke-sized target selections.
+small replication counts and smoke-sized target selections to validate the
+orchestration machinery; it is not the article reproduction run.
 
 `PrefPol/config/paper_b2.toml` is the paper-scope low-replication config. It
 uses the paper main targets and paper-facing outputs, but sets `B = 2`,
@@ -75,7 +85,8 @@ artifact filenames and controls copy behavior, destination roots, and whether
 In short:
 
 - Wave/data definitions: `2006.toml`, `2018.toml`, `2022.toml`
-- Target years/scenarios: `orchestration.toml`, `smoke_test.toml`, `paper_b2.toml`
+- Publication target years/scenarios: `publication.toml`
+- Extended and mechanical target sets: `orchestration_b30_r10_k10.toml`, `orchestration.toml`, `smoke_test.toml`, `paper_b2.toml`
 - B/R/K: the selected orchestration config
 - Imputer backends: `[run].imputer_backends`
 - Linearizer policies: `[run].linearizer_policies`
@@ -87,6 +98,22 @@ In short:
 - Artifact collection: `paper_artifacts.toml` plus `[paper_artifacts.collection]` overrides
 
 ## Standard Workflows
+
+Publication-facing replication:
+
+```bash
+julia +1.11.9 --project=PrefPol \
+  PrefPol/composable_running/run_all_paper.jl \
+  --config PrefPol/config/publication.toml
+```
+
+`publication.toml` is the clean manuscript-facing entry point. It runs only the
+measures used in the article: `Psi`, `R`, `HHI`, `RHHI`, `C`, and `D`. It
+isolates outputs, cache, manifests, and collected paper artifacts under:
+
+```text
+PrefPol/composable_running/output/publication/
+```
 
 Config validation:
 
@@ -104,6 +131,10 @@ julia +1.11.9 --project=PrefPol \
   --config PrefPol/config/smoke_test.toml
 ```
 
+The smoke run is for mechanical validation of wrappers, stage wiring, and
+configuration parsing with small counts. It is not the article reproduction
+run.
+
 Paper-scope B=R=K=2 run:
 
 ```bash
@@ -112,15 +143,18 @@ julia +1.11.9 --project=PrefPol \
   --config PrefPol/config/paper_b2.toml
 ```
 
-True paper-scale run:
+Extended and diagnostic runs:
 
-Only run this after final B/R/K values are confirmed and approved. Command
-template:
+`PrefPol/config/orchestration_b30_r10_k10.toml` is retained for the author's
+full working pipeline. Extended configs may include measures or artifacts not
+used in the publication, and they are not the primary reproduction path for the
+article. Command template:
 
 ```bash
 julia +1.11.9 --project=PrefPol \
   PrefPol/composable_running/run_all_paper.jl \
-  --config PrefPol/config/orchestration.toml
+  --config PrefPol/config/orchestration_b30_r10_k10.toml \
+  --artifact-config PrefPol/config/paper_artifacts_b30_r10_k10.toml
 ```
 
 Do not use true paper-scale settings for smoke checks or low-replication
@@ -364,14 +398,17 @@ Latest known status:
 - Paper-scope B=R=K=2 workflow: `run_all_paper.jl --config
   PrefPol/config/paper_b2.toml` completed without skip flags on 2026-04-29.
   Outputs were written under `PrefPol/composable_running/output/paper_b2/`.
-- True high-replication paper-scale workflow: not run.
+- Publication-facing config validation: `00_validate_configs.jl --config
+  PrefPol/config/publication.toml` passed on 2026-06-04.
+- Full publication-facing workflow: not recorded here.
+- Extended B=30, R=10, K=10 working workflow: not run.
 
-The paper-scope B=R=K=2 run used the three main paper targets:
+The publication-facing config and the paper-scope B=R=K=2 run use the three main article targets:
 
 - `2006 / main_2006`
 - `2018 / main_2018`
 - `2022 / main_2022`
 
-The config also records `2022 / no_forcing` as a diagnostic target, matching
-the current orchestration shape, but the current executable stage target
-selection runs the main `[[targets]]` set.
+The B=R=K=2 and extended working configs also record `2022 / no_forcing` as
+a diagnostic target, matching the current orchestration shape, but the current
+executable stage target selection runs the main `[[targets]]` set.

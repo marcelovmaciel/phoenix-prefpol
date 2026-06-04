@@ -1,4 +1,9 @@
-# B30 R10 K10 Paper Run
+# B30 R10 K10 Extended Working Run
+
+This is the author's full working-pipeline configuration, not the primary
+publication-facing reproduction entry point. To reproduce the submitted article
+outputs, use `PrefPol/config/publication.toml` through
+`PrefPol/composable_running/run_all_paper.jl`.
 
 This run uses the composable paper pipeline with:
 
@@ -48,9 +53,9 @@ The variance decomposition plot is configured as absolute variance:
 value_kind = "variance"
 ```
 
-## Full Pipeline Command
+## Full Working-Pipeline Command
 
-Run the whole paper pipeline from the repository root:
+Run the whole extended working pipeline from the repository root:
 
 ```bash
 julia +1.11.9 --project=PrefPol \

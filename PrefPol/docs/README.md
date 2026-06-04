@@ -3,6 +3,17 @@
 This directory contains local HTML documentation for the applied `PrefPol` Julia
 package in this monorepo.
 
+The publication-facing replication command is:
+
+```bash
+julia +1.11.9 --project=PrefPol \
+  PrefPol/composable_running/run_all_paper.jl \
+  --config PrefPol/config/publication.toml
+```
+
+`PrefPol/config/publication.toml` is the clean manuscript-facing entry point;
+extended and diagnostic configs are secondary to article reproduction.
+
 From the repository root, instantiate and build the docs with a Julia 1.11.9
 executable:
 

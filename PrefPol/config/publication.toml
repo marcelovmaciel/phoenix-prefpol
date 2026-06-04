@@ -22,6 +22,18 @@ main = ["Psi", "R", "HHI", "RHHI", "C", "D"]
 global = ["Psi", "R", "HHI", "RHHI"]
 group = ["C", "D"]
 
+[paper_artifacts.collection]
+output_root = "PrefPol/composable_running/output/publication"
+destination_root = "PrefPol/composable_running/output/publication/paper_artifacts"
+manifests_root = "PrefPol/composable_running/output/publication/manifests"
+paper_artifact_manifest = "PrefPol/composable_running/output/publication/manifests/paper_artifact_manifest.csv"
+copy_mode = "copy"
+update_writing_imgs = false
+writing_imgs_root = "writing/imgs"
+default_backend = "mice"
+default_linearizer = "pattern_conditional"
+require_all = true
+
 [[targets]]
 wave_id = "2006"
 scenario_name = "main_2006"
