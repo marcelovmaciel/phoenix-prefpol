@@ -1,5 +1,9 @@
 # Weak Orders and Linearization
 
+```@meta
+CurrentModule = Preferences
+```
+
 `WeakRank` represents weak or incomplete rankings over a candidate pool. Equal
 present ranks are ties. `missing` means unranked, not tied. This distinction
 matters because pairwise conversion of incomplete weak orders requires an
@@ -40,15 +44,17 @@ linearize(
 
 ## API
 
-- `WeakRank`
-- `to_weakorder`
-- `weakorder_symbol_groups`
-- `to_pairwise`
-- `ExtensionPolicy`
-- `NonePolicyMissing`
-- `BottomPolicyMissing`
-- `to_strict`
-- `linearize`
-- `make_rank_bucket_linearizer`
-- `PatternConditionalLinearizer`
+```@docs
+WeakRank
+to_weakorder
+weakorder_symbol_groups
+ExtensionPolicy
+NonePolicyMissing
+BottomPolicyMissing
+to_pairwise
+to_strict
+linearize
+make_rank_bucket_linearizer
+PatternConditionalLinearizer
+```
 

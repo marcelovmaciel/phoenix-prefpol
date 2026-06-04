@@ -1,5 +1,9 @@
 # Global Profile Diagnostics
 
+```@meta
+CurrentModule = Preferences
+```
+
 Global diagnostics summarize the structure of one strict profile. The main
 objects are pairwise balance, exact reversal mass, concentration of exact
 reversal mass, and effective support of observed rankings or reversal pairs.
@@ -79,14 +83,16 @@ near_uniform = Profile(pool, [
 
 ## API
 
-- `ranking_proportions`
-- `reversal_pairs`
-- `can_polarization`
-- `total_reversal_component`
-- `reversal_hhi`
-- `reversal_geometric`
-- `effective_observed_rankings`
-- `effective_reversal_rankings`
-- `effective_reversal_ranking_diagnostics`
-- `ranking_support_diagnostics`
+```@docs
+ranking_proportions
+reversal_pairs
+can_polarization
+total_reversal_component
+reversal_hhi
+reversal_geometric
+effective_observed_rankings
+effective_reversal_rankings
+effective_reversal_ranking_diagnostics
+ranking_support_diagnostics
+```
 

@@ -1,6 +1,6 @@
 # PreferenceMeasures.jl
 
-raw"""
+@doc raw"""
     ranking_signature(x::StrictRank, pool::CandidatePool)
 
 Return the canonical strict-ranking representation used by the ranking-type
@@ -26,7 +26,7 @@ statistics are computed.
     return Tuple(ordered_candidates(x, pool))
 end
 
-raw"""
+@doc raw"""
     reversal_pairs(unique_rankings)
 
 Pair observed ranking types with their exact reversals. Given a vector of
@@ -107,7 +107,7 @@ function _ranking_masses(p::WeightedProfile{<:StrictRank})
     return masses, order, Float64(total_weight(p))
 end
 
-raw"""
+@doc raw"""
     ranking_proportions(p)
 
 Return the empirical distribution over observed strict ranking types:
@@ -204,7 +204,7 @@ function _effective_observed_rankings(masses::Dict{Tuple,Float64}, total::Real)
     return 1.0 / hhi
 end
 
-raw"""
+@doc raw"""
     effective_observed_rankings(p)
     effective_observed_rankings(rankings)
 
@@ -241,7 +241,7 @@ function _effective_reversal_rankings(values::AbstractVector{<:Real})
     return 1.0 / hhi
 end
 
-raw"""
+@doc raw"""
     effective_reversal_rankings(p)
     effective_reversal_rankings(rankings)
 
@@ -275,7 +275,7 @@ function effective_reversal_rankings(rankings::AbstractVector)
     return _effective_reversal_rankings(_local_reversal_values(rankings))
 end
 
-raw"""
+@doc raw"""
     effective_reversal_ranking_diagnostics(p)
     effective_reversal_ranking_diagnostics(rankings)
 
@@ -346,7 +346,7 @@ function _ranking_support_diagnostics(masses::Dict{Tuple,Float64},
     )
 end
 
-raw"""
+@doc raw"""
     ranking_support_diagnostics(p; m=length(p.pool))
     ranking_support_diagnostics(rankings; m=nothing)
 
@@ -380,7 +380,7 @@ function ranking_support_diagnostics(rankings::AbstractVector; m::Union{Integer,
     return _ranking_support_diagnostics(masses, total, inferred_m)
 end
 
-raw"""
+@doc raw"""
     kendall_tau_distance(x::StrictRank, y::StrictRank)
 
 Return the Kendall tau distance between two strict rankings:
@@ -422,7 +422,7 @@ function kendall_tau_distance(x::StrictRank, y::StrictRank)
     return d
 end
 
-raw"""
+@doc raw"""
     average_normalized_distance(p, consensus::StrictRank)
 
 Return the mean normalized Kendall distance from profile ballots to a consensus
@@ -513,7 +513,7 @@ function _pairwise_preference_counts(p::WeightedProfile{<:StrictRank})
     return counts
 end
 
-raw"""
+@doc raw"""
     can_polarization(p)
 
 Return the pairwise candidate-balance polarization index `Ψ`. For each
@@ -555,7 +555,7 @@ function can_polarization(p::Union{Profile{<:StrictRank},WeightedProfile{<:Stric
     return score / (total * pair_count)
 end
 
-raw"""
+@doc raw"""
     total_reversal_component(p)
 
 Return the total exact-reversal component `R`. For each exact reversal pair
@@ -583,7 +583,7 @@ function total_reversal_component(p::Union{Profile{<:StrictRank},WeightedProfile
     return sum(_local_reversal_values(p))
 end
 
-raw"""
+@doc raw"""
     reversal_hhi(p)
 
 Return the HHI concentration of local exact-reversal masses, commonly
@@ -609,7 +609,7 @@ function reversal_hhi(p::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRan
     return sum((value / total)^2 for value in values)
 end
 
-raw"""
+@doc raw"""
     reversal_geometric(p)
 
 Return the geometric exact-reversal index

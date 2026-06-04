@@ -4,7 +4,7 @@
 # Pairwise majority aggregation
 ##############################
 
-raw"""
+@doc raw"""
     PairwiseMajority(counts)
 
 Pairwise majority-count aggregate for a profile.

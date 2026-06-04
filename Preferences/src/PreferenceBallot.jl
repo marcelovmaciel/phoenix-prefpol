@@ -238,7 +238,7 @@ end
 # WeakRank perm mirrors to_perm semantics (unranked appended at the end).
 @inline perm(x::WeakRank) = to_perm(x)
 
-"""
+@doc """
     rank(x, pool::CandidatePool, nm::Symbol) -> Union{Int,Missing}
 
 Return the rank of candidate `nm` in ballot `x`. The domain is a `StrictRank` or
@@ -275,7 +275,7 @@ end
 # rank(::WeakRank, pool, :name) -> Int | missing
 @inline rank(x::WeakRank, pool::CandidatePool, nm::Symbol) = ranks(x)[pool[nm]]
 
-"""
+@doc """
     prefers(x, pool::CandidatePool, a::Symbol, b::Symbol) -> Bool
 
 Return whether ballot `x` ranks `a` strictly above `b`. The domain is a
@@ -308,7 +308,7 @@ function prefers(x::WeakRank, pool::CandidatePool, a::Symbol, b::Symbol)::Bool
     return ra < rb
 end
 
-"""
+@doc """
     indifferent(x, pool::CandidatePool, a::Symbol, b::Symbol) -> Bool
 
 Return whether candidates `a` and `b` have the same rank in ballot `x`. The
@@ -340,7 +340,7 @@ function indifferent(x::WeakRank, pool::CandidatePool, a::Symbol, b::Symbol)::Bo
     return (!ismissing(ra) && !ismissing(rb) && ra == rb)
 end
 
-"""
+@doc """
     asdict(x, pool::CandidatePool) -> Dict{Symbol,Int}
 
 Return a symbol-to-rank dictionary for ballot `x`. The domain is a `StrictRank`
@@ -416,7 +416,7 @@ function to_perm(x::WeakRank)
     return vcat(ids_ranked, ids_unranked)
 end
 
-"""
+@doc """
     ordered_candidates(x::StrictRank, pool::CandidatePool) -> Vector{Symbol}
 
 Return candidate symbols in the order encoded by a strict rank. The domain is a
@@ -483,7 +483,7 @@ function to_weakorder(x::WeakRank)::Vector{Vector{Int}}
 end
 
 
-"""
+@doc """
     weakorder_symbol_groups(levels::Vector{Vector{Int}}, pool::CandidatePool) -> Vector{Vector{Symbol}}
 
 Map weak-order candidate-ID groups to symbol groups. The domain is the output of
@@ -580,7 +580,7 @@ function to_strict(x::WeakRank;
     return StrictRank(perm)
 end
 
-"""
+@doc """
     make_rank_bucket_linearizer(strategy::Symbol; rng=Random.GLOBAL_RNG,
                                 pool=nothing, jitter=0.5) -> Function
 
@@ -707,7 +707,7 @@ end
     r
 end
 
-"""
+@doc """
     to_pairwise(x, pool::CandidatePool; policy::ExtensionPolicy) -> PairwiseDense
 
 Convert a `StrictRank` or `WeakRank` into a dense pairwise ballot over `pool`.
@@ -746,6 +746,72 @@ function to_pairwise(x::StrictRank, pool::CandidatePool; policy::ExtensionPolicy
     _pairwise_from_ranks!(M, r, pool, policy)
     return PairwiseDense{Union{Missing,Int8}}(M)
 end
+
+
+# Generic binding docs for accessors and weak-order helpers. These attach the
+# public bindings in this implementation file so Documenter source links do not
+# point to Preferences.jl.
+
+@doc """
+    rank(x, pool::CandidatePool, nm::Symbol) -> Union{Int,Missing}
+
+Return the rank of candidate `nm` in a strict or weak ballot using candidate IDs
+from `pool`. Lower ranks are better. Strict rankings return `Int`; weak rankings
+may return `missing` for unranked candidates and equal ranks for tied candidates.
+""" rank
+
+@doc """
+    prefers(x, pool::CandidatePool, a::Symbol, b::Symbol) -> Bool
+
+Return whether ballot `x` ranks candidate `a` strictly above candidate `b`.
+For `WeakRank`, ties and pairs involving unranked candidates return `false`.
+""" prefers
+
+@doc """
+    indifferent(x, pool::CandidatePool, a::Symbol, b::Symbol) -> Bool
+
+Return whether candidates `a` and `b` are tied in ballot `x`. In a valid
+`StrictRank`, distinct candidates are never indifferent. In a `WeakRank`, both
+candidates must be present and have the same rank.
+""" indifferent
+
+@doc """
+    asdict(x, pool::CandidatePool) -> Dict{Symbol,Int}
+
+Convert a strict or weak ballot to a candidate-symbol dictionary. Strict ranks
+include every candidate; weak ranks omit unranked candidates and preserve ties.
+""" asdict
+
+@doc """
+    ordered_candidates(x::StrictRank, pool::CandidatePool) -> Vector{Symbol}
+
+Return candidate symbols in the best-to-worst order encoded by strict ballot
+`x` and candidate pool `pool`.
+""" ordered_candidates
+
+@doc """
+    weakorder_symbol_groups(levels::Vector{Vector{Int}}, pool::CandidatePool)
+
+Map weak-order candidate-ID groups to candidate symbols. Pass the levels
+returned by `to_weakorder(w)`. Groups are ordered best to worst, tied candidates
+stay grouped, and the final group may contain unranked candidates.
+""" weakorder_symbol_groups
+
+@doc """
+    to_pairwise(x, pool::CandidatePool; policy::ExtensionPolicy) -> PairwiseDense
+
+Convert a strict or weak rank ballot to dense pairwise-comparison form. The
+returned `PairwiseDense` has `score(pw, i, j) == 1` when candidate ID `i` is
+above `j`, `-1` for the reverse, `0` for ties or the diagonal, and `missing`
+for undefined comparisons. Weak rankings use the supplied missingness policy.
+""" to_pairwise
+
+@doc """
+    make_rank_bucket_linearizer(strategy::Symbol; kwargs...) -> Function
+
+Construct a weak-rank bucket linearizer used by `to_strict` and `linearize` to
+break ties or order rank buckets without changing the weak-rank representation.
+""" make_rank_bucket_linearizer
 
 ##################################
 # Restriction (return backmap)

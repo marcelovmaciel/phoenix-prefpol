@@ -1,6 +1,9 @@
 cd(@__DIR__)
 
 using Documenter
+using Documenter.Remotes
+
+const REPO_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 
 push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 using Preferences
@@ -8,13 +11,15 @@ using Preferences
 
 makedocs(;
     sitename = "Preferences.jl",
+    modules = [Preferences],
     checkdocs = :none,
     format = Documenter.HTML(
-        repolink = "https://github.com/marcelovmaciel/phoenix-prefpol",
         size_threshold_warn = 400 * 1024,
         size_threshold = 400 * 1024,
     ),
-    remotes = nothing,
+    remotes = Dict(
+        REPO_ROOT => Remotes.GitHub("marcelovmaciel", "phoenix-prefpol"),
+    ),
     pages = [
         "Home" => "index.md",
         "Workflow" => "workflow.md",

@@ -1,5 +1,9 @@
 # Workflow
 
+```@meta
+CurrentModule = Preferences
+```
+
 The empirical workflow is:
 
 1. Survey ratings or score columns.
@@ -41,9 +45,15 @@ needed before strict-profile diagnostics.
 
 ## Core Objects
 
-- `CandidatePool`
-- `StrictRank`
-- `WeakRank`
-- `Profile`
-- `WeightedProfile`
+```@docs
+CandidatePool
+StrictRank
+Profile
+WeightedProfile
+rank
+prefers
+indifferent
+asdict
+ordered_candidates
+```
 

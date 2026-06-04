@@ -1,5 +1,9 @@
 # Advanced Representations
 
+```@meta
+CurrentModule = Preferences
+```
+
 These APIs are for advanced use: performance-sensitive code, dynamics, agent
 based models, custom pairwise storage, or low-level representation work. Most
 empirical workflows should start with `CandidatePool`, `StrictRank`,
@@ -19,23 +23,27 @@ swap_positions!(x, 1, 2)
 
 ## API
 
-- `labels`
-- `getlabel`
-- `candid`
-- `candidates`
-- `to_cmap`
-- `perm`
-- `ranks`
-- `PairwiseTriangularStatic`
-- `PairwiseTriangularMutable`
-- `PairwiseTriangularView`
-- `pairwise_view`
-- `score`
-- `isdefined`
-- `pairwise_dense`
-- `dense`
-- `StrictRankMutable`
-- `swap_positions!`
-- `swap_ids!`
-- `swap_and_update_pairwise!`
+```@docs
+labels
+getlabel
+candid
+candidates
+to_cmap
+perm
+ranks
+AbstractPairwise
+PairwiseDense
+PairwiseTriangularStatic
+PairwiseTriangularMutable
+PairwiseTriangularView
+pairwise_view
+score
+isdefined
+pairwise_dense
+dense
+StrictRankMutable
+swap_positions!
+swap_ids!
+swap_and_update_pairwise!
+```
 

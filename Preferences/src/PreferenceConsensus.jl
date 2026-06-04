@@ -6,7 +6,7 @@ struct LinearOrderCatalog{K}
     max_kendall::Int
 end
 
-raw"""
+@doc raw"""
     ConsensusResult
 
 Result of an exhaustive Kendall/Kemeny consensus search. For profile rankings
@@ -87,7 +87,7 @@ function _empty_strict_profile(candidate_syms)
     return Profile(pool, Vector{typeof(exemplar)}(undef, 0))
 end
 
-raw"""
+@doc raw"""
     strict_profile(x; candidate_syms=nothing, col=:profile)
 
 Coerce supported profile-like inputs to a strict `Profile` or `WeightedProfile`
@@ -396,7 +396,7 @@ function _find_consensus_impl(profile, active_candidates::NTuple{K,Symbol};
     )
 end
 
-raw"""
+@doc raw"""
     consensus_kendall(profile[, active_candidates]; cache=GLOBAL_LINEAR_ORDER_CACHE, rng=nothing, tie_break_key=nothing)
 
 Compute the Kendall/Kemeny consensus ranking. For strict rankings `r_i` and
@@ -459,7 +459,7 @@ function consensus_kendall(profile::Union{Profile{<:StrictRank},WeightedProfile{
                              debug_all_minimizers = debug_all_minimizers)
 end
 
-raw"""
+@doc raw"""
     get_consensus_ranking(profile; cache=GLOBAL_LINEAR_ORDER_CACHE, rng=nothing, tie_break_key=nothing)
     get_consensus_ranking(rankings; kwargs...)
 
@@ -508,7 +508,7 @@ function _strict_consensus_ballot(consensus::AbstractDict, pool::CandidatePool)
     return _strict_ballot_from_dict(consensus; candidate_syms = candidates(pool))[2]
 end
 
-raw"""
+@doc raw"""
     kendall_tau_dict(r1, r2)
 
 Return the Kendall tau distance between two ranking dictionaries. Each
@@ -552,7 +552,7 @@ function _group_consensus_result(subdf;
                              debug_all_minimizers = debug_all_minimizers)
 end
 
-raw"""
+@doc raw"""
     consensus_for_group(subdf; kwargs...)
 
 Compute the Kendall/Kemeny consensus for one grouped subset and return a named
@@ -586,7 +586,7 @@ function consensus_for_group(subdf;
     )
 end
 
-raw"""
+@doc raw"""
     group_avg_distance(subdf; kwargs...)
 
 Compute a group's Kendall consensus and return its average normalized distance
@@ -625,7 +625,7 @@ function group_avg_distance(subdf;
     )
 end
 
-raw"""
+@doc raw"""
     weighted_coherence(results_distance, proportion_map, key)
 
 Aggregate group coherences into aggregate quantity `C`:
@@ -660,7 +660,7 @@ end
 @inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
     kendall_tau_distance(ballot_i, ballot_j) / norm_factor
 
-raw"""
+@doc raw"""
     pairwise_group_divergence(profile_i, consensus_j, m)
 
 Return the directed normalized Kendall distance from group `i`'s profile to
@@ -804,7 +804,7 @@ function _aggregate_group_pairs(group_profiles, pairwise_value)
     return _unit_interval(total, "Grouped aggregate")
 end
 
-raw"""
+@doc raw"""
     pairwise_group_overlap(profile_g, profile_h)
 
 Return the exact ranking-distribution overlap between two groups:
@@ -851,7 +851,7 @@ end
     return ntuple(j -> j == i ? ranking[i + 1] : j == i + 1 ? ranking[i] : ranking[j], N)
 end
 
-raw"""
+@doc raw"""
     _radius1_smoothed_ranking_proportions(profile)
 
 Return the empirical ranking distribution after radius-1 Kendall smoothing.
@@ -888,7 +888,7 @@ function _radius1_smoothed_ranking_proportions(profile)
     return smoothed
 end
 
-raw"""
+@doc raw"""
     smoothed_overlap(profile_g, profile_h)
 
 Return the radius-1 Kendall-smoothed overlap between two empirical ranking
@@ -923,7 +923,7 @@ function smoothed_overlap(profile_g, profile_h)
     return _unit_interval(overlap, "Smoothed pairwise group overlap")
 end
 
-raw"""
+@doc raw"""
     pairwise_group_median_distance(consensus_g, consensus_h, pool)
     pairwise_group_median_distance(consensus_g::ConsensusResult, consensus_h::ConsensusResult)
     pairwise_group_median_distance(profile_g, profile_h; kwargs...)
@@ -1000,7 +1000,7 @@ function pairwise_group_median_distance(profile_g, profile_h;
     return pairwise_group_median_distance(result_g, result_h, strict_g.pool)
 end
 
-raw"""
+@doc raw"""
     pairwise_group_separation(profile_g, consensus_g, profile_h, consensus_h)
     pairwise_group_separation(profile_g, profile_h; kwargs...)
 
@@ -1050,7 +1050,7 @@ function pairwise_group_separation(profile_g, profile_h;
     return _unit_interval(distance * (1.0 - overlap), "Pairwise group separation")
 end
 
-raw"""
+@doc raw"""
     overall_divergence(group_profiles, consensus_map)
 
 Aggregate directed cross-group divergence as quantity `D`. With group
@@ -1091,7 +1091,7 @@ function overall_divergence(group_profiles, consensus_map)
     return total / (k - 1)
 end
 
-raw"""
+@doc raw"""
     overall_overlap(group_profiles)
 
 Aggregate exact pairwise overlaps over unordered group pairs. Pair weights are
@@ -1117,7 +1117,7 @@ function overall_overlap(group_profiles)
     )
 end
 
-raw"""
+@doc raw"""
     overall_overlap_smoothed(group_profiles)
 
 Aggregate radius-1 Kendall-smoothed pairwise overlaps over unordered group pairs
@@ -1135,7 +1135,7 @@ function overall_overlap_smoothed(group_profiles)
     )
 end
 
-raw"""
+@doc raw"""
     overall_divergence_median(group_profiles, consensus_map)
 
 Aggregate exact pairwise median distances over unordered group pairs:
@@ -1164,7 +1164,7 @@ function overall_divergence_median(group_profiles, consensus_map)
     )
 end
 
-raw"""
+@doc raw"""
     overall_separation(group_profiles, consensus_map)
 
 Aggregate overlap-adjusted pairwise separations over unordered group pairs:
@@ -1193,7 +1193,7 @@ function overall_separation(group_profiles, consensus_map)
     )
 end
 
-raw"""
+@doc raw"""
     grouped_gsep(C, Sep)
 
 Return `sqrt(C * Sep)` after validating that both arguments lie in `[0, 1]`.
@@ -1202,7 +1202,7 @@ function grouped_gsep(C::Real, Sep::Real)
     return sqrt(_unit_interval(C, "C") * _unit_interval(Sep, "Sep"))
 end
 
-raw"""
+@doc raw"""
     overall_sstar_from_CD(C, D)
 
 Return the excess-divergence component `D - (1 - C) / 2` from the
@@ -1220,7 +1220,7 @@ function overall_sstar_from_CD(C::Real, D::Real)
     return divergence - ((1.0 - coherence) / 2.0)
 end
 
-raw"""
+@doc raw"""
     S(C, D)
 
 Return the excess-divergence component from coherence `C` and directed
@@ -1242,7 +1242,7 @@ negative `S`. Use `S_old` for the legacy support-separation statistic.
 """
 S(C::Real, D::Real) = overall_sstar_from_CD(C, D)
 
-raw"""
+@doc raw"""
     normalized_consensus_separation(W, D; atol = 1e-10)
 
 Return the normalized excess-divergence ratio
@@ -1273,7 +1273,7 @@ function normalized_consensus_separation(W::Real, D::Real; atol::Real = 1.0e-10)
     return clamp(E, 0.0, 1.0)
 end
 
-raw"""
+@doc raw"""
     consensus_excess_separation(W, D; kwargs...)
 
 Alias in the derived `C`-`D` decomposition family for
@@ -1283,7 +1283,7 @@ the same `D == 0 => 0.0` convention and unit-range validation.
 consensus_excess_separation(W::Real, D::Real; kwargs...) =
     normalized_consensus_separation(W, D; kwargs...)
 
-raw"""
+@doc raw"""
     group_E(W, D; kwargs...)
 
 Alias in the derived `C`-`D` decomposition family for
@@ -1292,7 +1292,7 @@ describe a group-level within-versus-outgroup distance contrast.
 """
 group_E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
 
-raw"""
+@doc raw"""
     aggregate_E(W, D; kwargs...)
 
 Alias in the derived `C`-`D` decomposition family for
@@ -1301,7 +1301,7 @@ aggregate coherence/divergence quantities.
 """
 aggregate_E(W::Real, D::Real; kwargs...) = normalized_consensus_separation(W, D; kwargs...)
 
-raw"""
+@doc raw"""
     E(W, D; kwargs...)
 
 Shorthand for the normalized excess-divergence ratio in the derived `C`-`D`
@@ -1361,7 +1361,7 @@ function _cross_group_average_normalized_kendall(profile_i, profile_j)
     return total / (n_i * n_j)
 end
 
-raw"""
+@doc raw"""
     overall_support_separation_old(group_profiles, group_sizes)
 
 Return the legacy support-separation contrast that used to back grouped `S`.
@@ -1407,7 +1407,7 @@ function overall_support_separation_old(group_profiles, group_sizes)
     return weight_sum > 0 ? total / weight_sum : NaN
 end
 
-raw"""
+@doc raw"""
     S_old(group_profiles, group_sizes)
 
 Legacy alias for `overall_support_separation_old`. This is the historical
@@ -1449,7 +1449,7 @@ function _consensus_column(grouped_consensus)
     ))
 end
 
-raw"""
+@doc raw"""
     overall_divergences(grouped_consensus, whole_df, key)
 
 DataFrame adapter for `overall_divergence`. `grouped_consensus` must contain
@@ -1471,7 +1471,7 @@ function overall_divergences(grouped_consensus::AbstractDataFrame,
     return overall_divergence(group_profiles, consensus_map)
 end
 
-raw"""
+@doc raw"""
     overall_overlaps(grouped_consensus, whole_df, key)
 
 DataFrame adapter for `overall_overlap`. Groups are reconstructed from
@@ -1487,7 +1487,7 @@ function overall_overlaps(grouped_consensus::AbstractDataFrame,
     return overall_overlap(group_profiles)
 end
 
-raw"""
+@doc raw"""
     overall_overlaps_smoothed(grouped_consensus, whole_df, key)
 
 DataFrame adapter for `overall_overlap_smoothed`. It rebuilds group profiles
@@ -1502,7 +1502,7 @@ function overall_overlaps_smoothed(grouped_consensus::AbstractDataFrame,
     return overall_overlap_smoothed(group_profiles)
 end
 
-raw"""
+@doc raw"""
     overall_divergences_median(grouped_consensus, whole_df, key)
 
 DataFrame adapter for `overall_divergence_median`. Consensus values are read
@@ -1520,7 +1520,7 @@ function overall_divergences_median(grouped_consensus::AbstractDataFrame,
     return overall_divergence_median(group_profiles, consensus_map)
 end
 
-raw"""
+@doc raw"""
     overall_separations(grouped_consensus, whole_df, key)
 
 DataFrame adapter for `overall_separation`. Consensus values are read from
@@ -1619,7 +1619,7 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
     )
 end
 
-raw"""
+@doc raw"""
     compute_group_metrics(df, demo; cache=GLOBAL_LINEAR_ORDER_CACHE, rng=nothing, tie_break_context=nothing)
 
 Compute the pair `(C, D)` for groups defined by column `demo` in
@@ -1651,7 +1651,7 @@ function compute_group_metrics(df::AbstractDataFrame, demo;
     return details.C, details.D
 end
 
-raw"""
+@doc raw"""
     bootstrap_group_metrics(bt_profiles, demo; rng=nothing, tie_break_context=nothing)
 
 Compute grouped consensus metrics for bootstrap replicates. `bt_profiles` maps

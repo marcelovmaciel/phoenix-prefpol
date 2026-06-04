@@ -1,5 +1,9 @@
 # Group Diagnostics
 
+```@meta
+CurrentModule = Preferences
+```
+
 Group diagnostics are consensus-relative. For each group, the package computes
 a Kendall/Kemeny consensus, meaning a strict ranking that minimizes total
 Kendall distance to the group's rankings. If there are multiple minimizers,
@@ -79,12 +83,6 @@ D = overall_divergence(group_profiles, consensus_map)
  S = S(C, D))
 ```
 
-- `consensus_for_group`
-- `group_avg_distance`
-- `weighted_coherence`
-- `pairwise_group_divergence`
-- `overall_divergence`
-
 
 ## Derived Excess-Divergence Diagnostic
 
@@ -129,13 +127,6 @@ when `D > 0`, with the package convention `E = 0` when `D == 0`. For `D > 0`,
 `normalized_consensus_separation`, and `consensus_excess_separation` are in the
 same derived `C`-`D` decomposition family.
 
-- `S`
-- `normalized_consensus_separation`
-- `consensus_excess_separation`
-- `group_E`
-- `aggregate_E`
-- `E`
-
 
 ## Distributional Distance Diagnostics
 
@@ -172,14 +163,34 @@ variants are legacy or experimental separation diagnostics, not the primary
 `C`-`D` group diagnostics. `S_old` is the legacy support-separation statistic
 and is separate from current `S`.
 
-- `pairwise_group_overlap`
-- `smoothed_overlap`
-- `pairwise_group_median_distance`
-- `pairwise_group_separation`
-- `overall_overlap`
-- `overall_overlap_smoothed`
-- `overall_divergence_median`
-- `overall_separation`
-- `grouped_gsep`
-- `S_old`
+## API
 
+```@docs
+ConsensusResult
+kendall_tau_distance
+average_normalized_distance
+consensus_kendall
+get_consensus_ranking
+kendall_tau_dict
+consensus_for_group
+group_avg_distance
+weighted_coherence
+pairwise_group_divergence
+overall_divergence
+S
+normalized_consensus_separation
+consensus_excess_separation
+group_E
+aggregate_E
+E
+pairwise_group_overlap
+smoothed_overlap
+pairwise_group_median_distance
+pairwise_group_separation
+overall_overlap
+overall_overlap_smoothed
+overall_divergence_median
+overall_separation
+grouped_gsep
+S_old
+```

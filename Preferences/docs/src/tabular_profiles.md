@@ -1,5 +1,9 @@
 # From Scores to Profiles
 
+```@meta
+CurrentModule = Preferences
+```
+
 The tabular profile layer converts empirical score columns into formal weak
 rankings. Higher numeric scores imply more preferred alternatives. Equal scores
 become ties when `allow_ties=true`. Missing scores become unranked when
@@ -52,15 +56,17 @@ candidate_missingness_table(
 
 ## API
 
-- `humanize_candidate_name`
-- `canonical_candidate_key`
-- `candidate_display_symbols`
-- `guess_weight_col`
-- `resolve_candidate_cols_from_set`
-- `candidate_missingness_table`
-- `normalize_numeric_score`
-- `normalize_nonnegative_weight`
-- `row_to_weak_rank_from_scores`
-- `build_profile_from_scores`
-- `profile_build_meta`
+```@docs
+humanize_candidate_name
+canonical_candidate_key
+candidate_display_symbols
+guess_weight_col
+resolve_candidate_cols_from_set
+candidate_missingness_table
+normalize_numeric_score
+normalize_nonnegative_weight
+row_to_weak_rank_from_scores
+build_profile_from_scores
+profile_build_meta
+```
 

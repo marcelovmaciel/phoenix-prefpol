@@ -10,7 +10,7 @@ struct SinglePeakedSupportEntry{A,B}
     proportion_source::Symbol
 end
 
-raw"""
+@doc raw"""
     SinglePeakedAxisSummary
 
 Per-axis summary for deviation from single-peakedness. For an axis `a`, let
@@ -44,7 +44,7 @@ struct SinglePeakedAxisSummary{A}
     total_mass::Float64
 end
 
-raw"""
+@doc raw"""
     SinglePeakedSupportClassification
 
 Classification of one observed ranking type against one evaluated axis. The row
@@ -72,7 +72,7 @@ struct SinglePeakedSupportClassification{A}
     distance::Float64
 end
 
-raw"""
+@doc raw"""
     SinglePeakednessResult
 
 Complete result returned by `single_peakedness_summary`. The best fields are
@@ -106,7 +106,7 @@ struct SinglePeakednessResult{A}
     support::Vector
 end
 
-raw"""
+@doc raw"""
     axes_up_to_reversal(candidates)
 
 Return one deterministic representative from each reversal-equivalence class of
@@ -155,7 +155,7 @@ function _validate_strict_linear_order(ranking_vec::AbstractVector,
     return true
 end
 
-raw"""
+@doc raw"""
     is_single_peaked(ranking, axis)::Bool
 
 Return whether a strict best-to-worst `ranking` is single-peaked on `axis`, using
@@ -182,7 +182,7 @@ function is_single_peaked(ranking, axis)::Bool
     return true
 end
 
-raw"""
+@doc raw"""
     single_peaked_rankings(axis)
 
 Generate all `2^(m-1)` strict best-to-worst rankings that are single-peaked on a
@@ -228,7 +228,7 @@ function _kendall_distance_vectors(x::AbstractVector, y::AbstractVector)
     return d
 end
 
-raw"""
+@doc raw"""
     single_peaked_distance(ranking, axis)
 
 Return the minimum Kendall tau distance from `ranking` to the single-peaked
@@ -259,7 +259,7 @@ function _normalize_proportion_source(profile, proportion_source::Symbol)
     return proportion_source
 end
 
-raw"""
+@doc raw"""
     profile_distribution(profile; proportion_source=:auto)
 
 Compress a strict `Profile` or `WeightedProfile` to unique strict rankings and
@@ -354,7 +354,7 @@ function _axis_to_ids(axis, pool::CandidatePool)
     end
 end
 
-raw"""
+@doc raw"""
     single_peakedness_summary(profile; axes=nothing, proportion_source=:auto, classify_axes=:best)
 
 Compute deviation-from-single-peakedness measures over a probability
@@ -495,7 +495,7 @@ function single_peakedness_summary(profile::Union{Profile,WeightedProfile};
     )
 end
 
-raw"""
+@doc raw"""
     single_peakedness_L0(profile; kwargs...)
 
 Return only `best_L0` from `single_peakedness_summary`: the minimum off-axis
@@ -504,7 +504,7 @@ zero-mass behavior, and interpretation are the same as
 `single_peakedness_summary`.
 """
 single_peakedness_L0(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L0
-raw"""
+@doc raw"""
     single_peakedness_L1(profile; kwargs...)
 
 Return only `best_L1` from `single_peakedness_summary`: the minimum
@@ -513,7 +513,7 @@ normalized by `binomial(m, 2)`. Inputs, range, and zero-mass behavior are the
 same as `single_peakedness_summary`.
 """
 single_peakedness_L1(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L1
-raw"""
+@doc raw"""
     single_peakedness_L1_off_axis(profile; kwargs...)
 
 Return only `best_L1_off_axis` from `single_peakedness_summary`: the minimum
@@ -522,7 +522,7 @@ axis. The value is `missing` when every evaluated axis has zero off-axis mass;
 empty and zero-mass profiles are rejected by `single_peakedness_summary`.
 """
 single_peakedness_L1_off_axis(profile; kwargs...) = single_peakedness_summary(profile; kwargs...).best_L1_off_axis
-raw"""
+@doc raw"""
     best_single_peaked_axes(profile; kwargs...)
 
 Return the axis IDs that minimize `L0`, the off-axis support mass, in

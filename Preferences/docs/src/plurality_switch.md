@@ -1,5 +1,9 @@
 # Plurality Switch Tables
 
+```@meta
+CurrentModule = Preferences
+```
+
 Plurality-switch tables are first-choice diagnostics. They are not
 pairwise-majority diagnostics. They study how ranking types, one-swap moves,
 and group-targeted changes affect plurality scores or first-choice margins.
@@ -21,11 +25,13 @@ these tables separately from [Majority-Graph Support](majority_support.md).
 
 ## API
 
-- `plurality_scores_table`
-- `pairwise_vs_plurality_decomposition_table`
-- `candidate_position_by_current_first_table`
-- `one_swap_target_table`
-- `plurality_swing_value_table`
-- `exact_type_switch_table`
-- `group_target_switch_table`
+```@docs
+plurality_scores_table
+pairwise_vs_plurality_decomposition_table
+candidate_position_by_current_first_table
+one_swap_target_table
+plurality_swing_value_table
+exact_type_switch_table
+group_target_switch_table
+```
 

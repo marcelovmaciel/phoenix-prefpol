@@ -1,5 +1,9 @@
 # Majority-Graph Roles
 
+```@meta
+CurrentModule = Preferences
+```
+
 Role tables classify voter types and groups relative to the majority graph of a
 profile.
 
@@ -24,19 +28,21 @@ groups support, anchor, or threaten majority edges.
 
 ## API
 
-- `MajorityGraphRoleThresholds`
-- `voter_type_role_table`
-- `edge_type_role_table`
-- `role_mass_summary`
-- `primary_role_mass_summary`
-- `selected_edge_role_summary`
-- `graph_role_summary`
-- `group_majority_graph_support`
-- `group_edge_power_table`
-- `group_breaker_table`
-- `group_anchor_table`
-- `group_role_table`
-- `group_primary_role_table`
-- `group_role_power_table`
-- `group_graph_role_summary`
+```@docs
+MajorityGraphRoleThresholds
+voter_type_role_table
+edge_type_role_table
+role_mass_summary
+primary_role_mass_summary
+selected_edge_role_summary
+graph_role_summary
+group_majority_graph_support
+group_edge_power_table
+group_breaker_table
+group_anchor_table
+group_role_table
+group_primary_role_table
+group_role_power_table
+group_graph_role_summary
+```
 

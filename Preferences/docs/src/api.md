@@ -1,157 +1,201 @@
 # API Reference
 
-This is a curated API map organized by the main workflow. For every exported
-binding, see [Full Public API](api_full.md).
+```@meta
+CurrentModule = Preferences
+```
+
+This is a navigation map for the canonical docstring panels on the conceptual
+pages. For a complete exported-binding list, see [Full Public API](api_full.md).
 
 ## Core Preference Objects
 
-- `CandidatePool`
-- `StrictRank`
-- `WeakRank`
-- `Profile`
-- `WeightedProfile`
-- `rank`
-- `prefers`
-- `indifferent`
-- `asdict`
-- `ordered_candidates`
-
+- [`CandidatePool`](@ref)
+- [`StrictRank`](@ref)
+- [`WeakRank`](@ref)
+- [`Profile`](@ref)
+- [`WeightedProfile`](@ref)
+- [`rank`](@ref)
+- [`prefers`](@ref)
+- [`indifferent`](@ref)
+- [`asdict`](@ref)
+- [`ordered_candidates`](@ref)
 
 ## Empirical Profile Construction
 
-- `humanize_candidate_name`
-- `canonical_candidate_key`
-- `candidate_display_symbols`
-- `guess_weight_col`
-- `resolve_candidate_cols_from_set`
-- `candidate_missingness_table`
-- `normalize_numeric_score`
-- `normalize_nonnegative_weight`
-- `row_to_weak_rank_from_scores`
-- `build_profile_from_scores`
-- `profile_build_meta`
-
+- [`humanize_candidate_name`](@ref)
+- [`canonical_candidate_key`](@ref)
+- [`candidate_display_symbols`](@ref)
+- [`guess_weight_col`](@ref)
+- [`resolve_candidate_cols_from_set`](@ref)
+- [`candidate_missingness_table`](@ref)
+- [`normalize_numeric_score`](@ref)
+- [`normalize_nonnegative_weight`](@ref)
+- [`row_to_weak_rank_from_scores`](@ref)
+- [`build_profile_from_scores`](@ref)
+- [`profile_build_meta`](@ref)
 
 ## Weak Orders and Linearization
 
-- `to_weakorder`
-- `weakorder_symbol_groups`
-- `ExtensionPolicy`
-- `NonePolicyMissing`
-- `BottomPolicyMissing`
-- `to_pairwise`
-- `to_strict`
-- `linearize`
-- `make_rank_bucket_linearizer`
-- `PatternConditionalLinearizer`
-
+- [`to_weakorder`](@ref)
+- [`weakorder_symbol_groups`](@ref)
+- [`ExtensionPolicy`](@ref)
+- [`NonePolicyMissing`](@ref)
+- [`BottomPolicyMissing`](@ref)
+- [`to_pairwise`](@ref)
+- [`to_strict`](@ref)
+- [`linearize`](@ref)
+- [`make_rank_bucket_linearizer`](@ref)
+- [`PatternConditionalLinearizer`](@ref)
 
 ## Annotated Profiles
 
-- `AnnotatedProfile`
-- `annotated_profile`
-- `dataframe_to_annotated_profile`
-- `annotated_profile_to_dataframe`
-- `profile_to_ranking_dicts`
-- `linearize_annotated_profile`
-- `subset_annotated_profile`
-- `strict_profile`
-- `compute_group_metrics`
-
+- [`AnnotatedProfile`](@ref)
+- [`annotated_profile`](@ref)
+- [`dataframe_to_annotated_profile`](@ref)
+- [`annotated_profile_to_dataframe`](@ref)
+- [`profile_to_ranking_dicts`](@ref)
+- [`linearize_annotated_profile`](@ref)
+- [`subset_annotated_profile`](@ref)
+- [`strict_profile`](@ref)
+- [`overall_divergences`](@ref)
+- [`overall_overlaps`](@ref)
+- [`overall_overlaps_smoothed`](@ref)
+- [`overall_divergences_median`](@ref)
+- [`overall_separations`](@ref)
+- [`compute_group_metrics`](@ref)
 
 ## Global Profile Diagnostics
 
-- `ranking_proportions`
-- `reversal_pairs`
-- `can_polarization`
-- `total_reversal_component`
-- `reversal_hhi`
-- `reversal_geometric`
-- `effective_observed_rankings`
-- `effective_reversal_rankings`
-- `effective_reversal_ranking_diagnostics`
-- `ranking_support_diagnostics`
-
+- [`ranking_proportions`](@ref)
+- [`reversal_pairs`](@ref)
+- [`can_polarization`](@ref)
+- [`total_reversal_component`](@ref)
+- [`reversal_hhi`](@ref)
+- [`reversal_geometric`](@ref)
+- [`effective_observed_rankings`](@ref)
+- [`effective_reversal_rankings`](@ref)
+- [`effective_reversal_ranking_diagnostics`](@ref)
+- [`ranking_support_diagnostics`](@ref)
 
 ## Single-Peakedness Diagnostics
 
-- `axes_up_to_reversal`
-- `is_single_peaked`
-- `single_peaked_rankings`
-- `single_peaked_distance`
-- `profile_distribution`
-- `single_peakedness_summary`
-- `single_peakedness_L0`
-- `single_peakedness_L1`
-- `single_peakedness_L1_off_axis`
-- `best_single_peaked_axes`
-- `SinglePeakedAxisSummary`
-- `SinglePeakedSupportClassification`
-- `SinglePeakednessResult`
-
+- [`axes_up_to_reversal`](@ref)
+- [`is_single_peaked`](@ref)
+- [`single_peaked_rankings`](@ref)
+- [`single_peaked_distance`](@ref)
+- [`profile_distribution`](@ref)
+- [`single_peakedness_summary`](@ref)
+- [`single_peakedness_L0`](@ref)
+- [`single_peakedness_L1`](@ref)
+- [`single_peakedness_L1_off_axis`](@ref)
+- [`best_single_peaked_axes`](@ref)
+- [`SinglePeakedAxisSummary`](@ref)
+- [`SinglePeakedSupportClassification`](@ref)
+- [`SinglePeakednessResult`](@ref)
 
 ## Consensus and Group Diagnostics
 
-- `ConsensusResult`
-- `kendall_tau_distance`
-- `average_normalized_distance`
-- `consensus_kendall`
-- `get_consensus_ranking`
-- `kendall_tau_dict`
-- `consensus_for_group`
-- `group_avg_distance`
-- `weighted_coherence`
-- `pairwise_group_divergence`
-- `overall_divergence`
-- `S`
-- `normalized_consensus_separation`
-- `consensus_excess_separation`
-- `group_E`
-- `aggregate_E`
-- `E`
+- [`ConsensusResult`](@ref)
+- [`kendall_tau_distance`](@ref)
+- [`average_normalized_distance`](@ref)
+- [`consensus_kendall`](@ref)
+- [`get_consensus_ranking`](@ref)
+- [`kendall_tau_dict`](@ref)
+- [`consensus_for_group`](@ref)
+- [`group_avg_distance`](@ref)
+- [`weighted_coherence`](@ref)
+- [`pairwise_group_divergence`](@ref)
+- [`overall_divergence`](@ref)
+- [`S`](@ref)
+- [`normalized_consensus_separation`](@ref)
+- [`consensus_excess_separation`](@ref)
+- [`group_E`](@ref)
+- [`aggregate_E`](@ref)
+- [`E`](@ref)
+- [`pairwise_group_overlap`](@ref)
+- [`smoothed_overlap`](@ref)
+- [`pairwise_group_median_distance`](@ref)
+- [`pairwise_group_separation`](@ref)
+- [`overall_overlap`](@ref)
+- [`overall_overlap_smoothed`](@ref)
+- [`overall_divergence_median`](@ref)
+- [`overall_separation`](@ref)
+- [`grouped_gsep`](@ref)
+- [`S_old`](@ref)
 
+## Majority-Graph Support
 
-## Majority-Graph and Plurality Diagnostics
+- [`VoterTypeBasis`](@ref)
+- [`voter_type_basis`](@ref)
+- [`voter_type_masses`](@ref)
+- [`MajoritySupportEdge`](@ref)
+- [`MajorityGraphSupportResult`](@ref)
+- [`majority_graph_support`](@ref)
+- [`majority_edges_table`](@ref)
+- [`voter_type_table`](@ref)
+- [`edge_support_table`](@ref)
+- [`edge_overlap_table`](@ref)
+- [`core_table`](@ref)
+- [`edge_effective_type_table`](@ref)
+- [`edge_effective_type_composition_table`](@ref)
+- [`core_effective_type_table`](@ref)
+- [`reverse_core_effective_type_table`](@ref)
+- [`core_effective_type_composition_table`](@ref)
+- [`effective_type_diagnostics`](@ref)
+- [`countergraph_summary_table`](@ref)
+- [`boundary_distance_to_reverse`](@ref)
+- [`amenability_weight`](@ref)
+- [`type_breaker_table`](@ref)
+- [`minimal_breaking_coalition_table`](@ref)
 
-- `VoterTypeBasis`
-- `voter_type_basis`
-- `voter_type_masses`
-- `MajoritySupportEdge`
-- `MajorityGraphSupportResult`
-- `majority_graph_support`
-- `MajorityGraphRoleThresholds`
-- `voter_type_role_table`
-- `edge_type_role_table`
-- `plurality_scores_table`
-- `pairwise_vs_plurality_decomposition_table`
-- `candidate_position_by_current_first_table`
-- `one_swap_target_table`
-- `plurality_swing_value_table`
-- `exact_type_switch_table`
-- `group_target_switch_table`
+## Majority-Graph Roles
 
+- [`MajorityGraphRoleThresholds`](@ref)
+- [`voter_type_role_table`](@ref)
+- [`edge_type_role_table`](@ref)
+- [`role_mass_summary`](@ref)
+- [`primary_role_mass_summary`](@ref)
+- [`selected_edge_role_summary`](@ref)
+- [`graph_role_summary`](@ref)
+- [`group_majority_graph_support`](@ref)
+- [`group_edge_power_table`](@ref)
+- [`group_breaker_table`](@ref)
+- [`group_anchor_table`](@ref)
+- [`group_role_table`](@ref)
+- [`group_primary_role_table`](@ref)
+- [`group_role_power_table`](@ref)
+- [`group_graph_role_summary`](@ref)
+
+## Plurality Switch Tables
+
+- [`plurality_scores_table`](@ref)
+- [`pairwise_vs_plurality_decomposition_table`](@ref)
+- [`candidate_position_by_current_first_table`](@ref)
+- [`one_swap_target_table`](@ref)
+- [`plurality_swing_value_table`](@ref)
+- [`exact_type_switch_table`](@ref)
+- [`group_target_switch_table`](@ref)
 
 ## Advanced Representations
 
-- `labels`
-- `getlabel`
-- `candid`
-- `candidates`
-- `to_cmap`
-- `perm`
-- `ranks`
-- `AbstractPairwise`
-- `PairwiseDense`
-- `PairwiseTriangularStatic`
-- `PairwiseTriangularMutable`
-- `PairwiseTriangularView`
-- `pairwise_view`
-- `score`
-- `isdefined`
-- `pairwise_dense`
-- `dense`
-- `StrictRankMutable`
-- `swap_positions!`
-- `swap_ids!`
-- `swap_and_update_pairwise!`
-
+- [`labels`](@ref)
+- [`getlabel`](@ref)
+- [`candid`](@ref)
+- [`candidates`](@ref)
+- [`to_cmap`](@ref)
+- [`perm`](@ref)
+- [`ranks`](@ref)
+- [`AbstractPairwise`](@ref)
+- [`PairwiseDense`](@ref)
+- [`PairwiseTriangularStatic`](@ref)
+- [`PairwiseTriangularMutable`](@ref)
+- [`PairwiseTriangularView`](@ref)
+- [`pairwise_view`](@ref)
+- [`score`](@ref)
+- [`isdefined`](@ref)
+- [`pairwise_dense`](@ref)
+- [`dense`](@ref)
+- [`StrictRankMutable`](@ref)
+- [`swap_positions!`](@ref)
+- [`swap_ids!`](@ref)
+- [`swap_and_update_pairwise!`](@ref)

@@ -1,5 +1,9 @@
 # Annotated Profiles
 
+```@meta
+CurrentModule = Preferences
+```
+
 `AnnotatedProfile` bundles a formal profile with row-aligned metadata. The
 formal profile is what ranking, consensus, and diagnostic functions use.
 Metadata is for grouping, subsetting, and reporting. Subsetting an annotated
@@ -32,18 +36,20 @@ decoded = dataframe_to_annotated_profile(df)
 
 ## API
 
-- `AnnotatedProfile`
-- `annotated_profile`
-- `dataframe_to_annotated_profile`
-- `annotated_profile_to_dataframe`
-- `profile_to_ranking_dicts`
-- `linearize_annotated_profile`
-- `subset_annotated_profile`
-- `strict_profile`
-- `overall_divergences`
-- `overall_overlaps`
-- `overall_overlaps_smoothed`
-- `overall_divergences_median`
-- `overall_separations`
-- `compute_group_metrics`
+```@docs
+AnnotatedProfile
+annotated_profile
+dataframe_to_annotated_profile
+annotated_profile_to_dataframe
+profile_to_ranking_dicts
+linearize_annotated_profile
+subset_annotated_profile
+strict_profile
+overall_divergences
+overall_overlaps
+overall_overlaps_smoothed
+overall_divergences_median
+overall_separations
+compute_group_metrics
+```
 
