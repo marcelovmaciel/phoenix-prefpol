@@ -112,9 +112,20 @@ function collection_settings(artifact_cfg, orchestration_cfg, opts)
     )
 end
 
-function artifact_specs(artifact_cfg, opts)
+function source_stage_enabled(source_stage::AbstractString, orchestration_cfg)
+    source_stage == "lambda_table" || return true
+    lambda_cfg = get(orchestration_cfg, "lambda_table", nothing)
+    lambda_cfg isa AbstractDict || return false
+    return Bool(get(lambda_cfg, "enabled", false))
+end
+
+function artifact_specs(artifact_cfg, orchestration_cfg, opts)
     specs = get(artifact_cfg, "artifacts", Any[])
     isempty(specs) && error("No [[artifacts]] entries found in paper artifact config.")
+    specs = [
+        spec for spec in specs
+        if source_stage_enabled(String(config_value(spec, "source_stage", "")), orchestration_cfg)
+    ]
     if opts["artifact"] !== nothing
         wanted = String(opts["artifact"])
         specs = [spec for spec in specs if String(config_value(spec, "id", "")) == wanted]
@@ -306,7 +317,7 @@ function main(args = ARGS)
     artifact_cfg = load_artifact_config(String(opts["artifact-config"]))
     orchestration_cfg = load_orchestration_config(opts["config"])
     settings = collection_settings(artifact_cfg, orchestration_cfg, opts)
-    specs = artifact_specs(artifact_cfg, opts)
+    specs = artifact_specs(artifact_cfg, orchestration_cfg, opts)
 
     println("Paper artifact collection plan:")
     println("  destination_root=", settings.destination_root)

@@ -23,3 +23,11 @@ julia +1.11.9 --project=PrefPol \
 Use individual stage scripts only when debugging a failed publication run. Stage
 scripts should stay as shell entry points around `PrefPol` public APIs and use
 `CSV.jl` for manifests and tables.
+
+`10_lambda_table.jl` is optional in the publication wrapper. It runs, and its
+paper artifact is collected, only when the orchestration config includes:
+
+```toml
+[lambda_table]
+enabled = true
+```

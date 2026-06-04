@@ -62,11 +62,6 @@ formats = ["png"]
 source = "PrefPol/composable_running/output/publication/measures/decomposition_table.csv"
 value_kind = "variance"
 
-[lambda_table]
-run_manifest = "PrefPol/composable_running/output/publication/manifests/run_manifest.csv"
-appendix_dir = "PrefPol/composable_running/output/publication/appendices/lambda"
-appendix_manifest = "PrefPol/composable_running/output/publication/manifests/lambda_table_manifest.csv"
-
 [paper_artifacts.collection]
 output_root = "PrefPol/composable_running/output/publication"
 destination_root = "PrefPol/composable_running/output/publication/paper_artifacts"

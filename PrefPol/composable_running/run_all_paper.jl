@@ -1,5 +1,7 @@
 #!/usr/bin/env julia
 
+using TOML
+
 const COMPOSABLE_ROOT = @__DIR__
 const REPO_ROOT = normpath(joinpath(COMPOSABLE_ROOT, "..", ".."))
 const DEFAULT_CONFIG = joinpath(REPO_ROOT, "PrefPol", "config", "publication.toml")
@@ -78,6 +80,13 @@ function stage_args(opts)
     return args
 end
 
+function lambda_table_enabled(config_path::AbstractString)
+    cfg = TOML.parsefile(config_path)
+    lambda_cfg = get(cfg, "lambda_table", nothing)
+    lambda_cfg isa AbstractDict || return false
+    return Bool(get(lambda_cfg, "enabled", false))
+end
+
 function main(args = ARGS)
     opts = parse_paper_args(args)
     opts["config"] = resolve_repo_path(String(opts["config"]))
@@ -87,6 +96,7 @@ function main(args = ARGS)
     project = joinpath(REPO_ROOT, "PrefPol")
     plotting_project = joinpath(REPO_ROOT, "PrefPol", "running", "plotting_env")
     base_args = stage_args(opts)
+    run_lambda_table = lambda_table_enabled(String(opts["config"]))
 
     println("Composable paper workflow:")
     println("  config=", opts["config"])
@@ -97,6 +107,7 @@ function main(args = ARGS)
     println("  backend=", opts["backend"] === nothing ? "configured" : opts["backend"],
             " linearizer=", opts["linearizer"] === nothing ? "configured" : opts["linearizer"])
     println("  force=", opts["force"], " dry_run=", opts["dry-run"])
+    println("  lambda_table=", run_lambda_table ? "enabled" : "disabled")
 
     run_step("validate configs", julia_cmd(project, joinpath(stage_dir, "00_validate_configs.jl"), ["--config", String(opts["config"])]))
     run_step("bootstrap", julia_cmd(project, joinpath(stage_dir, "01_bootstrap.jl"), base_args))
@@ -116,7 +127,13 @@ function main(args = ARGS)
         run_step("extra plots", julia_cmd(plotting_project, joinpath(stage_dir, "08_extra_plots.jl"), base_args))
     end
 
-    run_step("lambda table", julia_cmd(project, joinpath(stage_dir, "10_lambda_table.jl"), base_args))
+    if run_lambda_table
+        run_step("lambda table", julia_cmd(project, joinpath(stage_dir, "10_lambda_table.jl"), base_args))
+    else
+        println()
+        println("==> lambda table")
+        println("    skipped ([lambda_table].enabled is not true)")
+    end
 
     if !Bool(opts["skip-collection"]) && !Bool(opts["skip-plots"])
         collect_args = copy(base_args)

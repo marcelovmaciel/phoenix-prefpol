@@ -223,7 +223,13 @@ function validate_table_specs(table_specs, waves)
     return true
 end
 
-function validate_paper_artifacts(paper_specs)
+function lambda_table_enabled(orchestration_cfg)
+    lambda_cfg = get(orchestration_cfg, "lambda_table", nothing)
+    lambda_cfg isa AbstractDict || return false
+    return Bool(get(lambda_cfg, "enabled", false))
+end
+
+function validate_paper_artifacts(paper_specs, orchestration_cfg)
     haskey(paper_specs, "collection") || error("paper_artifacts.toml is missing [collection].")
     haskey(paper_specs, "artifacts") || error("paper_artifacts.toml is missing [[artifacts]].")
     required = Set([
@@ -236,8 +242,10 @@ function validate_paper_artifacts(paper_specs)
         "effective_rankings_evolution_1x2.png",
         "effective_rankings.tex",
         "variance_decomposition_2022.png",
-        "appendix_lambda_grouping_tables.tex",
     ])
+    if lambda_table_enabled(orchestration_cfg)
+        push!(required, "appendix_lambda_grouping_tables.tex")
+    end
     observed = Set(string(get(artifact, "destination_filename", "")) for artifact in paper_specs["artifacts"])
     missing = setdiff(required, observed)
     isempty(missing) || error("paper_artifacts.toml is missing destination filenames: $(sort(collect(missing))).")
@@ -257,7 +265,7 @@ function main(args = ARGS)
 
     validate_plot_specs(schema_configs["plot_specs.toml"], waves)
     validate_table_specs(schema_configs["table_specs.toml"], waves)
-    validate_paper_artifacts(schema_configs["paper_artifacts.toml"])
+    validate_paper_artifacts(schema_configs["paper_artifacts.toml"], orchestration_cfg)
 
     registry = pp.build_source_registry(waves)
     timestamp = Dates.format(now(), dateformat"yyyy-mm-ddTHH:MM:SS")
