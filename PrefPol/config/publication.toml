@@ -1,0 +1,44 @@
+# Publication-facing replication config.
+#
+# This is the minimal public entry point for reproducing the manuscript's main
+# figures and tables. Full diagnostic/internal runs remain in separate configs,
+# especially orchestration_b30_r10_k10.toml.
+
+[run]
+B = 30
+R = 10
+K = 10
+force = false
+dry_run = false
+cache_root = "PrefPol/composable_running/output/publication/cache"
+output_root = "PrefPol/composable_running/output/publication"
+consensus_tie_policy = "average"
+imputer_backends = ["mice", "zero"]
+linearizer_policies = ["pattern_conditional", "random_ties"]
+measures = ["Psi", "R", "HHI", "RHHI", "C", "D"]
+
+[measure_sets]
+main = ["Psi", "R", "HHI", "RHHI", "C", "D"]
+global = ["Psi", "R", "HHI", "RHHI"]
+group = ["C", "D"]
+
+[[targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"

@@ -41,6 +41,10 @@ Plotting stages use the plotting environment automatically through the wrapper:
 julia +1.11.9 --project=PrefPol/running/plotting_env
 ```
 
+This plotting environment path is transitional. The `PrefPol/running/` workflow
+is obsolete; move `PrefPol/running/plotting_env` to a non-legacy path before
+removing the old running directory.
+
 Do not include these for paper 1 unless a specific manuscript need is found:
 `PrefPol/composable_running/run_single_peakedness.jl`,
 `PrefPol/composable_running/make_single_peakedness_report_artifacts.jl`,
@@ -161,12 +165,11 @@ Cache/output precautions:
 - `orchestration.toml` writes to `PrefPol/composable_running/output`. If existing outputs there matter, move or copy them before the final run or use a local final config with a new `output_root` and `cache_root`.
 - `paper_artifacts.toml` has `update_writing_imgs = false`; final manuscript images under `writing/imgs` are not overwritten unless this is changed or the files are copied manually after review.
 
-## 6. What Not To Touch Before The Paper Is Done
+## 6. Cleanup Boundaries
 
-Do not refactor, migrate, delete, or reorganize these before the polarization
-paper is finished:
+Use these boundaries for cleanup and refactoring:
 
-- `PrefPol/running/`: old workflow and old paper artifact scripts. The current draft uses `PrefPol/composable_running`; keep `running` as historical/reference code only.
+- `PrefPol/running/`: obsolete old workflow and old paper artifact scripts. Remove or archive `PrefPol/running/*.jl`, `PrefPol/running/*.md`, and `PrefPol/running/output/**` once the staged pipeline is accepted. First move `PrefPol/running/plotting_env` to a non-legacy path and update wrapper/docs references.
 - `PrefPol/exploratory/`: exploratory diagnostics and experiments.
 - `PrefPol/composable_running/run_single_peakedness.jl`, `make_single_peakedness_report_artifacts.jl`, and configs `single_peakedness*.toml`: paper 2 path.
 - `PrefPol/composable_running/run_majority_graph_support_reports.jl`, `majority_graph_support_*.jl`, `majority_graph_report_common.jl`, and `README_majority_graph_support.md`: paper 3 path.

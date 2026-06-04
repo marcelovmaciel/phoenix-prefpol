@@ -3,7 +3,7 @@
 This file is the Phase 2 implementation artifact for the composable running
 refactor. It identifies the config, path, result, and manifest utilities that
 already exist in `PrefPol/src/`, and records what later stage scripts should
-reuse instead of copying from `PrefPol/running/`.
+reuse instead of copying from the obsolete `PrefPol/running/` workflow.
 
 Phase 2 does not add stage-only pipeline APIs. Those belong to Phase 3.
 
@@ -60,7 +60,8 @@ imputation, linearization, and measure stage runners require the Phase 3
 - `save_pipeline_variance_decomposition_csv(path, result_or_results)`
 
 Use these for measure, summary, panel, and decomposition outputs. Avoid copying
-the table-building loops from `PrefPol/running/run_all_scenarios_small.jl`.
+the table-building loops from `PrefPol/running/run_all_scenarios_small.jl`;
+that script is legacy migration evidence, not a model for new code.
 
 ### Plot and Heatmap Data
 
@@ -125,16 +126,16 @@ CSV.write(path, df)
 ```
 
 Do not copy the hand-written `csv_escape`, `_parse_csv_line`, `read_csv_table`,
-or `save_csv` helpers from the old scripts. Those duplicated helpers currently
-appear in scripts such as:
+or `save_csv` helpers from the old scripts. Those duplicated helpers appear in
+obsolete scripts such as:
 
 - `PrefPol/running/run_all_scenarios_small.jl`
 - `PrefPol/running/plot_all_scenarios_global_small.jl`
 - `PrefPol/running/effective_counts_small.jl`
 
 If later stages need a manifest-specific wrapper, add one small public helper
-to `PrefPol/src/` in Phase 3. Until then, stage scripts should call `CSV.jl`
-directly and keep manifest schemas explicit in each stage.
+to `PrefPol/src/`. Stage scripts should call `CSV.jl` directly and keep
+manifest schemas explicit in each stage.
 
 ## Path Policy
 

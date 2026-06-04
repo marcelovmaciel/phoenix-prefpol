@@ -7,8 +7,11 @@ collection specs into independently callable stages.
 
 This layer calls the statistical implementation in `PrefPol/src/` and the
 plotting extension loaded through the plotting environment. It does not replace
-the statistical pipeline or redefine measures. The older scripts in
-`PrefPol/running/` are retained for now and are not removed by this workflow.
+the statistical pipeline or redefine measures. The older workflow scripts in
+`PrefPol/running/` are obsolete and should not guide new refactoring. The only
+temporary dependency on `PrefPol/running/` is the plotting environment at
+`PrefPol/running/plotting_env`, which should be moved before removing the
+directory.
 
 Do not add `PrefPol/composable_running/lib/`. Shared stage behavior should live
 in `PrefPol/src/` or in the plotting extension when it belongs there.
@@ -32,7 +35,9 @@ julia +1.11.9 --project=PrefPol/running/plotting_env
 ```
 
 The paper and smoke wrappers select the plotting environment automatically for
-plot stages.
+plot stages. This environment currently lives under the obsolete `running/`
+folder only as a transitional location; future cleanup should move it to a
+non-legacy path such as `PrefPol/plotting_env/` and then update these commands.
 
 ## Config Files
 
@@ -319,7 +324,9 @@ other backends only when explicitly configured.
 
 If a plot stage fails immediately, make sure it is run with
 `--project=PrefPol/running/plotting_env` or through a wrapper. The plotting
-environment must load `CairoMakie` and activate `PrefPolPlottingExt`.
+environment must load `CairoMakie` and activate `PrefPolPlottingExt`. The
+`running/plotting_env` path is transitional; it should be moved before deleting
+the obsolete `PrefPol/running/` workflow directory.
 
 If a plot stage warns that it is using fallback defaults, check
 `PrefPol/config/plot_specs.toml` and any orchestration overrides. Paper runs

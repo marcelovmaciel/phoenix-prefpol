@@ -182,13 +182,17 @@ julia +1.11.9 --project=PrefPol PrefPol/composable_running/run_all_paper.jl --co
 Do not touch:
 
 ```text
-PrefPol/running
+PrefPol/running/plotting_env until it is moved and wrapper/docs references are updated
 PrefPol/exploratory
 single_peakedness configs/scripts
 majority_graph_support scripts
 PrefPol/src/nested_pipeline.jl
 any refactor
 ```
+
+Cleanup note: the old `PrefPol/running/*.jl` workflow scripts are obsolete.
+After the paper path is verified, archive/remove them and `PrefPol/running/output`;
+do not preserve them as an active reproducibility surface.
 
 One warning: `B=R=K=30` means (30 \times 30 \times 30 = 27{,}000) linearized profiles per spec. Given multiple years, (m)-values, imputers, and linearizers, this can become very large. Your test with `B=10, R=2, K=2` is the right first move.
 

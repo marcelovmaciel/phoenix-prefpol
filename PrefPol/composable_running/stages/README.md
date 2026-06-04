@@ -34,4 +34,4 @@ collects paper-facing artifacts configured in `PrefPol/config/paper_artifacts.to
 
 Stage scripts should be thin shell entrypoints around `PrefPol` public APIs.
 Use `CSV.jl` for manifests and tables; do not copy CSV helper functions from
-the old `PrefPol/running/` scripts.
+the obsolete `PrefPol/running/` scripts.

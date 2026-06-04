@@ -3,11 +3,11 @@
 This is a planning document only. Do not implement the refactor from this file
 without a separate implementation task.
 
-The current operational source of truth is the collection of small scripts in
-`PrefPol/running/`, plus the paper artifact usage in root `writing/`. Do not
-treat `PrefPol/running/running.jl` as the current main workflow. It is useful
-legacy context, but the active workflow is distributed across the smaller
-scripts.
+This document records the migration that produced the current
+`PrefPol/composable_running/` workflow. It was written from the old
+`PrefPol/running/` scripts, but those scripts are now obsolete and should not
+guide new refactoring except as historical parity evidence. The active
+publication workflow is `PrefPol/composable_running/`.
 
 ## Goal
 
@@ -121,25 +121,32 @@ Values not currently captured in year TOMLs:
 - table specs
 - artifact collection specs
 
-### `PrefPol/running/`
+### `PrefPol/running/` Legacy Inventory
 
-Current operational scripts:
+These files were migration sources for the composable pipeline. They are not
+the current workflow. Future cleanup should archive or remove the old
+`PrefPol/running/*.jl` scripts after confirming that `PrefPol/composable_running`
+has the needed publication outputs. Preserve or move only
+`PrefPol/running/plotting_env` until the plotting stages are updated to use a
+new environment path.
 
-| File | Role | Current status |
+Legacy scripts:
+
+| File | Former role | Cleanup status |
 |---|---|---|
-| `run_all_scenarios_small.jl` | Current full small nested analysis runner. Builds `StudyBatchSpec`s, calls `NestedStochasticPipeline`, writes root/per-scenario tables and manifests. | Too large; decompose into stage scripts and move reusable helpers to `PrefPol/src/`. |
-| `plot_all_scenarios_global_small.jl` | Reads saved `run_manifest.csv` and cached `PipelineResult`s; writes global plots and compact tables. | Good stage candidate, but should read plot targets from config. |
-| `plot_all_scenarios_group_small.jl` | Reads saved results; writes paper group heatmaps and O-smoothed heatmaps/tables. | Good stage candidate, but should move table-prep helpers to `PrefPol/src/` or plotting extension. |
+| `run_all_scenarios_small.jl` | Legacy full small nested analysis runner. Builds `StudyBatchSpec`s, calls `NestedStochasticPipeline`, writes root/per-scenario tables and manifests. | Legacy source; staged replacement is `run_all_paper.jl` plus numbered stages. |
+| `plot_all_scenarios_global_small.jl` | Reads saved `run_manifest.csv` and cached `PipelineResult`s; writes global plots and compact tables. | Legacy source; staged replacement is `05_plot_global.jl`. |
+| `plot_all_scenarios_group_small.jl` | Reads saved results; writes paper group heatmaps and O-smoothed heatmaps/tables. | Legacy source; staged replacements are `06_plot_group.jl` and `08_extra_plots.jl`. |
 | `plot_2022_no_forcing_global_small.jl` | Thin wrapper around global plotting for 2022 `no_forcing`. | Replace with CLI/config filters. |
-| `ranking_support_diagnostics_small.jl` | Post-processes cached linearized artifacts into ranking-support diagnostics. | Extra-measures stage. |
-| `effective_counts_small.jl` | Post-processes cached linearized artifacts into effective count diagnostics. | Extra-measures stage. |
-| `effective_rankings_evolution_tables.jl` | Builds effective-ranking CSV/Markdown/TeX tables for selected scenarios. | Tables stage; paper-facing appendix/main support. |
-| `plot_effective_rankings_evolution.jl` | Plots EO/ENRP evolution from effective-ranking tables. | Extra-plots stage. |
-| `appendix_lambda_table.jl` | Builds appendix Lambda table and audit from cached grouped C/D/W/lambda rows. | Lambda table stage. |
-| `appendix_lambda_grouping_tables.jl` | Reformats Lambda CSV into per-year LaTeX grouping tables. | Lambda table or appendix tables stage. |
-| `augment_grouped_S_cache.jl` | One-off cache migration to append grouped S to old cached results. | Do not port as normal stage; keep as migration utility or move API use into `PrefPol/src/` tests. |
-| `clear_running_caches.jl` | Deletes targeted generated outputs. | Replace with config-driven `--force` and documented cache cleanup; keep deletion outside normal DAG. |
-| `plotting_setup.jl` | Plotting environment bootstrap for `PrefPol/running/plotting_env`. | Reuse pattern or document plotting environment; avoid duplicating as a library. |
+| `ranking_support_diagnostics_small.jl` | Post-processes cached linearized artifacts into ranking-support diagnostics. | Legacy source; staged replacement is `07_extra_measures.jl`. |
+| `effective_counts_small.jl` | Post-processes cached linearized artifacts into effective count diagnostics. | Legacy source; staged replacement is `07_extra_measures.jl`. |
+| `effective_rankings_evolution_tables.jl` | Builds effective-ranking CSV/Markdown/TeX tables for selected scenarios. | Legacy source; staged replacement is `09_tables.jl`. |
+| `plot_effective_rankings_evolution.jl` | Plots EO/ENRP evolution from effective-ranking tables. | Legacy source; staged replacement is `08_extra_plots.jl`. |
+| `appendix_lambda_table.jl` | Builds appendix Lambda table and audit from cached grouped C/D/W/lambda rows. | Legacy source; staged replacement is `10_lambda_table.jl`. |
+| `appendix_lambda_grouping_tables.jl` | Reformats Lambda CSV into per-year LaTeX grouping tables. | Legacy source; staged replacement is `10_lambda_table.jl`. |
+| `augment_grouped_S_cache.jl` | One-off cache migration to append grouped S to old cached results. | Archive/remove after confirming no old caches need migration. |
+| `clear_running_caches.jl` | Deletes targeted generated outputs. | Archive/remove with old workflow; generated outputs should not be source. |
+| `plotting_setup.jl` | Plotting environment bootstrap for `PrefPol/running/plotting_env`. | Keep only until plotting environment is moved to a non-legacy path. |
 | `running.jl` | Legacy broad operational script. | Background only. |
 | `scenario_refactor_inventory_before.md` | Historical inventory notes. | Documentation context. |
 | `scenario_refactor_report.md` | Paper scenario/refactor notes. | Paper requirements context. |
@@ -1603,10 +1610,12 @@ Phase 7 means: implement group plotting by creating or completing
 Stage `07_extra_measures.jl` belongs to Phase 8 and must not be implemented as
 part of Phase 7.
 
-Phase 0: Inventory current small scripts in `PrefPol/running/`.
+Phase 0: Inventory legacy scripts in `PrefPol/running/`.
 
 - Done in this planning task.
-- Treat `running.jl` as legacy context only.
+- Treat all old `PrefPol/running/*.jl` scripts as legacy migration evidence, not
+  as active workflow code.
+- Keep only the plotting environment until it is moved to a non-legacy path.
 
 Phase 1: Create `PrefPol/composable_running/` structure.
 
@@ -1674,14 +1683,17 @@ Phase 10: Run B=R=K=2 smoke test.
 
 - Validate all required stage outputs and manifests.
 
-Phase 11: Decide whether old `PrefPol/running/` scripts should be deprecated.
+Phase 11: Archive/remove old `PrefPol/running/` scripts.
 
-- Do not delete them during the refactor.
-- Add deprecation notes only after smoke and paper workflows pass.
+- Treat the old scripts as obsolete once smoke and paper workflows pass.
+- Move `PrefPol/running/plotting_env` to a non-legacy path before deleting the
+  directory.
+- Remove generated `PrefPol/running/output` artifacts rather than preserving
+  them as source.
 
 ## Multi-Agent Implementation Plan
 
-### Agent A: Running Inventory and Parity
+### Agent A: Running Archive and Parity
 
 Assigned files:
 
@@ -1690,7 +1702,8 @@ Assigned files:
 
 Expected output:
 
-- A parity checklist mapping every current script output to a new stage output.
+- A parity checklist mapping every legacy script output to a new stage output.
+- An archive/remove recommendation for each obsolete running script.
 
 Tests:
 
@@ -1870,7 +1883,9 @@ Tests:
 
 Do not touch:
 
-- old `PrefPol/running/` scripts except to reference them.
+- active `PrefPol/composable_running/` stage behavior unless implementing an
+  approved cleanup task. Old `PrefPol/running/` scripts may be archived/removed
+  after plotting_env is moved and parity is confirmed.
 
 ## Non-Negotiable Style Constraints
 

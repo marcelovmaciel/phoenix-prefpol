@@ -1,11 +1,15 @@
 # Examples
 
+```@meta
+CurrentModule = Preferences
+```
+
 These examples are intentionally small. See the deeper workflow pages for the
 full conceptual map.
 
 ## Construct a Profile
 
-```julia
+```@example examples
 using Preferences
 
 pool = CandidatePool([:a, :b, :c])
@@ -22,12 +26,16 @@ Use display helpers interactively when you want a readable table:
 
 ```julia
 pretty_profile_table(p)
-show_profile_table_color(p)
+show_profile_table_color(p)  # interactive terminal use
+```
+
+```@example examples
+print(pretty_profile_table(p))
 ```
 
 ## Global Diagnostics
 
-```julia
+```@example examples
 opposed = Profile(pool, [
     StrictRank(pool, [:a, :b, :c]),
     StrictRank(pool, [:c, :b, :a]),
@@ -49,18 +57,20 @@ For interpretation, see [Global Profile Diagnostics](global_measures.md).
 
 Single-peakedness checks whether rankings fit a one-dimensional candidate axis.
 
-```julia
+```@example examples
 axis = [:a, :b, :c]
 
-is_single_peaked([:b, :a, :c], axis)
-single_peaked_rankings(axis)
+(
+    is_sp = is_single_peaked([:b, :a, :c], axis),
+    sp_rankings = single_peaked_rankings(axis),
+)
 ```
 
 See [Single-Peakedness Diagnostics](single_peakedness.md).
 
 ## Group `C` and `D`
 
-```julia
+```@example examples
 g1 = Profile(pool, [
     StrictRank(pool, [:a, :b, :c]),
     StrictRank(pool, [:a, :c, :b]),
@@ -99,9 +109,12 @@ cycle = Profile(pool, [
 ])
 
 support = majority_graph_support(cycle)
-majority_edges_table(support)
-voter_type_table(support)
-edge_support_table(support)
+
+(
+    n_edges = length(support.edges),
+    edges = majority_edges_table(support),
+    core = core_table(support),
+)
 ```
 
 See [Majority-Graph Support](majority_support.md).
