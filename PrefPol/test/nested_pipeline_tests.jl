@@ -1475,6 +1475,36 @@ end
         imputer_backend = :zero,
     )
 
+    seed = PrefPol._stage_seed(spec, :resample; b = 1)
+    @test seed isa UInt64
+    @test seed > 0
+    @test seed == PrefPol._stage_seed(spec, :resample; b = 1)
+
+    separated_seeds = [
+        PrefPol._stage_seed(spec, :resample; b = 1),
+        PrefPol._stage_seed(spec, :resample; b = 2),
+        PrefPol._stage_seed(spec, :imputation; b = 1, r = 1),
+        PrefPol._stage_seed(spec, :imputation; b = 1, r = 2),
+        PrefPol._stage_seed(spec, :imputation; b = 2, r = 1),
+        PrefPol._stage_seed(spec, :linearization; b = 1, r = 1, k = 1),
+        PrefPol._stage_seed(spec, :linearization; b = 1, r = 1, k = 2),
+        PrefPol._stage_seed(spec, :linearization; b = 1, r = 2, k = 1),
+    ]
+    @test length(unique(separated_seeds)) == length(separated_seeds)
+
+    namespace_variant = PrefPol.PipelineSpec(
+        spec.wave_id,
+        spec.active_candidates;
+        groupings = spec.groupings,
+        measures = spec.measures,
+        B = spec.B,
+        R = spec.R,
+        K = spec.K,
+        imputer_backend = spec.imputer_backend,
+        seed_namespace = "alternate-seed-namespace",
+    )
+    @test PrefPol._stage_seed(namespace_variant, :resample; b = 1) != seed
+
     mktempdir() do dir1
         mktempdir() do dir2
             result1 = PrefPol.run_pipeline(

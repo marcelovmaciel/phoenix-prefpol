@@ -356,6 +356,14 @@ function _digest_seed(payload::AbstractString)
     return seed == 0 ? UInt64(1) : seed
 end
 
+"""
+    _stage_seed(spec, stage; b=0, r=0, k=0) -> UInt64
+
+Derive a deterministic SHA-backed seed for one nested-pipeline stage and BRK
+coordinate. This stays separate from `_normalize_r_seed`: stage seeds identify
+cacheable pipeline branches as `UInt64`, while R/mice calls later normalize
+those values into R's narrower accepted seed range.
+"""
 function _stage_seed(spec::PipelineSpec,
                      stage::Symbol;
                      b::Int = 0,

@@ -216,7 +216,12 @@ Resolve and call the configured data loader in the `PrefPol` module, passing
 `cfg.data_file` and `candidates = cfg.candidates`.
 """
 function load_election_data(cfg::ElectionConfig)
-    return _load_config_data(cfg)
+    return _call_configured_loader(
+        cfg.data_loader,
+        cfg.data_file,
+        cfg.candidates;
+        context = _config_context(cfg),
+    )
 end
 
 function _candidate_weight_col(df::DataFrame)
@@ -274,7 +279,12 @@ function load_survey_wave_config(path::AbstractString; wave_id = nothing)
 end
 
 function load_wave_data(wcfg::SurveyWaveConfig)
-    return _load_config_data(wcfg)
+    return _call_configured_loader(
+        wcfg.data_loader,
+        wcfg.data_file,
+        wcfg.candidate_universe;
+        context = _config_context(wcfg),
+    )
 end
 
 function _candidate_order(cfg;
@@ -431,15 +441,26 @@ _config_context(cfg::ElectionConfig) = "year $(cfg.year)"
 _config_context(wcfg::SurveyWaveConfig) = "wave $(wcfg.wave_id)"
 
 function _load_config_data(cfg)
-    loader = _config_data_loader(cfg)
-    loader_sym = Symbol(loader)
+    return _call_configured_loader(
+        _config_data_loader(cfg),
+        _config_data_file(cfg),
+        _config_candidate_universe(cfg);
+        context = _config_context(cfg),
+    )
+end
 
+function _call_configured_loader(data_loader,
+                                 data_file,
+                                 candidates;
+                                 context::AbstractString)
+    loader = String(data_loader)
+    loader_sym = Symbol(loader)
     isdefined(@__MODULE__, loader_sym) || throw(ArgumentError(
-        "data_loader `$loader` not found in module $(nameof(@__MODULE__)).",
+        "data_loader `$loader` for $context not found in module $(nameof(@__MODULE__)).",
     ))
 
     loader_fun = getfield(@__MODULE__, loader_sym)
-    return loader_fun(_config_data_file(cfg); candidates = _config_candidate_universe(cfg))
+    return loader_fun(data_file; candidates = Vector{String}(candidates))
 end
 
 function _scenario_force_include(cfg, scenario_name)

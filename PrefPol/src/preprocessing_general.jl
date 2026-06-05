@@ -241,10 +241,20 @@ end
 
 
 
+# === Reproducibility seed helpers ===
+
 const _R_VALID_SEED_MODULUS = Int128(typemax(Int32) - 1)
 
+"""
+    _normalize_r_seed(seed) -> Int
+
+Map any Julia integer seed into R's positive `set.seed` range. This is
+intentionally separate from nested-pipeline stage hashing: R/mice needs a
+32-bit seed accepted by R, while pipeline stages use SHA-derived `UInt64`
+seeds to namespace BRK cache branches.
+"""
 function _normalize_r_seed(seed::Integer)
-    return Int(mod(Int128(seed), _R_VALID_SEED_MODULUS) + 1)
+    return Int(mod(seed, _R_VALID_SEED_MODULUS) + 1)
 end
 
 """

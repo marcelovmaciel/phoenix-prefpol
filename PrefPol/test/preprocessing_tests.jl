@@ -181,9 +181,18 @@ end
 end
 
 @testset "R seed normalization stays within set.seed range" begin
-    @test PrefPol._normalize_r_seed(6547001803536573440) <= typemax(Int32) - 1
+    r_seed_max = typemax(Int32) - 1
+    @test PrefPol._normalize_r_seed(6547001803536573440) <= r_seed_max
     @test PrefPol._normalize_r_seed(6547001803536573440) >= 1
     @test PrefPol._normalize_r_seed(42) == 43
+    @test PrefPol._normalize_r_seed(0) == 1
+    @test PrefPol._normalize_r_seed(r_seed_max - 1) == r_seed_max
+    @test PrefPol._normalize_r_seed(r_seed_max) == 1
+    @test PrefPol._normalize_r_seed(-1) == r_seed_max
+    for seed in (typemin(Int64), typemax(Int64), big(10)^50, -(big(10)^50))
+        normalized = PrefPol._normalize_r_seed(seed)
+        @test 1 <= normalized <= r_seed_max
+    end
 
     df = toy_scores_df()
     scores_cat = prepare_scores_for_imputation_categorical(df, CANDS; extra_cols = DEMOS)

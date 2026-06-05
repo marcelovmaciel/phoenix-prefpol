@@ -15,6 +15,23 @@ const _SURVEY_REFACTOR_DF = DataFrame(
     function __survey_refactor_loader__(path; candidates)
         return deepcopy($(_SURVEY_REFACTOR_DF))
     end
+
+    function __survey_refactor_echo_loader__(path; candidates)
+        return DataFrame(
+            loader_path = [String(path)],
+            candidate_count = [length(candidates)],
+            candidate_join = [join(candidates, "|")],
+        )
+    end
+end
+
+function _survey_captured_exception(f)
+    try
+        f()
+    catch err
+        return err
+    end
+    return nothing
 end
 
 function _year_config_paths()
@@ -114,15 +131,74 @@ end
 
             from_cfg = PrefPol._load_config_data(cfg)
             from_wave = PrefPol._load_config_data(wcfg)
+            public_from_cfg = PrefPol.load_election_data(cfg)
+            public_from_wave = PrefPol.load_wave_data(wcfg)
 
             @test names(from_cfg) == names(_SURVEY_REFACTOR_DF)
             @test names(from_wave) == names(_SURVEY_REFACTOR_DF)
             @test nrow(from_cfg) == nrow(_SURVEY_REFACTOR_DF)
             @test nrow(from_wave) == nrow(_SURVEY_REFACTOR_DF)
+            @test isequal(from_cfg, public_from_cfg)
+            @test isequal(from_wave, public_from_wave)
             @test PrefPol._scenario_force_include(cfg, "front") == ["D"]
             @test PrefPol._scenario_force_include(wcfg, "pair") == ["B", "A"]
             @test_throws ArgumentError PrefPol._scenario_force_include(cfg, "absent")
             @test_throws ArgumentError PrefPol._scenario_force_include(wcfg, "absent")
+
+            echo_cfg = PrefPol.ElectionConfig(
+                2099,
+                "__survey_refactor_echo_loader__",
+                "/tmp/synthetic-loader.sav",
+                2,
+                [2],
+                1,
+                2,
+                123,
+                ["B", "A"],
+                ["grp"],
+                [PrefPol.Scenario("all", String[])],
+            )
+            echo_wave = PrefPol.SurveyWaveConfig(echo_cfg; wave_id = "echo-wave")
+            direct_echo = PrefPol._call_configured_loader(
+                :__survey_refactor_echo_loader__,
+                echo_cfg.data_file,
+                echo_cfg.candidates;
+                context = "direct echo",
+            )
+            election_echo = PrefPol.load_election_data(echo_cfg)
+            wave_echo = PrefPol.load_wave_data(echo_wave)
+
+            @test isequal(direct_echo, election_echo)
+            @test isequal(election_echo, wave_echo)
+            @test only(election_echo.loader_path) == echo_cfg.data_file
+            @test only(election_echo.candidate_count) == 2
+            @test only(election_echo.candidate_join) == "B|A"
+
+            missing_cfg = PrefPol.ElectionConfig(
+                2099,
+                "__missing_survey_refactor_loader__",
+                "/tmp/missing-loader.sav",
+                2,
+                [2],
+                1,
+                2,
+                123,
+                ["A", "B"],
+                ["grp"],
+                [PrefPol.Scenario("all", String[])],
+            )
+            missing_err = _survey_captured_exception() do
+                PrefPol.load_election_data(missing_cfg)
+            end
+            @test missing_err isa ArgumentError
+            @test occursin("__missing_survey_refactor_loader__", sprint(showerror, missing_err))
+            @test occursin("year 2099", sprint(showerror, missing_err))
+
+            missing_wave_err = _survey_captured_exception() do
+                PrefPol.load_wave_data(PrefPol.SurveyWaveConfig(missing_cfg; wave_id = "missing-wave"))
+            end
+            @test missing_wave_err isa ArgumentError
+            @test occursin("missing-wave", sprint(showerror, missing_wave_err))
         end
     end
 
