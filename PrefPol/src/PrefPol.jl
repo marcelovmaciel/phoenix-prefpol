@@ -100,7 +100,6 @@ end
     getfield(_plotting_extension_module(), name)(args...; kwargs...)
 
 include("score_semantics.jl")
-include("derived_groups.jl")
 include("preprocessing_general.jl")
 include("legacy_preprocessing.jl")
 include("preprocessing_specific.jl")
