@@ -22,6 +22,8 @@ include("polarization_measures_tests.jl")
 
 include("nested_pipeline_tests.jl")
 
+include("validation_matrix_tests.jl")
+
 include("variance_decomposition_report_tests.jl")
 
 try

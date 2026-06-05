@@ -88,11 +88,14 @@ function _ranking_masses_from_weighted_ballots(iter, total::Real, pool::Candidat
     order = Tuple[]
 
     for (ballot, weight) in iter
+        w = Float64(weight)
+        w == 0.0 && continue
+
         sig = ranking_signature(ballot, pool)
         if !haskey(masses, sig)
             push!(order, sig)
         end
-        masses[sig] = get(masses, sig, 0.0) + Float64(weight)
+        masses[sig] = get(masses, sig, 0.0) + w
     end
 
     return masses, order, Float64(total)

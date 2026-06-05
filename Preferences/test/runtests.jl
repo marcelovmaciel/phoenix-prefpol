@@ -9,6 +9,7 @@ include("test_majority_graph_support.jl")
 include("test_majority_graph_roles.jl")
 include("plurality_switch_tables_tests.jl")
 include("preference_measures_weighting_tests.jl")
+include("weighted_profile_internals_regression_tests.jl")
 
 @testset "Profile basics" begin
     pool = pp.CandidatePool([:A, :B, :C])
