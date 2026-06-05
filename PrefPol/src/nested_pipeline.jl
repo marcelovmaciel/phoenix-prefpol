@@ -14,67 +14,7 @@ const SUPPORTED_GROUPED_NESTED_MEASURES = (
     :lambda_sep,
 )
 
-"""
-    SurveyWaveConfig
 
-Applied configuration for one Brazil/ESEB survey wave in the PrefPol
-replication workflow.
-
-The object is derived from a year TOML parsed by `load_election_cfg` and records
-how PrefPol should load the raw survey table, which candidate columns form the
-candidate universe, which demographic columns are available for grouped
-measures, and which scenario-specific candidates must be forced into an active
-candidate set. It is an application-layer object: formal profile and measure
-definitions live in `Preferences`.
-"""
-struct SurveyWaveConfig
-    wave_id::String
-    year::Int
-    data_loader::String
-    data_file::String
-    candidate_universe::Vector{String}
-    demographic_cols::Vector{String}
-    scenario_candidates::Dict{String,Vector{String}}
-    max_candidates::Int
-    default_m::Int
-    default_seed::Int
-end
-
-"""
-    SurveyWaveConfig(cfg::ElectionConfig; wave_id=string(cfg.year))
-
-Convert a year TOML configuration into the survey-wave configuration used by
-the reproducible BRK pipeline.
-"""
-SurveyWaveConfig(cfg::ElectionConfig; wave_id::AbstractString = string(cfg.year)) =
-    SurveyWaveConfig(
-        String(wave_id),
-        cfg.year,
-        cfg.data_loader,
-        cfg.data_file,
-        Vector{String}(cfg.candidates),
-        Vector{String}(cfg.demographics),
-        Dict(sc.name => Vector{String}(sc.candidates) for sc in cfg.scenarios),
-        cfg.max_candidates,
-        _infer_m(cfg),
-        cfg.rng_seed,
-    )
-
-"""
-    load_survey_wave_config(path; wave_id=nothing) -> SurveyWaveConfig
-
-Load a PrefPol year configuration TOML and return the corresponding
-`SurveyWaveConfig`.
-
-This is the nested pipeline's configuration-loading entry point for the
-Brazil/ESEB application. `data_file` paths are resolved by `load_election_cfg`;
-no survey data or cache artifact is read here.
-"""
-function load_survey_wave_config(path::AbstractString; wave_id = nothing)
-    cfg = load_election_cfg(path)
-    resolved_wave_id = wave_id === nothing ? string(cfg.year) : String(wave_id)
-    return SurveyWaveConfig(cfg; wave_id = resolved_wave_id)
-end
 
 """
     build_source_registry(waves) -> Dict{String,SurveyWaveConfig}
@@ -100,27 +40,6 @@ function _lookup_wave_config(pipeline, wave_id::AbstractString)
         "Unknown wave_id `$wave_id`. Register the corresponding SurveyWaveConfig first.",
     ))
     return pipeline.source_registry[wave_id]
-end
-
-function load_wave_data(wcfg::SurveyWaveConfig)
-    loader_sym = Symbol(wcfg.data_loader)
-
-    if !isdefined(@__MODULE__, loader_sym)
-        throw(ArgumentError(
-            "data_loader `$(wcfg.data_loader)` not found in module $(nameof(@__MODULE__)).",
-        ))
-    end
-
-    loader_fun = getfield(@__MODULE__, loader_sym)
-    return loader_fun(wcfg.data_file; candidates = wcfg.candidate_universe)
-end
-
-function _scenario_force_include(wcfg::SurveyWaveConfig, scenario_name)
-    sname = String(scenario_name)
-    haskey(wcfg.scenario_candidates, sname) || throw(ArgumentError(
-        "Unknown scenario `$sname` for wave $(wcfg.wave_id). Available scenarios: $(collect(keys(wcfg.scenario_candidates))).",
-    ))
-    return Vector{String}(wcfg.scenario_candidates[sname])
 end
 
 function _normalize_measure(measure)
@@ -266,65 +185,6 @@ function PipelineSpec(wave_id::AbstractString,
         String(seed_namespace),
         schema_version,
         String(code_version),
-    )
-end
-
-"""
-    resolve_active_candidate_set(wcfg; active_candidates=nothing,
-                                 scenario_name=nothing, m=nothing,
-                                 data=nothing) -> Vector{String}
-
-Resolve the ordered candidate set used by one Brazil/ESEB pipeline spec.
-
-Pass `active_candidates` to use an exact set. Otherwise PrefPol computes a
-weighted-missingness ordering from the raw survey data, optionally force-including
-the candidates declared by `scenario_name`, and trims to `m` alternatives. This
-function may load the raw survey table unless `data` is provided; it does not
-write cache.
-"""
-function resolve_active_candidate_set(wcfg::SurveyWaveConfig;
-                                      active_candidates = nothing,
-                                      scenario_name = nothing,
-                                      m = nothing,
-                                      data = nothing)
-    (active_candidates !== nothing && scenario_name !== nothing) && throw(ArgumentError(
-        "Pass either `active_candidates` or `scenario_name`, not both.",
-    ))
-
-    if active_candidates !== nothing
-        candidates = unique!(String.(collect(active_candidates)))
-        length(candidates) >= 2 || throw(ArgumentError(
-            "Resolved active candidate set must contain at least two candidates.",
-        ))
-        length(candidates) <= wcfg.max_candidates || throw(ArgumentError(
-            "Resolved active candidate set for wave $(wcfg.wave_id) has $(length(candidates)) candidates, " *
-            "but max_candidates=$(wcfg.max_candidates).",
-        ))
-        missing_candidates = setdiff(candidates, wcfg.candidate_universe)
-        isempty(missing_candidates) || throw(ArgumentError(
-            "Resolved active candidate set for wave $(wcfg.wave_id) contains unknown candidates $(missing_candidates).",
-        ))
-        return candidates
-    end
-
-    mm = _validate_candidate_count(
-        m === nothing ? wcfg.default_m : Int(m),
-        wcfg.max_candidates;
-        context = "resolve_active_candidate_set for wave $(wcfg.wave_id)",
-        min_allowed = 2,
-    )
-
-    df = data === nothing ? load_wave_data(wcfg) : data
-    weight_col = _candidate_weight_col(df)
-    force_include = scenario_name === nothing ? String[] :
-                    _scenario_force_include(wcfg, scenario_name)
-
-    return compute_global_candidate_set(
-        df;
-        candidate_cols = wcfg.candidate_universe,
-        m = mm,
-        force_include = force_include,
-        weights = df[!, weight_col],
     )
 end
 

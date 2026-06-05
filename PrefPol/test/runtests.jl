@@ -6,6 +6,8 @@ include("profile_adapters_tests.jl")
 
 include("raw_profiles_tests.jl")
 
+include("test_survey_config_raw_profiles.jl")
+
 include("processing_tests.jl")
 
 include("preprocessing_tests.jl")

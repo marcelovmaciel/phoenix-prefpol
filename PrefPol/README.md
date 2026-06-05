@@ -132,7 +132,9 @@ start with `manifests/` and then follow the recorded paths into `cache/`,
   loaders, and survey-wave transformations.
 - `PrefPol/src/nested_pipeline.jl` contains the nested
   bootstrap/imputation/linearization pipeline and cache layout.
-- `PrefPol/src/raw_profiles.jl` turns year configs into raw profile inputs.
+- `PrefPol/src/survey_config.jl` parses year configs, builds survey-wave
+  configs, resolves candidate sets, loads raw survey data, and constructs raw
+  profile inputs; `raw_profiles.jl` keeps summary compatibility wrappers.
 - `Preferences/` owns the formal preference, profile, ranking, aggregation, and
   measure primitives used by `PrefPol`.
 
