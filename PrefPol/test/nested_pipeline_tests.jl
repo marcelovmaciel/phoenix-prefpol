@@ -57,6 +57,184 @@ function _legacy_raw_group_coherence(bundle, demo::Symbol)
     return c_raw
 end
 
+function _registry_test_bundle()
+    df = DataFrame(
+        profile = [
+            ranking_dict([:A, :B, :C]),
+            ranking_dict([:A, :B, :C]),
+            ranking_dict([:C, :B, :A]),
+            ranking_dict([:C, :B, :A]),
+        ],
+        grp = ["x", "x", "y", "y"],
+    )
+    metadata!(df, "candidates", [:A, :B, :C])
+    metadata!(df, "profile_kind", "linearized")
+    return PrefPol.Preferences.dataframe_to_annotated_profile(df)
+end
+
+function _captured_exception(f)
+    try
+        f()
+    catch err
+        return err
+    end
+    return nothing
+end
+
+@testset "nested pipeline measure registry integrity" begin
+    registry = PrefPol.PIPELINE_MEASURE_REGISTRY
+    ids = [spec.id for spec in registry]
+
+    @test all(id -> id isa Symbol, ids)
+    @test length(ids) == length(unique(ids))
+    @test Set(ids) == Set(PrefPol.SUPPORTED_NESTED_MEASURES)
+    @test PrefPol.SUPPORTED_GLOBAL_NESTED_MEASURES ==
+          tuple((spec.id for spec in registry if spec.kind === :global)...)
+    @test PrefPol.SUPPORTED_GROUPED_NESTED_MEASURES ==
+          tuple((spec.id for spec in registry if spec.kind === :grouped)...)
+    @test PrefPol.SUPPORTED_GLOBAL_NESTED_MEASURES == (:Psi, :R, :HHI, :RHHI)
+    @test PrefPol.SUPPORTED_GROUPED_NESTED_MEASURES == (
+        :C, :W, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :E, :S_old,
+        :lambda_sep,
+    )
+    @test PrefPol.DEFAULT_GLOBAL_NESTED_MEASURES == (:Psi, :R, :HHI, :RHHI)
+    @test PrefPol.DEFAULT_GROUPED_NESTED_MEASURES == (:C, :D, :G)
+
+    details = PrefPol.compute_group_measure_details(_registry_test_bundle(), :grp)
+    detail_fields = Set(propertynames(details))
+
+    for spec in registry
+        @test spec.kind in (:global, :grouped)
+        if spec.kind === :global
+            @test spec.fn isa Function
+            @test spec.value_field === nothing
+            @test spec.lower_field === nothing
+            @test spec.upper_field === nothing
+        else
+            @test spec.fn === nothing
+            @test spec.value_field isa Symbol
+            @test spec.lower_field isa Symbol
+            @test spec.upper_field isa Symbol
+            @test spec.value_field in detail_fields
+            @test spec.lower_field in detail_fields
+            @test spec.upper_field in detail_fields
+        end
+    end
+end
+
+@testset "nested pipeline measure normalization uses registry" begin
+    @test PrefPol._normalize_measure(:Psi) == :Psi
+    @test PrefPol._normalize_measure("Psi") == :Psi
+    @test PrefPol._normalize_measure("Ψ") == :Psi
+
+    for measure in PrefPol.SUPPORTED_NESTED_MEASURES
+        @test PrefPol._normalize_measure(measure) == measure
+    end
+
+    err = _captured_exception() do
+        PrefPol._normalize_measure(:not_a_measure)
+    end
+    @test err isa ArgumentError
+    msg = sprint(showerror, err)
+    @test occursin("Unsupported measure", msg)
+    for measure in PrefPol.SUPPORTED_NESTED_MEASURES
+        @test occursin(String(measure), msg)
+    end
+end
+
+@testset "nested pipeline default measures preserve pre-refactor behavior" begin
+    no_group_spec = PrefPol.PipelineSpec(
+        "defaults-wave",
+        ["A", "B", "C"];
+        groupings = Symbol[],
+        B = 1,
+        R = 1,
+        K = 1,
+        imputer_backend = :zero,
+    )
+    grouped_spec = PrefPol.PipelineSpec(
+        "defaults-wave",
+        ["A", "B", "C"];
+        groupings = [:grp],
+        B = 1,
+        R = 1,
+        K = 1,
+        imputer_backend = :zero,
+    )
+
+    @test no_group_spec.measures == [:Psi, :R, :HHI, :RHHI]
+    @test grouped_spec.measures == [:Psi, :R, :HHI, :RHHI, :C, :D, :G]
+    @test no_group_spec.measures == collect(PrefPol.DEFAULT_GLOBAL_NESTED_MEASURES)
+    @test grouped_spec.measures == collect((
+        PrefPol.DEFAULT_GLOBAL_NESTED_MEASURES...,
+        PrefPol.DEFAULT_GROUPED_NESTED_MEASURES...,
+    ))
+end
+
+@testset "nested pipeline measure dispatch follows registry fields" begin
+    bundle = _registry_test_bundle()
+    linearized = PrefPol.LinearizedProfile(
+        1,
+        1,
+        1,
+        bundle,
+        (:A, :B, :C),
+        :random_ties,
+        UInt64(1),
+    )
+    spec = PrefPol.PipelineSpec(
+        "dispatch-wave",
+        ["A", "B", "C"];
+        groupings = [:grp],
+        measures = collect(PrefPol.SUPPORTED_NESTED_MEASURES),
+        B = 1,
+        R = 1,
+        K = 1,
+        imputer_backend = :zero,
+        consensus_tie_policy = :average,
+    )
+
+    results, audits = PrefPol._measure_results_for_profile(linearized, spec)
+    @test isempty(audits)
+    @test [result.measure_id for result in results] == collect(PrefPol.SUPPORTED_NESTED_MEASURES)
+    @test all(result -> result.b == 1 && result.r == 1 && result.k == 1, results)
+
+    profile = PrefPol.Preferences.strict_profile(bundle)
+    direct_global = Dict(
+        :Psi => PrefPol.Preferences.can_polarization(profile),
+        :R => PrefPol.Preferences.total_reversal_component(profile),
+        :HHI => PrefPol.Preferences.reversal_hhi(profile),
+        :RHHI => PrefPol.Preferences.reversal_geometric(profile),
+    )
+
+    for (measure, expected) in direct_global
+        row = only(filter(result -> result.measure_id === measure, results))
+        @test row.grouping === nothing
+        @test row.lower === nothing
+        @test row.upper === nothing
+        @test isapprox(row.value, expected; atol = 1e-12)
+        @test row.diagnostics.measure_class === :global
+        @test isapprox(PrefPol._global_measure_value(measure, bundle), expected; atol = 1e-12)
+    end
+
+    details = PrefPol.compute_group_measure_details(bundle, :grp)
+    for measure_spec in PrefPol.PIPELINE_MEASURE_REGISTRY
+        measure_spec.kind === :grouped || continue
+        row = only(filter(result -> result.measure_id === measure_spec.id, results))
+        @test row.grouping === :grp
+        @test isapprox(row.value, Float64(getproperty(details, measure_spec.value_field)); atol = 1e-12)
+        @test isapprox(row.lower, Float64(getproperty(details, measure_spec.lower_field)); atol = 1e-12)
+        @test isapprox(row.upper, Float64(getproperty(details, measure_spec.upper_field)); atol = 1e-12)
+        @test row.diagnostics.n_groups == details.diagnostics.n_groups
+    end
+
+    err = _captured_exception() do
+        PrefPol._global_measure_value(:C, bundle)
+    end
+    @test err isa ArgumentError
+    @test occursin("Supported global measures", sprint(showerror, err))
+end
+
 @testset "tree variance decomposition follows the explicit BRK identity" begin
     leaf_table = DataFrame(
         measure = fill(:M, 8),

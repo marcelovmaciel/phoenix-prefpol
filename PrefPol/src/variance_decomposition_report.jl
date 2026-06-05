@@ -6,7 +6,7 @@ The public paper set is `:Psi`, `:R`, `:HHI`, `:RHHI`, `:C`, and `:D`, matching
 `PrefPol/config/publication.toml`. These symbols refer to measures already
 computed in PrefPol pipeline results; formal definitions live in `Preferences`.
 """
-const DEFAULT_PAPER_VARIANCE_MEASURES = [:Psi, :R, :HHI, :RHHI, :C, :D]
+const DEFAULT_PAPER_VARIANCE_MEASURES = [DEFAULT_GLOBAL_NESTED_MEASURES..., :C, :D]
 """
 Display labels used by PrefPol variance-decomposition tables and plots.
 

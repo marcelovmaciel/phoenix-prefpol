@@ -8,11 +8,85 @@ mkpath(DEFAULT_NESTED_PIPELINE_CACHE_ROOT)
 const SUPPORTED_NESTED_IMPUTERS = (:zero, :random, :mice)
 const SUPPORTED_LINEARIZER_POLICIES = (:random_ties, :pattern_conditional)
 const SUPPORTED_CONSENSUS_TIE_POLICIES = (:average, :hash, :interval)
-const SUPPORTED_GLOBAL_NESTED_MEASURES = (:Psi, :R, :HHI, :RHHI)
-const SUPPORTED_GROUPED_NESTED_MEASURES = (
-    :C, :W, :D, :D_median, :O, :O_smoothed, :Sep, :G, :Gsep, :S, :E, :S_old,
-    :lambda_sep,
+
+"""
+    PipelineMeasureSpec
+
+Registry entry for nested-pipeline measure identity and dispatch.
+
+Global measures store the callable used on a strict `Preferences` profile.
+Grouped measures store the fields read from `compute_group_measure_details`.
+The `manuscript_default` flag drives default `PipelineSpec` measure selection;
+`diagnostic` distinguishes extended and legacy measures from paper-facing
+defaults without changing their availability.
+"""
+struct PipelineMeasureSpec
+    id::Symbol
+    kind::Symbol
+    value_field::Union{Nothing,Symbol}
+    lower_field::Union{Nothing,Symbol}
+    upper_field::Union{Nothing,Symbol}
+    fn::Any
+    manuscript_default::Bool
+    diagnostic::Bool
+end
+
+const PIPELINE_MEASURE_REGISTRY = (
+    PipelineMeasureSpec(:Psi, :global, nothing, nothing, nothing, Preferences.can_polarization, true, false),
+    PipelineMeasureSpec(:R, :global, nothing, nothing, nothing, Preferences.total_reversal_component, true, false),
+    PipelineMeasureSpec(:HHI, :global, nothing, nothing, nothing, Preferences.reversal_hhi, true, false),
+    PipelineMeasureSpec(:RHHI, :global, nothing, nothing, nothing, Preferences.reversal_geometric, true, false),
+    PipelineMeasureSpec(:C, :grouped, :C, :C, :C, nothing, true, false),
+    PipelineMeasureSpec(:W, :grouped, :W, :W, :W, nothing, false, true),
+    PipelineMeasureSpec(:D, :grouped, :D, :D_lo, :D_hi, nothing, true, false),
+    PipelineMeasureSpec(:D_median, :grouped, :D_median, :D_median_lo, :D_median_hi, nothing, false, true),
+    PipelineMeasureSpec(:O, :grouped, :O, :O_lo, :O_hi, nothing, false, true),
+    PipelineMeasureSpec(:O_smoothed, :grouped, :O_smoothed, :O_smoothed_lo, :O_smoothed_hi, nothing, false, true),
+    PipelineMeasureSpec(:Sep, :grouped, :Sep, :Sep_lo, :Sep_hi, nothing, false, true),
+    PipelineMeasureSpec(:G, :grouped, :G, :G_lo, :G_hi, nothing, true, false),
+    PipelineMeasureSpec(:Gsep, :grouped, :Gsep, :Gsep_lo, :Gsep_hi, nothing, false, true),
+    PipelineMeasureSpec(:S, :grouped, :S, :S_lo, :S_hi, nothing, false, true),
+    PipelineMeasureSpec(:E, :grouped, :E, :E_lo, :E_hi, nothing, false, true),
+    PipelineMeasureSpec(:S_old, :grouped, :S_old, :S_old_lo, :S_old_hi, nothing, false, true),
+    PipelineMeasureSpec(:lambda_sep, :grouped, :lambda_sep, :lambda_sep_lo, :lambda_sep_hi, nothing, false, true),
 )
+const PIPELINE_MEASURE_SPECS_BY_ID = Dict(spec.id => spec for spec in PIPELINE_MEASURE_REGISTRY)
+const PIPELINE_MEASURE_ALIASES = Dict(Symbol("Ψ") => :Psi)
+const SUPPORTED_GLOBAL_NESTED_MEASURES = tuple(
+    (spec.id for spec in PIPELINE_MEASURE_REGISTRY if spec.kind === :global)...,
+)
+const SUPPORTED_GROUPED_NESTED_MEASURES = tuple(
+    (spec.id for spec in PIPELINE_MEASURE_REGISTRY if spec.kind === :grouped)...,
+)
+const SUPPORTED_NESTED_MEASURES = tuple((spec.id for spec in PIPELINE_MEASURE_REGISTRY)...)
+const DEFAULT_GLOBAL_NESTED_MEASURES = tuple(
+    (spec.id for spec in PIPELINE_MEASURE_REGISTRY
+     if spec.kind === :global && spec.manuscript_default)...,
+)
+const DEFAULT_GROUPED_NESTED_MEASURES = tuple(
+    (spec.id for spec in PIPELINE_MEASURE_REGISTRY
+     if spec.kind === :grouped && spec.manuscript_default)...,
+)
+
+function _pipeline_measure_spec(measure::Symbol)
+    return get(PIPELINE_MEASURE_SPECS_BY_ID, measure, nothing)
+end
+
+@inline _is_grouped_measure(measure::Symbol) =
+    (spec = _pipeline_measure_spec(measure); spec !== nothing && spec.kind === :grouped)
+
+@inline _is_global_measure(measure::Symbol) =
+    (spec = _pipeline_measure_spec(measure); spec !== nothing && spec.kind === :global)
+
+function _supported_measure_list()
+    return join((String(measure_id) for measure_id in SUPPORTED_NESTED_MEASURES), ", ")
+end
+
+function _default_nested_measure_list(has_groupings::Bool)
+    measures = collect(DEFAULT_GLOBAL_NESTED_MEASURES)
+    has_groupings && append!(measures, DEFAULT_GROUPED_NESTED_MEASURES)
+    return measures
+end
 
 
 
@@ -44,20 +118,14 @@ end
 
 function _normalize_measure(measure)
     sym = Symbol(measure)
+    sym = get(PIPELINE_MEASURE_ALIASES, sym, sym)
 
-    if sym === Symbol("Ψ") || sym === :Psi
-        return :Psi
-    elseif sym in SUPPORTED_GLOBAL_NESTED_MEASURES || sym in SUPPORTED_GROUPED_NESTED_MEASURES
+    if haskey(PIPELINE_MEASURE_SPECS_BY_ID, sym)
         return sym
     end
 
-    supported = join(
-        (String(measure_id)
-         for measure_id in (SUPPORTED_GLOBAL_NESTED_MEASURES..., SUPPORTED_GROUPED_NESTED_MEASURES...)),
-        ", ",
-    )
     throw(ArgumentError(
-        "Unsupported measure `$measure`. Supported measures: $supported.",
+        "Unsupported measure `$measure`. Supported measures: $(_supported_measure_list()).",
     ))
 end
 
@@ -141,16 +209,15 @@ function PipelineSpec(wave_id::AbstractString,
 
     grouping_syms = _normalize_groupings(groupings)
     measure_syms = measures === nothing ?
-                   (isempty(grouping_syms) ? [:Psi, :R, :HHI, :RHHI] :
-                                             [:Psi, :R, :HHI, :RHHI, :C, :D, :G]) :
+                   _default_nested_measure_list(!isempty(grouping_syms)) :
                    _normalize_measure_list(measures)
 
-    grouped_measure_names = join(String.(SUPPORTED_GROUPED_NESTED_MEASURES), ", ")
-    any(measure in SUPPORTED_GROUPED_NESTED_MEASURES for measure in measure_syms) &&
-        isempty(grouping_syms) &&
+    if any(_is_grouped_measure, measure_syms) && isempty(grouping_syms)
+        grouped_measure_names = join(String.(SUPPORTED_GROUPED_NESTED_MEASURES), ", ")
         throw(ArgumentError(
             "Measures $grouped_measure_names require at least one grouping column.",
         ))
+    end
 
     B >= 1 || throw(ArgumentError("B must be at least 1."))
     R >= 1 || throw(ArgumentError("R must be at least 1."))
@@ -1137,19 +1204,35 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
 end
 
 function _global_measure_value(measure::Symbol, bundle::AnnotatedProfile)
+    spec = _pipeline_measure_spec(measure)
+    spec !== nothing && spec.kind === :global || throw(ArgumentError(
+        "Unsupported global measure `$measure`. Supported global measures: " *
+        join(String.(SUPPORTED_GLOBAL_NESTED_MEASURES), ", ") * ".",
+    ))
+
     profile = Preferences.strict_profile(bundle)
+    return spec.fn(profile)
+end
 
-    if measure === :Psi
-        return Preferences.can_polarization(profile)
-    elseif measure === :R
-        return Preferences.total_reversal_component(profile)
-    elseif measure === :HHI
-        return Preferences.reversal_hhi(profile)
-    elseif measure === :RHHI
-        return Preferences.reversal_geometric(profile)
-    end
+function _grouped_measure_result(profile::LinearizedProfile,
+                                 grouping::Symbol,
+                                 spec::PipelineMeasureSpec,
+                                 details)
+    spec.kind === :grouped || throw(ArgumentError(
+        "Measure `$(spec.id)` is not a grouped nested-pipeline measure.",
+    ))
 
-    throw(ArgumentError("Unsupported global measure `$measure`."))
+    return MeasureResult(
+        profile.b,
+        profile.r,
+        profile.k,
+        spec.id,
+        grouping,
+        Float64(getproperty(details, spec.value_field)),
+        Float64(getproperty(details, spec.lower_field)),
+        Float64(getproperty(details, spec.upper_field)),
+        details.diagnostics,
+    )
 end
 
 function _measure_results_for_profile(profile::LinearizedProfile,
@@ -1157,8 +1240,14 @@ function _measure_results_for_profile(profile::LinearizedProfile,
     results = MeasureResult[]
     audits = NamedTuple[]
 
-    for measure in spec.measures
-        measure in SUPPORTED_GROUPED_NESTED_MEASURES && continue
+    global_measures = [measure for measure in spec.measures if _is_global_measure(measure)]
+    grouped_measures = [
+        _pipeline_measure_spec(measure)
+        for measure in spec.measures
+        if _is_grouped_measure(measure)
+    ]
+
+    for measure in global_measures
         value = _global_measure_value(measure, profile.bundle)
         push!(results, MeasureResult(
             profile.b,
@@ -1173,7 +1262,7 @@ function _measure_results_for_profile(profile::LinearizedProfile,
         ))
     end
 
-    if any(measure in SUPPORTED_GROUPED_NESTED_MEASURES for measure in spec.measures)
+    if !isempty(grouped_measures)
         for grouping in spec.groupings
             details = compute_group_measure_details(
                 profile.bundle,
@@ -1196,186 +1285,8 @@ function _measure_results_for_profile(profile::LinearizedProfile,
                 message = "Grouping $(grouping) had $(details.diagnostics.tied_groups) tied consensus groups under policy $(spec.consensus_tie_policy).",
             ))
 
-            if :C in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :C,
-                    grouping,
-                    details.C,
-                    details.C,
-                    details.C,
-                    details.diagnostics,
-                ))
-            end
-
-            if :W in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :W,
-                    grouping,
-                    details.W,
-                    details.W,
-                    details.W,
-                    details.diagnostics,
-                ))
-            end
-
-            if :D in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :D,
-                    grouping,
-                    details.D,
-                    details.D_lo,
-                    details.D_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :D_median in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :D_median,
-                    grouping,
-                    details.D_median,
-                    details.D_median_lo,
-                    details.D_median_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :O in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :O,
-                    grouping,
-                    details.O,
-                    details.O_lo,
-                    details.O_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :O_smoothed in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :O_smoothed,
-                    grouping,
-                    details.O_smoothed,
-                    details.O_smoothed_lo,
-                    details.O_smoothed_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :Sep in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :Sep,
-                    grouping,
-                    details.Sep,
-                    details.Sep_lo,
-                    details.Sep_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :S in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :S,
-                    grouping,
-                    details.S,
-                    details.S_lo,
-                    details.S_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :E in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :E,
-                    grouping,
-                    details.E,
-                    details.E_lo,
-                    details.E_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :lambda_sep in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :lambda_sep,
-                    grouping,
-                    details.lambda_sep,
-                    details.lambda_sep_lo,
-                    details.lambda_sep_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :S_old in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :S_old,
-                    grouping,
-                    details.S_old,
-                    details.S_old_lo,
-                    details.S_old_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :Gsep in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :Gsep,
-                    grouping,
-                    details.Gsep,
-                    details.Gsep_lo,
-                    details.Gsep_hi,
-                    details.diagnostics,
-                ))
-            end
-
-            if :G in spec.measures
-                push!(results, MeasureResult(
-                    profile.b,
-                    profile.r,
-                    profile.k,
-                    :G,
-                    grouping,
-                    details.G,
-                    details.G_lo,
-                    details.G_hi,
-                    details.diagnostics,
-                ))
+            for measure_spec in grouped_measures
+                push!(results, _grouped_measure_result(profile, grouping, measure_spec, details))
             end
         end
     end
@@ -3267,7 +3178,7 @@ function pipeline_scenario_plot_data(result_or_results;
                                      wave_id = nothing,
                                      scenario_name = nothing,
                                      imputer_backend = nothing,
-                                     measures = [:Psi, :R, :HHI, :RHHI])
+                                     measures = collect(DEFAULT_GLOBAL_NESTED_MEASURES))
     rows = select_pipeline_panel_rows(
         result_or_results;
         year = year,
@@ -3299,7 +3210,7 @@ function pipeline_group_plot_data(result_or_results;
                                   wave_id = nothing,
                                   scenario_name = nothing,
                                   imputer_backend = nothing,
-                                  measures = [:C, :D, :G],
+                                  measures = collect(DEFAULT_GROUPED_NESTED_MEASURES),
                                   groupings = nothing)
     rows = select_pipeline_panel_rows(
         result_or_results;
@@ -3350,7 +3261,7 @@ function pipeline_group_heatmap_values(result_or_results;
                                        wave_id = nothing,
                                        scenario_name = nothing,
                                        imputer_backend = nothing,
-                                       measures = [:C, :D, :G],
+                                       measures = collect(DEFAULT_GROUPED_NESTED_MEASURES),
                                        groupings = nothing,
                                        statistic::Symbol = :median)
     data = pipeline_group_plot_data(

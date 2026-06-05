@@ -24,7 +24,7 @@ Base.get_extension(PrefPol, :PrefPolPlottingExt) === nothing && throw(ArgumentEr
 ))
 
 # TODO(plot_specs.toml): keep only as a smoke-test safeguard if plot specs are absent.
-const DEFAULT_GLOBAL_MEASURES = [:Psi, :R, :HHI, :RHHI]
+const DEFAULT_GLOBAL_MEASURES = collect(pp.DEFAULT_GLOBAL_NESTED_MEASURES)
 const ANALYSIS_ROLE_MAIN = "main"
 const DEFAULT_PLOT_SPECS_PATH = joinpath(DEFAULT_CONFIG_DIR, "plot_specs.toml")
 
