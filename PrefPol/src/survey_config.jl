@@ -216,14 +216,7 @@ Resolve and call the configured data loader in the `PrefPol` module, passing
 `cfg.data_file` and `candidates = cfg.candidates`.
 """
 function load_election_data(cfg::ElectionConfig)
-    loader_sym = Symbol(cfg.data_loader)
-
-    isdefined(@__MODULE__, loader_sym) || throw(ArgumentError(
-        "data_loader `$(cfg.data_loader)` not found in module $(nameof(@__MODULE__)).",
-    ))
-
-    loader_fun = getfield(@__MODULE__, loader_sym)
-    return loader_fun(cfg.data_file; candidates = cfg.candidates)
+    return _load_config_data(cfg)
 end
 
 function _candidate_weight_col(df::DataFrame)
@@ -237,43 +230,11 @@ end
 
 function _lookup_scenario(cfg::ElectionConfig, scenario_name)
     sname = String(scenario_name)
-    for sc in cfg.scenarios
-        sc.name == sname && return sc
-    end
-    available = [sc.name for sc in cfg.scenarios]
-    throw(ArgumentError(
-        "Unknown scenario `$sname` for year $(cfg.year). Available scenarios: $(available).",
+    scenarios = _config_scenario_candidates(cfg)
+    haskey(scenarios, sname) || throw(ArgumentError(
+        "Unknown scenario `$sname` for $(_config_context(cfg)). Available scenarios: $(sort(collect(keys(scenarios)))).",
     ))
-end
-
-function _candidate_order(cfg::ElectionConfig;
-                          scenario = nothing,
-                          m::Int = cfg.max_candidates,
-                          data = nothing)
-    resolved_m = _validate_candidate_count(
-        m,
-        cfg.max_candidates;
-        context = "Candidate-set resolution for year $(cfg.year)",
-        min_allowed = 1,
-    )
-    df = data === nothing ? load_election_data(cfg) : data
-
-    force_include = if scenario === nothing
-        String[]
-    elseif scenario isa Scenario
-        Vector{String}(scenario.candidates)
-    else
-        Vector{String}(_lookup_scenario(cfg, scenario).candidates)
-    end
-
-    weight_col = _candidate_weight_col(df)
-    return compute_global_candidate_set(
-        df;
-        candidate_cols = cfg.candidates,
-        m = resolved_m,
-        force_include = force_include,
-        weights = df[!, weight_col],
-    )
+    return Scenario(sname, Vector{String}(scenarios[sname]))
 end
 
 """
@@ -313,74 +274,33 @@ function load_survey_wave_config(path::AbstractString; wave_id = nothing)
 end
 
 function load_wave_data(wcfg::SurveyWaveConfig)
-    loader_sym = Symbol(wcfg.data_loader)
-
-    if !isdefined(@__MODULE__, loader_sym)
-        throw(ArgumentError(
-            "data_loader `$(wcfg.data_loader)` not found in module $(nameof(@__MODULE__)).",
-        ))
-    end
-
-    loader_fun = getfield(@__MODULE__, loader_sym)
-    return loader_fun(wcfg.data_file; candidates = wcfg.candidate_universe)
+    return _load_config_data(wcfg)
 end
 
-function _scenario_force_include(wcfg::SurveyWaveConfig, scenario_name)
-    sname = String(scenario_name)
-    haskey(wcfg.scenario_candidates, sname) || throw(ArgumentError(
-        "Unknown scenario `$sname` for wave $(wcfg.wave_id). Available scenarios: $(collect(keys(wcfg.scenario_candidates))).",
-    ))
-    return Vector{String}(wcfg.scenario_candidates[sname])
-end
-
-function _scenario_from_wave(wcfg::SurveyWaveConfig, scenario_name)
-    return Scenario(String(scenario_name), _scenario_force_include(wcfg, scenario_name))
-end
-
-function _election_cfg(wcfg::SurveyWaveConfig)
-    scenarios = [
-        Scenario(name, Vector{String}(candidates))
-        for (name, candidates) in wcfg.scenario_candidates
-    ]
-    return ElectionConfig(
-        wcfg.year,
-        wcfg.data_loader,
-        wcfg.data_file,
-        wcfg.max_candidates,
-        collect(2:wcfg.max_candidates),
-        1,
-        wcfg.default_m,
-        wcfg.default_seed,
-        Vector{String}(wcfg.candidate_universe),
-        Vector{String}(wcfg.demographic_cols),
-        scenarios,
-    )
-end
-
-function _candidate_order(wcfg::SurveyWaveConfig;
+function _candidate_order(cfg;
                           scenario = nothing,
-                          m::Int = wcfg.default_m,
+                          m::Int = _config_default_m(cfg),
                           data = nothing)
     resolved_m = _validate_candidate_count(
         m,
-        wcfg.max_candidates;
-        context = "Candidate-set resolution for wave $(wcfg.wave_id)",
+        _config_max_candidates(cfg);
+        context = "Candidate-set resolution for $(_config_context(cfg))",
         min_allowed = 1,
     )
-    df = data === nothing ? load_wave_data(wcfg) : data
+    df = data === nothing ? _load_config_data(cfg) : data
 
     force_include = if scenario === nothing
         String[]
     elseif scenario isa Scenario
         Vector{String}(scenario.candidates)
     else
-        _scenario_force_include(wcfg, scenario)
+        _scenario_force_include(cfg, scenario)
     end
 
     weight_col = _candidate_weight_col(df)
     return compute_global_candidate_set(
         df;
-        candidate_cols = wcfg.candidate_universe,
+        candidate_cols = _config_candidate_universe(cfg),
         m = resolved_m,
         force_include = force_include,
         weights = df[!, weight_col],
@@ -424,21 +344,56 @@ end
 
 @inline _prefs() = _ensure_preferences_module()
 
-const RAW_PROFILE_SUPPORTED_YEARS = Set([2006, 2018, 2022])
-const _RAW_PROFILE_CFG_DIR = joinpath(project_root, "config")
+const DEFAULT_CONFIG_DIR = joinpath(project_root, "config")
+
+function _year_config_paths(; config_dir = DEFAULT_CONFIG_DIR)
+    dir = String(config_dir)
+    isdir(dir) || throw(ArgumentError("Config directory not found: `$dir`."))
+    return sort(filter(path -> occursin(r"^[0-9]+\.toml$", basename(path)),
+                       readdir(dir; join = true)))
+end
+
+"""
+    available_election_years(; config_dir=joinpath(project_root, "config"))
+
+Return the election years with tracked numeric TOML config files in
+`config_dir`. Non-year support files such as table or plot specs are ignored.
+"""
+function available_election_years(; config_dir = DEFAULT_CONFIG_DIR)
+    years = Int[]
+    for path in _year_config_paths(config_dir = config_dir)
+        cfg = load_election_cfg(path)
+        push!(years, cfg.year)
+    end
+    return sort(unique(years))
+end
+
+"""
+    default_config_path(year; config_dir=joinpath(project_root, "config"))
+
+Return the default numeric TOML config file for `year`, verifying that the file
+exists and parses to the requested year.
+"""
+function default_config_path(year::Integer; config_dir = DEFAULT_CONFIG_DIR)
+    requested = Int(year)
+    for path in _year_config_paths(config_dir = config_dir)
+        cfg = load_election_cfg(path)
+        cfg.year == requested && return path
+    end
+
+    supported = available_election_years(config_dir = config_dir)
+    throw(ArgumentError(
+        "Unsupported year $requested. Supported years from `$config_dir`: $(supported).",
+    ))
+end
 
 function _load_raw_profile_cfg(year::Int; config_path=nothing)
-    year in RAW_PROFILE_SUPPORTED_YEARS || throw(ArgumentError(
-        "Unsupported year $year. Supported years: 2006, 2018, 2022.",
-    ))
-
-    cfg_path = config_path === nothing ? joinpath(_RAW_PROFILE_CFG_DIR, "$year.toml") :
-               String(config_path)
+    cfg_path = config_path === nothing ? default_config_path(year) : String(config_path)
     isfile(cfg_path) || throw(ArgumentError("Config file not found: `$cfg_path`."))
 
     cfg = load_election_cfg(cfg_path)
     cfg.year == year || throw(ArgumentError(
-        "Config year $(cfg.year) does not match requested year $year.",
+        "Config year $(cfg.year) from `$cfg_path` does not match requested year $year.",
     ))
     return cfg, cfg_path
 end
@@ -464,14 +419,50 @@ function _resolve_candidate_cols_from_set(df::DataFrame,
     return _prefs().resolve_candidate_cols_from_set(df, universe_cols, candidate_set)
 end
 
-_candidate_universe(cfg::ElectionConfig) = Vector{String}(cfg.candidates)
-_candidate_universe(wcfg::SurveyWaveConfig) = Vector{String}(wcfg.candidate_universe)
 _config_year(cfg::ElectionConfig) = cfg.year
 _config_year(wcfg::SurveyWaveConfig) = wcfg.year
+_config_data_loader(cfg::ElectionConfig) = cfg.data_loader
+_config_data_loader(wcfg::SurveyWaveConfig) = wcfg.data_loader
+_config_data_file(cfg::ElectionConfig) = cfg.data_file
+_config_data_file(wcfg::SurveyWaveConfig) = wcfg.data_file
+_config_candidate_universe(cfg::ElectionConfig) = Vector{String}(cfg.candidates)
+_config_candidate_universe(wcfg::SurveyWaveConfig) = Vector{String}(wcfg.candidate_universe)
+_config_demographic_cols(cfg::ElectionConfig) = Vector{String}(cfg.demographics)
+_config_demographic_cols(wcfg::SurveyWaveConfig) = Vector{String}(wcfg.demographic_cols)
+_config_scenario_candidates(cfg::ElectionConfig) = Dict(sc.name => Vector{String}(sc.candidates) for sc in cfg.scenarios)
+_config_scenario_candidates(wcfg::SurveyWaveConfig) = Dict(k => Vector{String}(v) for (k, v) in wcfg.scenario_candidates)
 _config_max_candidates(cfg::ElectionConfig) = cfg.max_candidates
 _config_max_candidates(wcfg::SurveyWaveConfig) = wcfg.max_candidates
+_config_default_m(cfg::ElectionConfig) = _infer_m(cfg)
+_config_default_m(wcfg::SurveyWaveConfig) = wcfg.default_m
+_config_default_seed(cfg::ElectionConfig) = cfg.rng_seed
+_config_default_seed(wcfg::SurveyWaveConfig) = wcfg.default_seed
 _config_context(cfg::ElectionConfig) = "year $(cfg.year)"
 _config_context(wcfg::SurveyWaveConfig) = "wave $(wcfg.wave_id)"
+
+function _load_config_data(cfg)
+    loader = _config_data_loader(cfg)
+    loader_sym = Symbol(loader)
+
+    isdefined(@__MODULE__, loader_sym) || throw(ArgumentError(
+        "data_loader `$loader` not found in module $(nameof(@__MODULE__)).",
+    ))
+
+    loader_fun = getfield(@__MODULE__, loader_sym)
+    return loader_fun(_config_data_file(cfg); candidates = _config_candidate_universe(cfg))
+end
+
+function _scenario_force_include(cfg, scenario_name)
+    sname = String(scenario_name)
+    scenarios = _config_scenario_candidates(cfg)
+    haskey(scenarios, sname) || throw(ArgumentError(
+        "Unknown scenario `$sname` for $(_config_context(cfg)). Available scenarios: $(sort(collect(keys(scenarios)))).",
+    ))
+    return Vector{String}(scenarios[sname])
+end
+
+_scenario_from_wave(wcfg::SurveyWaveConfig, scenario_name) =
+    Scenario(String(scenario_name), _scenario_force_include(wcfg, scenario_name))
 
 function _normalize_k_m(; k = nothing, m = nothing, default_m::Integer,
                         context::AbstractString)
@@ -525,7 +516,7 @@ function _canonical_candidate_request(cfg;
 end
 
 function _resolve_active_candidate_set_impl(df::DataFrame,
-                                           wcfg::SurveyWaveConfig;
+                                           cfg;
                                            active_candidates = nothing,
                                            scenario_name = nothing,
                                            m = nothing,
@@ -539,17 +530,17 @@ function _resolve_active_candidate_set_impl(df::DataFrame,
         ))
     end
 
-    context = _config_context(wcfg)
+    context = _config_context(cfg)
 
     if active_candidates !== nothing
         candidate_cols = _resolve_candidate_cols_from_set(
             df,
-            wcfg.candidate_universe,
+            _config_candidate_universe(cfg),
             active_candidates,
         )
         _validate_candidate_count(
             length(candidate_cols),
-            wcfg.max_candidates;
+            _config_max_candidates(cfg);
             context = "Exact candidate-set request for $context",
             min_allowed = min_allowed,
         )
@@ -557,13 +548,13 @@ function _resolve_active_candidate_set_impl(df::DataFrame,
     end
 
     mm = _validate_candidate_count(
-        Int(m === nothing ? wcfg.default_m : m),
-        wcfg.max_candidates;
+        Int(m === nothing ? _config_default_m(cfg) : m),
+        _config_max_candidates(cfg);
         context = "Candidate-set request for $context",
         min_allowed = min_allowed,
     )
 
-    candidate_cols = _candidate_order(wcfg; scenario = scenario_name, m = mm, data = df)
+    candidate_cols = _candidate_order(cfg; scenario = scenario_name, m = mm, data = df)
     return length(candidate_cols) < mm ? candidate_cols : first(candidate_cols, mm)
 end
 
@@ -574,7 +565,6 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
                                  m = nothing,
                                  k = nothing,
                                  min_allowed::Integer = 1)
-    wcfg = cfg isa SurveyWaveConfig ? cfg : SurveyWaveConfig(cfg)
     request = _canonical_candidate_request(
         cfg;
         active_candidates = active_candidates,
@@ -585,12 +575,13 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
         min_allowed = min_allowed,
     )
 
-    return resolve_active_candidate_set(
-        wcfg;
+    return _resolve_active_candidate_set_impl(
+        df,
+        cfg;
         active_candidates = request.active_candidates,
         scenario_name = request.scenario_name,
         m = request.m,
-        data = df,
+        min_allowed = min_allowed,
     )
 end
 
@@ -653,7 +644,9 @@ function _build_profile_with_candidates(df::DataFrame,
 end
 
 function _raw_pref_tuple(cfg, df::DataFrame, candidate_cols::Vector{String};
-                         scenario_name = nothing)
+                         scenario_name = nothing,
+                         election_config = cfg isa ElectionConfig ? cfg : nothing,
+                         wave_config = cfg isa SurveyWaveConfig ? cfg : SurveyWaveConfig(cfg))
     isempty(candidate_cols) && throw(ArgumentError(
         "Candidate set inference failed for year $(_config_year(cfg)).",
     ))
@@ -668,8 +661,8 @@ function _raw_pref_tuple(cfg, df::DataFrame, candidate_cols::Vector{String};
 
     return (
         year = _config_year(cfg),
-        cfg = cfg isa ElectionConfig ? cfg : _election_cfg(cfg),
-        wave_config = cfg isa SurveyWaveConfig ? cfg : SurveyWaveConfig(cfg),
+        cfg = election_config,
+        wave_config = wave_config,
         df = df,
         m = length(candidate_cols),
         candidate_cols = candidate_cols,
@@ -722,7 +715,6 @@ function load_raw_pref_data(cfg::ElectionConfig;
                             m = nothing,
                             data = nothing)
     df = data === nothing ? load_election_data(cfg) : data
-    wcfg = SurveyWaveConfig(cfg)
     request = _canonical_candidate_request(
         cfg;
         active_candidates = active_candidates,
@@ -731,12 +723,12 @@ function load_raw_pref_data(cfg::ElectionConfig;
         k = k,
         m = m,
     )
-    candidate_cols = resolve_active_candidate_set(
-        wcfg;
+    candidate_cols = _resolve_active_candidate_set_impl(
+        df,
+        cfg;
         active_candidates = request.active_candidates,
         scenario_name = request.scenario_name,
         m = request.m,
-        data = df,
     )
     return _raw_pref_tuple(cfg, df, candidate_cols; scenario_name = scenario_name)
 end

@@ -121,7 +121,9 @@ export ESEB_SCORE_MISSING_CODES,
        normalize_eseb_score_columns!
 
 export load_raw_pref_data,
-       build_profile
+       build_profile,
+       available_election_years,
+       default_config_path
 
 export SurveyWaveConfig,
        load_survey_wave_config,
