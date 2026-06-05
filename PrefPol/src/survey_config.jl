@@ -483,13 +483,13 @@ function _normalize_k_m(; k = nothing, m = nothing, default_m::Integer,
     return Int(m !== nothing ? m : k !== nothing ? k : default_m)
 end
 
-function _resolve_candidate_cols(df::DataFrame, cfg;
-                                 candidate_set = nothing,
-                                 active_candidates = nothing,
-                                 scenario_name = nothing,
-                                 m = nothing,
-                                 k = nothing,
-                                 min_allowed::Integer = 1)
+function _canonical_candidate_request(cfg;
+                                      candidate_set = nothing,
+                                      active_candidates = nothing,
+                                      scenario_name = nothing,
+                                      m = nothing,
+                                      k = nothing,
+                                      min_allowed::Integer = 2)
     if candidate_set !== nothing && active_candidates !== nothing
         throw(ArgumentError("Pass only one of `candidate_set` or `active_candidates`."))
     end
@@ -503,14 +503,53 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
         ))
     end
 
-    universe = _candidate_universe(cfg)
-    context = _config_context(cfg)
-
     if exact_set !== nothing
-        candidate_cols = _resolve_candidate_cols_from_set(df, universe, exact_set)
+        return (active_candidates = exact_set, scenario_name = nothing, m = nothing)
+    end
+
+    context = _config_context(cfg)
+    mm = _normalize_k_m(
+        k = k,
+        m = m,
+        default_m = _infer_m(cfg),
+        context = "Candidate-set request for $context",
+    )
+    _validate_candidate_count(
+        mm,
+        _config_max_candidates(cfg);
+        context = "Candidate-set request for $context",
+        min_allowed = min_allowed,
+    )
+
+    return (active_candidates = nothing, scenario_name = scenario_name, m = mm)
+end
+
+function _resolve_active_candidate_set_impl(df::DataFrame,
+                                           wcfg::SurveyWaveConfig;
+                                           active_candidates = nothing,
+                                           scenario_name = nothing,
+                                           m = nothing,
+                                           min_allowed::Integer = 2)
+    if active_candidates !== nothing && scenario_name !== nothing
+        throw(ArgumentError("Pass either an exact candidate set or `scenario_name`, not both."))
+    end
+    if active_candidates !== nothing && m !== nothing
+        throw(ArgumentError(
+            "When an exact candidate set is provided, do not pass `m`; its size defines the candidate count.",
+        ))
+    end
+
+    context = _config_context(wcfg)
+
+    if active_candidates !== nothing
+        candidate_cols = _resolve_candidate_cols_from_set(
+            df,
+            wcfg.candidate_universe,
+            active_candidates,
+        )
         _validate_candidate_count(
             length(candidate_cols),
-            _config_max_candidates(cfg);
+            wcfg.max_candidates;
             context = "Exact candidate-set request for $context",
             min_allowed = min_allowed,
         )
@@ -518,23 +557,41 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
     end
 
     mm = _validate_candidate_count(
-        _normalize_k_m(
-            k = k,
-            m = m,
-            default_m = _infer_m(cfg),
-            context = "Candidate-set request for $context",
-        ),
-        _config_max_candidates(cfg);
+        Int(m === nothing ? wcfg.default_m : m),
+        wcfg.max_candidates;
         context = "Candidate-set request for $context",
         min_allowed = min_allowed,
     )
 
-    scenario = scenario_name === nothing ? nothing : (
-        cfg isa ElectionConfig ? _lookup_scenario(cfg, scenario_name) :
-        _scenario_from_wave(cfg, scenario_name)
-    )
-    candidate_cols = _candidate_order(cfg; scenario = scenario, m = mm, data = df)
+    candidate_cols = _candidate_order(wcfg; scenario = scenario_name, m = mm, data = df)
     return length(candidate_cols) < mm ? candidate_cols : first(candidate_cols, mm)
+end
+
+function _resolve_candidate_cols(df::DataFrame, cfg;
+                                 candidate_set = nothing,
+                                 active_candidates = nothing,
+                                 scenario_name = nothing,
+                                 m = nothing,
+                                 k = nothing,
+                                 min_allowed::Integer = 1)
+    wcfg = cfg isa SurveyWaveConfig ? cfg : SurveyWaveConfig(cfg)
+    request = _canonical_candidate_request(
+        cfg;
+        active_candidates = active_candidates,
+        candidate_set = candidate_set,
+        scenario_name = scenario_name,
+        k = k,
+        m = m,
+        min_allowed = min_allowed,
+    )
+
+    return resolve_active_candidate_set(
+        wcfg;
+        active_candidates = request.active_candidates,
+        scenario_name = request.scenario_name,
+        m = request.m,
+        data = df,
+    )
 end
 
 """
@@ -557,7 +614,7 @@ function resolve_active_candidate_set(wcfg::SurveyWaveConfig;
                                       m = nothing,
                                       data = nothing)
     df = data === nothing ? load_wave_data(wcfg) : data
-    return _resolve_candidate_cols(
+    return _resolve_active_candidate_set_impl(
         df,
         wcfg;
         active_candidates = active_candidates,
@@ -665,15 +722,21 @@ function load_raw_pref_data(cfg::ElectionConfig;
                             m = nothing,
                             data = nothing)
     df = data === nothing ? load_election_data(cfg) : data
-    candidate_cols = _resolve_candidate_cols(
-        df,
+    wcfg = SurveyWaveConfig(cfg)
+    request = _canonical_candidate_request(
         cfg;
         active_candidates = active_candidates,
         candidate_set = candidate_set,
         scenario_name = scenario_name,
         k = k,
         m = m,
-        min_allowed = 1,
+    )
+    candidate_cols = resolve_active_candidate_set(
+        wcfg;
+        active_candidates = request.active_candidates,
+        scenario_name = request.scenario_name,
+        m = request.m,
+        data = df,
     )
     return _raw_pref_tuple(cfg, df, candidate_cols; scenario_name = scenario_name)
 end
@@ -686,15 +749,20 @@ function load_raw_pref_data(wcfg::SurveyWaveConfig;
                             m = nothing,
                             data = nothing)
     df = data === nothing ? load_wave_data(wcfg) : data
-    candidate_cols = _resolve_candidate_cols(
-        df,
+    request = _canonical_candidate_request(
         wcfg;
         active_candidates = active_candidates,
         candidate_set = candidate_set,
         scenario_name = scenario_name,
         k = k,
         m = m,
-        min_allowed = 1,
+    )
+    candidate_cols = resolve_active_candidate_set(
+        wcfg;
+        active_candidates = request.active_candidates,
+        scenario_name = request.scenario_name,
+        m = request.m,
+        data = df,
     )
     return _raw_pref_tuple(wcfg, df, candidate_cols; scenario_name = scenario_name)
 end

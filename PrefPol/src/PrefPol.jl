@@ -101,6 +101,7 @@ end
 
 include("score_semantics.jl")
 include("preprocessing_general.jl")
+include("legacy_preprocessing.jl")
 include("preprocessing_specific.jl")
 include("profile_adapters.jl")
 include("survey_config.jl")

@@ -218,67 +218,17 @@ function prepare_scores_for_imputation_categorical(df::DataFrame,
 end
 
 
-# === Slice Top  ===
-"""
-    get_most_known_candidates(dont_know_her, how_many)
-
-Return the names of the `how_many` candidates with the lowest "don't know"
-percentages from a precomputed list.
-"""
-function get_most_known_candidates(dont_know_her::Vector{Tuple{String, Float64}}, how_many)
-    return first.(Iterators.take(dont_know_her, how_many))
-end
-
-
-"""
-    select_top_candidates(countmaps, nrespondents; m, force_include=String[])
-
-Select up to `m` candidates by ascending unweighted "don't know" rates.
-
-Forced candidates are pinned first in the returned order and the remaining slots
-are filled from the missingness ordering. This is a legacy countmap-based helper;
-the nested pipeline usually calls `compute_global_candidate_set` so survey
-weights enter candidate-set selection.
-"""
-function select_top_candidates(countmaps::Dict{String,<:AbstractDict},
-                               nrespondents::Int;
-                               m::Int,
-                               force_include::Vector{String}=String[])
-    poplist = [name for (name, _) in compute_dont_know_her(countmaps, nrespondents)]
-    return _select_top_candidates_from_poplist(poplist; m = m, force_include = force_include)
-end
-
-
-"""
-    compute_candidate_set(scores_df; candidate_cols, m, force_include=String[])
-
-Determine an unweighted candidate set from raw candidate score distributions.
-
-This helper counts sentinel-code missingness in the supplied score table and is
-kept for compatibility with older PrefPol workflows. For paper pipeline specs,
-prefer `compute_global_candidate_set` or `resolve_active_candidate_set`, which
-use survey weights and scenario forcing.
-"""
-function compute_candidate_set(scores_df::DataFrame;
-                               candidate_cols,
-                               m::Int,
-                               force_include::Vector{String} = String[])
-
-    countmaps     = build_candidate_score_distributions(scores_df, candidate_cols)
-    countmaps2    = sanitize_countmaps(countmaps)
-    nrespondents  = nrow(scores_df)
-
-    return select_top_candidates(countmaps2, nrespondents;
-                                 m = m, force_include = force_include)
-end
-
 """
     compute_global_candidate_set(scores_df; candidate_cols, m, force_include=String[], weights)
 
-Determine the globally ordered candidate set of size `m` using weighted missing
-rates from the raw score table. Forced candidates are pinned first in the order
-they were declared, and the remaining candidates are filled by ascending
-weighted missingness.
+Low-level weighted engine for candidate-set ordering.
+
+This computes the globally ordered candidate set of size `m` using weighted
+missing rates from the raw score table. Forced candidates are pinned first in the
+order they were declared, and the remaining candidates are filled by ascending
+weighted missingness. Publication specs and raw-profile helpers should call
+`resolve_active_candidate_set`, which supplies the configured candidate universe,
+scenario forcing, survey weight column, and requested candidate count.
 """
 function compute_global_candidate_set(scores_df::DataFrame;
                                       candidate_cols,
@@ -290,28 +240,6 @@ function compute_global_candidate_set(scores_df::DataFrame;
     return _select_top_candidates_from_poplist(poplist; m = m, force_include = force_include)
 end
 
-
-dont_know_her = Tuple{String,Float64}[]
-
-
-
-"""
-    get_df_just_top_candidates(df, how_top; demographics=String[])
-    get_df_just_top_candidates(df, which_ones; demographics=String[])
-
-Return `df` restricted to selected candidate columns plus optional
-`demographics`. `how_top` chooses the top `how_top` candidates from the
-global `dont_know_her` list, while `which_ones` specifies candidate names
-directly.
-"""
-function get_df_just_top_candidates(df::DataFrame, how_top::Int; demographics = String[] )
-    most_known_candidates = get_most_known_candidates(dont_know_her, how_top)
-    return df[!, vcat(most_known_candidates, demographics)]
-end
-
-function get_df_just_top_candidates(df::DataFrame, which_ones; demographics = String[])
-    return df[!, vcat(which_ones, demographics)]
-end
 
 
 const _R_VALID_SEED_MODULUS = Int128(typemax(Int32) - 1)

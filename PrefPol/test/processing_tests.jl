@@ -130,6 +130,13 @@ using RCall
                                                       force_include = ["C"],
                                                       weights = df.peso)
         @test chosen == ["C", "B", "A"]
+
+        truncated_forced = PrefPol.compute_global_candidate_set(df;
+                                                                candidate_cols = ["A","B","C"],
+                                                                m = 2,
+                                                                force_include = ["C", "A", "B"],
+                                                                weights = df.peso)
+        @test truncated_forced == ["C", "A"]
     end
 
     @testset "get_df_just_top_candidates" begin

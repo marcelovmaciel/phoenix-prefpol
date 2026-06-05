@@ -119,6 +119,94 @@ end
         end
     end
 
+    @testset "canonical resolver weighted ordering and pipeline specs" begin
+        cfg = PrefPol.ElectionConfig(
+            2022,
+            "__survey_refactor_loader__",
+            "/tmp/unused",
+            4,
+            [2, 3, 4],
+            1,
+            4,
+            123,
+            ["A", "B", "C", "D"],
+            ["grp"],
+            [PrefPol.Scenario("front", ["D"]),
+             PrefPol.Scenario("crowded", ["D", "B", "A"])],
+        )
+        wcfg = PrefPol.SurveyWaveConfig(cfg; wave_id = "canonical-candidates")
+
+        @test PrefPol.compute_global_candidate_set(
+            _SURVEY_REFACTOR_DF;
+            candidate_cols = wcfg.candidate_universe,
+            m = 3,
+            weights = _SURVEY_REFACTOR_DF.peso,
+        ) == ["C", "A", "D"]
+        @test PrefPol.compute_global_candidate_set(
+            _SURVEY_REFACTOR_DF;
+            candidate_cols = wcfg.candidate_universe,
+            m = 2,
+            force_include = ["D", "B", "A"],
+            weights = _SURVEY_REFACTOR_DF.peso,
+        ) == ["D", "B"]
+
+        @test PrefPol.resolve_active_candidate_set(wcfg; m = 3) == ["C", "A", "D"]
+        @test PrefPol.resolve_active_candidate_set(wcfg; scenario_name = "front", m = 3) == ["D", "C", "A"]
+        @test PrefPol.resolve_active_candidate_set(wcfg; scenario_name = "crowded", m = 2) == ["D", "B"]
+        @test PrefPol.resolve_active_candidate_set(wcfg; active_candidates = ["B", "A"]) == ["B", "A"]
+        @test_throws ArgumentError PrefPol.resolve_active_candidate_set(wcfg; active_candidates = ["B", "Z"])
+        @test_throws ArgumentError PrefPol.resolve_active_candidate_set(wcfg; active_candidates = ["B", "A"], m = 2)
+        @test_throws ArgumentError PrefPol.resolve_active_candidate_set(wcfg; scenario_name = "missing", m = 2)
+        @test_throws ArgumentError PrefPol.resolve_active_candidate_set(wcfg; m = 5)
+
+        spec = PrefPol.build_pipeline_spec(wcfg;
+                                           scenario_name = "front",
+                                           m = 3,
+                                           groupings = Symbol[],
+                                           measures = [:Psi],
+                                           B = 1,
+                                           R = 1,
+                                           K = 1,
+                                           imputer_backend = :zero)
+        @test spec.active_candidates == PrefPol.resolve_active_candidate_set(wcfg; scenario_name = "front", m = 3)
+    end
+
+    @testset "year-config pipeline specs match resolver when raw data are available" begin
+        for path in _year_config_paths()
+            cfg = PrefPol.load_election_cfg(path)
+            if !isfile(cfg.data_file)
+                @info "Skipping year-config candidate-set integration; raw data unavailable." year = cfg.year data_file = cfg.data_file
+                @test_skip false
+                continue
+            end
+
+            wcfg = PrefPol.load_survey_wave_config(path)
+            for m in cfg.m_values_range
+                @test PrefPol.build_pipeline_spec(wcfg;
+                                                  m = m,
+                                                  groupings = Symbol[],
+                                                  measures = [:Psi],
+                                                  B = 1,
+                                                  R = 1,
+                                                  K = 1,
+                                                  imputer_backend = :zero).active_candidates ==
+                      PrefPol.resolve_active_candidate_set(wcfg; m = m)
+                for sc in cfg.scenarios
+                    @test PrefPol.build_pipeline_spec(wcfg;
+                                                      scenario_name = sc.name,
+                                                      m = m,
+                                                      groupings = Symbol[],
+                                                      measures = [:Psi],
+                                                      B = 1,
+                                                      R = 1,
+                                                      K = 1,
+                                                      imputer_backend = :zero).active_candidates ==
+                          PrefPol.resolve_active_candidate_set(wcfg; scenario_name = sc.name, m = m)
+                end
+            end
+        end
+    end
+
     @testset "raw loading APIs and backward-compatible calls" begin
         mktempdir() do dir
             cfg_path = _write_test_config(joinpath(dir, "2006.toml"))
