@@ -713,7 +713,7 @@ function _impute_resample(resample::Resample,
         "Lula" in names(completed_scores) || throw(ArgumentError(
             "Cannot derive LulaScoreGroup after imputation because completed auxiliary score column `Lula` is absent.",
         ))
-        groups[!, :LulaScoreGroup] = _lula_score_group_from_completed_scores(completed_scores[!, :Lula])
+        groups[!, :LulaScoreGroup] = lula_score_group_column(completed_scores[!, :Lula])
     end
 
     active_completed_scores = select(completed_scores, spec.active_candidates)
@@ -834,44 +834,6 @@ function _group_row_indices(values)
 end
 
 @inline _uses_lula_score_group(spec::PipelineSpec) = :LulaScoreGroup in spec.groupings
-
-function _lula_score_group_from_completed_score(x)
-    raw = x isa CategoricalValue ? unwrap(x) : x
-
-    if ismissing(raw)
-        return missing
-    end
-
-    xf = if raw isa Real
-        Float64(raw)
-    elseif raw isa AbstractString
-        parsed = tryparse(Float64, strip(raw))
-        parsed === nothing && return missing
-        parsed
-    else
-        return missing
-    end
-
-    if !isfinite(xf)
-        return missing
-    elseif 0 <= xf <= 3
-        return "low_lula"
-    elseif 4 <= xf <= 6
-        return "medium_lula"
-    elseif 7 <= xf <= 10
-        return "high_lula"
-    end
-
-    return missing
-end
-
-function _lula_score_group_from_completed_scores(scores)
-    categorical(
-        Vector{Union{Missing,String}}(_lula_score_group_from_completed_score.(scores));
-        ordered = true,
-        levels = ["low_lula", "medium_lula", "high_lula"],
-    )
-end
 
 function _auxiliary_score_cols(spec::PipelineSpec)
     aux = String[]

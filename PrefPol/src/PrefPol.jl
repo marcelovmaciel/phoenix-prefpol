@@ -100,6 +100,7 @@ end
     getfield(_plotting_extension_module(), name)(args...; kwargs...)
 
 include("score_semantics.jl")
+include("derived_groups.jl")
 include("preprocessing_general.jl")
 include("legacy_preprocessing.jl")
 include("preprocessing_specific.jl")
@@ -119,6 +120,11 @@ export ESEB_SCORE_MISSING_CODES,
        normalize_eseb_score,
        normalize_eseb_score_column!,
        normalize_eseb_score_columns!
+
+export LULA_SCORE_GROUP_LEVELS,
+       lula_score_group_value,
+       lula_score_group_column,
+       add_lula_score_group!
 
 export load_raw_pref_data,
        build_profile,

@@ -147,13 +147,13 @@ end
 
 @testset "LulaScoreGroup uses auxiliary imputed score without active Lula candidate" begin
     categorical_scores = categorical([0, 5, 9])
-    @test PrefPol._lula_score_group_from_completed_score(categorical_scores[1]) == "low_lula"
-    @test PrefPol._lula_score_group_from_completed_score(categorical_scores[2]) == "medium_lula"
-    @test PrefPol._lula_score_group_from_completed_score(categorical_scores[3]) == "high_lula"
+    @test PrefPol.lula_score_group_value(categorical_scores[1]) == "low_lula"
+    @test PrefPol.lula_score_group_value(categorical_scores[2]) == "medium_lula"
+    @test PrefPol.lula_score_group_value(categorical_scores[3]) == "high_lula"
     categorical_string_scores = categorical(["0", "5", "9"])
-    @test PrefPol._lula_score_group_from_completed_score(categorical_string_scores[1]) == "low_lula"
-    @test PrefPol._lula_score_group_from_completed_score(categorical_string_scores[2]) == "medium_lula"
-    @test PrefPol._lula_score_group_from_completed_score(categorical_string_scores[3]) == "high_lula"
+    @test PrefPol.lula_score_group_value(categorical_string_scores[1]) == "low_lula"
+    @test PrefPol.lula_score_group_value(categorical_string_scores[2]) == "medium_lula"
+    @test PrefPol.lula_score_group_value(categorical_string_scores[3]) == "high_lula"
 
     active = ["Fernando_Haddad", "Jair_Bolsonaro", "Ciro_Gomes", "Geraldo_Alckmin", "Marina_Silva"]
     groups = categorical(
@@ -183,14 +183,29 @@ end
             K = 1,
             imputer_backend,
         )
+        @test PrefPol._auxiliary_score_cols(spec) == ["Lula"]
 
         imputed = PrefPol._impute_resample(resample, spec, 1)
+        expected_groups = PrefPol.lula_score_group_column(table.Lula)
 
         @test names(imputed.table) == vcat(active, ["LulaScoreGroup"])
         @test !("Lula" in names(imputed.table))
-        @test String.(imputed.table.LulaScoreGroup) == ["low_lula", "medium_lula", "high_lula"]
-        @test levels(imputed.table.LulaScoreGroup) == ["low_lula", "medium_lula", "high_lula"]
+        @test imputed.table.LulaScoreGroup == expected_groups
+        @test isordered(imputed.table.LulaScoreGroup)
+        @test levels(imputed.table.LulaScoreGroup) == PrefPol.LULA_SCORE_GROUP_LEVELS
     end
+
+    spec_with_active_lula = PrefPol.PipelineSpec(
+        "2018",
+        vcat(active, ["Lula"]);
+        groupings = [:LulaScoreGroup],
+        measures = [:C],
+        B = 1,
+        R = 1,
+        K = 1,
+        imputer_backend = :zero,
+    )
+    @test PrefPol._auxiliary_score_cols(spec_with_active_lula) == String[]
 end
 
 @testset "nested grouped measure normalization accepts S, W, lambda_sep, and S_old" begin

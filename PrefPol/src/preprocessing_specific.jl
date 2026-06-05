@@ -110,31 +110,6 @@ end
 normalize_candidate_score_columns!(df::DataFrame, candidates) =
     normalize_eseb_score_columns!(df, candidates)
 
-function lula_score_group_value(x)
-    normalized = normalize_eseb_score(x)
-    normalized === missing && return missing
-
-    if 0 <= normalized <= 3
-        return "low_lula"
-    elseif 4 <= normalized <= 6
-        return "medium_lula"
-    elseif 7 <= normalized <= 10
-        return "high_lula"
-    else
-        return missing
-    end
-end
-
-function lula_score_group_column!(df::DataFrame, source = :Lula, target = :LulaScoreGroup)
-    groups = Vector{Union{Missing,String}}(lula_score_group_value.(df[!, source]))
-    df[!, target] = categorical(
-        groups;
-        ordered = true,
-        levels = ["low_lula", "medium_lula", "high_lula"],
-    )
-    return df
-end
-
 function _prepare_e2022_df!(df_e22::DataFrame, candidates)
     rename!(df_e22, Dict(zip(build_numbered_symbols("Q17_", 13), candidates)))
     normalize_candidate_score_columns!(df_e22, candidates)
@@ -214,7 +189,7 @@ function _prepare_e2018_df!(df_e18::DataFrame, candidates)
         ))
     end
 
-    lula_score_group_column!(df_e18, :Lula, :LulaScoreGroup)
+    add_lula_score_group!(df_e18; source = :Lula, target = :LulaScoreGroup)
     valid_lula_groups = collect(skipmissing(df_e18.LulaScoreGroup))
     isempty(valid_lula_groups) && @warn "LulaScoreGroup has no valid rows after excluding missing and 96/97/98/99 Lula scores."
     for level in levels(df_e18.LulaScoreGroup)

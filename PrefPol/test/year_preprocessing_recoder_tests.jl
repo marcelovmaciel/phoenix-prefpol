@@ -9,7 +9,8 @@ import PrefPol: build_numbered_symbols, build_letter_symbols,
     trichotomize_ideology_value, trichotomize_ideology_column!,
     binarize_thermometer_value, binarize_thermometer_column!,
     categorical_from_column!, normalize_candidate_score_columns!,
-    lula_score_group_value, _prepare_e2022_df!, _prepare_e2006_df!, _prepare_e2018_df!
+    lula_score_group_value, LULA_SCORE_GROUP_LEVELS,
+    _prepare_e2022_df!, _prepare_e2006_df!, _prepare_e2018_df!
 
 @testset "year preprocessing recoder helpers" begin
     @test build_numbered_symbols("Q17_", 3) == [:Q17_1, :Q17_2, :Q17_3]
@@ -152,7 +153,8 @@ end
     @test isequal(out.Lula, Union{Missing,Float64}[1.0, missing, missing, 10.0])
     @test isequal(out.Cand2, Union{Missing,Float64}[2.0, missing, missing, 10.0])
     @test isequal(unwrap_or_missing.(out.LulaScoreGroup), Union{Missing,String}["low_lula", missing, missing, "high_lula"])
-    @test levels(out.LulaScoreGroup) == ["low_lula", "medium_lula", "high_lula"]
+    @test isordered(out.LulaScoreGroup)
+    @test levels(out.LulaScoreGroup) == LULA_SCORE_GROUP_LEVELS
     @test isequal(unwrap_or_missing.(out.Religion), Union{Missing,Float64}[1.0, 96.0, 99.0, missing])
     @test unwrap_or_missing.(out.Sex) == [1, 2, 1, 2]
     @test out.Race == [1.0, 9.0, 9.0, 3.0]
