@@ -2,7 +2,7 @@ using Test
 using PrefPol
 using DataFrames
 
-@testset "raw_profiles wrappers" begin
+@testset "raw profile adapters" begin
     df = DataFrame(
         LULA = [10, 96, 8, missing],
         CIRO_GOMES = [8, 96, 8, 5],
@@ -30,7 +30,7 @@ using DataFrames
         @test collect(prof.pool.names) == [Symbol("LULA"), Symbol("CIRO GOMES")]
         @test PrefPol.Preferences.nballots(prof) == 3
 
-        tbl = PrefPol.profile_pattern_proportions(prof; weighted = false)
+        tbl = PrefPol.Preferences.profile_pattern_proportions(prof; weighted = false)
         @test names(tbl) == ["pattern", "mass", "proportion"]
 
         props = Dict(String(r.pattern) => Float64(r.proportion) for r in eachrow(tbl))
@@ -59,7 +59,7 @@ using DataFrames
         @test meta.skipped_invalid_weight == 2
         @test meta.zero_rank_weight_mass ≈ 2.0
 
-        nav = PrefPol.profile_ranksize_summary(
+        nav = PrefPol.Preferences.profile_ranksize_summary(
             prof_w;
             k = 2,
             weighted = true,
@@ -70,7 +70,7 @@ using DataFrames
         @test nav.zero_rank.mass ≈ 2.0
         @test nav.zero_rank.proportion ≈ 2 / 3
 
-        type_tbl = PrefPol.profile_ranking_type_proportions(
+        type_tbl = PrefPol.Preferences.profile_ranking_type_proportions(
             prof_w;
             k = 2,
             weighted = true,

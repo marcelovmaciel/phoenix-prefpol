@@ -107,12 +107,10 @@ function categorical_from_column!(df::DataFrame, target, source;
     return df
 end
 
-normalize_candidate_score_columns!(df::DataFrame, candidates) =
-    normalize_eseb_score_columns!(df, candidates)
 
 function _prepare_e2022_df!(df_e22::DataFrame, candidates)
     rename!(df_e22, Dict(zip(build_numbered_symbols("Q17_", 13), candidates)))
-    normalize_candidate_score_columns!(df_e22, candidates)
+    normalize_eseb_score_columns!(df_e22, candidates)
 
     df_e22.D10 = [
         _matches_recode_code(x, (99.0, 100.0, 101.0, 102.0)) ? 95.0 :
@@ -156,7 +154,7 @@ end
 
 function _prepare_e2006_df!(df_e06::DataFrame, candidates)
     rename!(df_e06, Dict(zip(build_letter_symbols("eseb16", ['a', 'b', 'c', 'd', 'e', 'f']), candidates)))
-    normalize_candidate_score_columns!(df_e06, candidates)
+    normalize_eseb_score_columns!(df_e06, candidates)
 
     df_e06.peso = df_e06.peso_1
     categorical_from_column!(df_e06, :Sex, :SEXO)
@@ -180,7 +178,7 @@ end
 
 function _prepare_e2018_df!(df_e18::DataFrame, candidates)
     rename!(df_e18, Dict(zip(build_numbered_symbols("Q16", 21; minwidth = 2), candidates)))
-    normalize_candidate_score_columns!(df_e18, candidates)
+    normalize_eseb_score_columns!(df_e18, candidates)
 
     if !("Lula" in names(df_e18))
         throw(ArgumentError(

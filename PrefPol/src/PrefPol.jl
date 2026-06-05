@@ -8,8 +8,8 @@ formal package.
 bootstrap/imputation/linearization orchestration, cache layout, applied measure
 execution, and paper-facing tables/figures. Formal profile representations,
 rankings, consensus, overlap, reversal, polarization, and related mathematical
-definitions live in `Preferences`; PrefPol adapters either construct those
-formal objects from survey data or delegate to `Preferences`.
+definitions live in `Preferences`; PrefPol adapters construct those
+formal objects from survey data for applied ESEB workflows.
 """
 module PrefPol
 
@@ -20,12 +20,10 @@ using Combinatorics
 using DataFrames
 using Dates 
 import Impute 
-using Pkg
 using Random
 using SHA
 using Statistics
 using StatsBase
-using CategoricalArrays
 import  ProgressMeter as pm 
 using Printf
 using TextWrap
@@ -99,13 +97,12 @@ end
 @inline _call_plotting_extension(name::Symbol, args...; kwargs...) =
     getfield(_plotting_extension_module(), name)(args...; kwargs...)
 
-include("score_semantics.jl")
+include("eseb_semantics.jl")
 include("preprocessing_general.jl")
 include("legacy_preprocessing.jl")
 include("preprocessing_specific.jl")
 include("profile_adapters.jl")
 include("survey_config.jl")
-include("raw_profiles.jl")
 include("variance_decomposition.jl")
 include("nested_pipeline.jl")
 include("variance_decomposition_report.jl")
@@ -194,29 +191,4 @@ export SurveyWaveConfig,
        plot_pipeline_group_heatmap,
        save_pipeline_plot
 
-
-
-
 end # module PrefPol
-
-
-
-
-
-# dF_2022 = project_root * "/data/datafolha_vespera_2022_04780/04780/04780.SAV"
-# dF_2018 = project_root * "/data/04619/04619.SAV"
-
-
-
-
-# eseb_22 = project_root * "/data/04810/04810.sav"
-
-# eseb_18  = project_root *"/data/eseb_2018/04622/04622.sav"
-# eseb_06 = project_root * "/data/02489/1_02489.sav"
-
-
-# CANDIDATOS_eseb2022 = [
-#         "CIRO_GOMES", "BOLSONARO", "ALVARO_DIAS", "ARTHUR_LIRA", "LULA",
-#         "GERALDO_ALCKMIN", "GILBERTO_KASSAB", "EDUARDO_LEITE", "BOULOS",
-#         "MARINA_SILVA", "TARCISIO_DE_FREITAS", "LUCIANO_BIVAR", "SIMONE_TEBET"
-#     ]

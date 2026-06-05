@@ -8,7 +8,7 @@ unwrap_or_missing(x) = ismissing(x) ? missing : unwrap(x)
 import PrefPol: build_numbered_symbols, build_letter_symbols,
     trichotomize_ideology_value, trichotomize_ideology_column!,
     binarize_thermometer_value, binarize_thermometer_column!,
-    categorical_from_column!, normalize_candidate_score_columns!,
+    categorical_from_column!, normalize_eseb_score_columns!,
     lula_score_group_value, LULA_SCORE_GROUP_LEVELS,
     _prepare_e2022_df!, _prepare_e2006_df!, _prepare_e2018_df!
 
@@ -47,7 +47,7 @@ import PrefPol: build_numbered_symbols, build_letter_symbols,
     @test isequal(thermometer.PT, Union{Missing,Float64}[0.0, 0.0, 1.0, 1.0, 99.0, 99.0, missing])
 
     score_df = DataFrame(A = Any[0, 10, 96, 11, missing], B = Any[3, 97, 4, -1, "5"])
-    normalize_candidate_score_columns!(score_df, [:A, :B])
+    normalize_eseb_score_columns!(score_df, [:A, :B])
     @test isequal(score_df.A, Union{Missing,Float64}[0.0, 10.0, missing, missing, missing])
     @test isequal(score_df.B, Union{Missing,Float64}[3.0, missing, 4.0, missing, 5.0])
 

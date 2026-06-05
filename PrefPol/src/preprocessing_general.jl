@@ -72,7 +72,6 @@ function compute_dont_know_her(countmaps::Dict{String,Dict{Int,Int}}, nresponden
     ], by = x -> x[2])
 end
 
-@inline _is_missing_score_value(v) = is_eseb_missing_score(v)
 
 function _normalize_weight_vector(weights)
     out = zeros(Float64, length(weights))

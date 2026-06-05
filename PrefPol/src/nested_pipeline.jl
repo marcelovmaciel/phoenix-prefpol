@@ -931,27 +931,8 @@ function _consensus_ballots_for_result(result, pool::Preferences.CandidatePool, 
     ]
 end
 
-@inline _normalize_group_coherence(raw_C::Real) =
-    Preferences.group_coherence_from_within_dispersion(1.0 - Float64(raw_C))
-@inline _within_dispersion_from_normalized_C(C::Real) =
-    Preferences.within_dispersion_from_group_coherence(C)
-@inline _separation_ratio(D::Real, W::Real) = Preferences.separation_ratio(D, W)
-@inline _grouped_geometric_index(C::Real, D::Real) = Preferences.grouped_geometric_index(C, D)
-@inline _normalized_consensus_separation(W::Real, D::Real) =
-    Preferences.normalized_consensus_separation(W, D)
 @inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
     Preferences.kendall_tau_distance(ballot_i, ballot_j) / norm_factor
-
-"""
-    _separation_ratio(D, W)
-
-Λ is a derived interpretive companion to grouped `S`, not an independent
-primitive measure. It must use the same within-group dispersion `W` and
-outgroup-consensus distance `D` components as `S`, so grouped aggregation is
-`Λ = D / W` from group-size-weighted `D` and `W`, never a naive average of
-group-level ratios.
-"""
-_separation_ratio
 
 function _pairwise_consensus_distance_stats(result_i,
                                             pool_i::Preferences.CandidatePool,
@@ -1110,20 +1091,24 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     Sep_lo = Sep
     Sep_hi = Sep
 
-    C = _normalize_group_coherence(C_raw)
-    W = _within_dispersion_from_normalized_C(C)
+    C01 = C_raw
+    W_from_C01 = 1.0 - C01
+    C = Preferences.group_coherence_from_within_dispersion(W_from_C01)
+    W = Preferences.within_dispersion_from_group_coherence(C)
     cleaned_S = Preferences.overall_sstar_from_CD(C, D)
     cleaned_S_lo = Preferences.overall_sstar_from_CD(C, D_lo)
     cleaned_S_hi = Preferences.overall_sstar_from_CD(C, D_hi)
-    E = _normalized_consensus_separation(W, D)
-    E_lo = _normalized_consensus_separation(W, D_lo)
-    E_hi = _normalized_consensus_separation(W, D_hi)
-    lambda_sep = _separation_ratio(D, W)
-    lambda_sep_lo = _separation_ratio(D_lo, W)
-    lambda_sep_hi = _separation_ratio(D_hi, W)
-    G = _grouped_geometric_index(C, D)
-    G_lo = _grouped_geometric_index(C, D_lo)
-    G_hi = _grouped_geometric_index(C, D_hi)
+    E = Preferences.normalized_consensus_separation(W, D)
+    E_lo = Preferences.normalized_consensus_separation(W, D_lo)
+    E_hi = Preferences.normalized_consensus_separation(W, D_hi)
+    # Λ is derived from the same aggregate W and D components as S; it is not
+    # a naive average of group-level ratios.
+    lambda_sep = Preferences.separation_ratio(D, W)
+    lambda_sep_lo = Preferences.separation_ratio(D_lo, W)
+    lambda_sep_hi = Preferences.separation_ratio(D_hi, W)
+    G = Preferences.grouped_geometric_index(C, D)
+    G_lo = Preferences.grouped_geometric_index(C, D_lo)
+    G_hi = Preferences.grouped_geometric_index(C, D_hi)
     Gsep = Preferences.grouped_gsep(C, Sep)
     Gsep_lo = Gsep
     Gsep_hi = Gsep
@@ -1144,12 +1129,12 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
             S = group_D[group] - group_W[group],
             S_lo = group_D_lo[group] - group_W[group],
             S_hi = group_D_hi[group] - group_W[group],
-            E = _normalized_consensus_separation(group_W[group], group_D[group]),
-            E_lo = _normalized_consensus_separation(group_W[group], group_D_lo[group]),
-            E_hi = _normalized_consensus_separation(group_W[group], group_D_hi[group]),
-            lambda_sep = _separation_ratio(group_D[group], group_W[group]),
-            lambda_sep_lo = _separation_ratio(group_D_lo[group], group_W[group]),
-            lambda_sep_hi = _separation_ratio(group_D_hi[group], group_W[group]),
+            E = Preferences.normalized_consensus_separation(group_W[group], group_D[group]),
+            E_lo = Preferences.normalized_consensus_separation(group_W[group], group_D_lo[group]),
+            E_hi = Preferences.normalized_consensus_separation(group_W[group], group_D_hi[group]),
+            lambda_sep = Preferences.separation_ratio(group_D[group], group_W[group]),
+            lambda_sep_lo = Preferences.separation_ratio(group_D_lo[group], group_W[group]),
+            lambda_sep_hi = Preferences.separation_ratio(group_D_hi[group], group_W[group]),
         )
         for group in keys(group_profiles)
     ]
@@ -1399,7 +1384,7 @@ function _grouped_w_measure_rows(measure_cube::AbstractDataFrame)
 
     rows = NamedTuple[]
     for row in eachrow(grouped_c)
-        W = _within_dispersion_from_normalized_C(Float64(row.value))
+        W = Preferences.within_dispersion_from_group_coherence(Float64(row.value))
         push!(rows, (
             b = Int(row.b),
             r = Int(row.r),
@@ -1460,9 +1445,9 @@ function _grouped_lambda_sep_measure_rows(measure_cube::AbstractDataFrame)
     for row in eachrow(joined)
         W = Float64(row.w_value)
         value_lo = ismissing(row.d_value_lo) ? missing :
-                   _separation_ratio(Float64(row.d_value_lo), W)
+                   Preferences.separation_ratio(Float64(row.d_value_lo), W)
         value_hi = ismissing(row.d_value_hi) ? missing :
-                   _separation_ratio(Float64(row.d_value_hi), W)
+                   Preferences.separation_ratio(Float64(row.d_value_hi), W)
 
         push!(rows, (
             b = Int(row.b),
@@ -1470,7 +1455,7 @@ function _grouped_lambda_sep_measure_rows(measure_cube::AbstractDataFrame)
             k = Int(row.k),
             measure = :lambda_sep,
             grouping = row.grouping,
-            value = _separation_ratio(Float64(row.d_value), W),
+            value = Preferences.separation_ratio(Float64(row.d_value), W),
             value_lo = value_lo,
             value_hi = value_hi,
             diagnostics = row.w_diagnostics,
@@ -1524,9 +1509,9 @@ function _grouped_e_measure_rows(measure_cube::AbstractDataFrame)
     for row in eachrow(joined)
         W = Float64(row.w_value)
         value_lo = ismissing(row.d_value_lo) ? missing :
-                   _normalized_consensus_separation(W, Float64(row.d_value_lo))
+                   Preferences.normalized_consensus_separation(W, Float64(row.d_value_lo))
         value_hi = ismissing(row.d_value_hi) ? missing :
-                   _normalized_consensus_separation(W, Float64(row.d_value_hi))
+                   Preferences.normalized_consensus_separation(W, Float64(row.d_value_hi))
 
         push!(rows, (
             b = Int(row.b),
@@ -1534,7 +1519,7 @@ function _grouped_e_measure_rows(measure_cube::AbstractDataFrame)
             k = Int(row.k),
             measure = :E,
             grouping = row.grouping,
-            value = _normalized_consensus_separation(W, Float64(row.d_value)),
+            value = Preferences.normalized_consensus_separation(W, Float64(row.d_value)),
             value_lo = value_lo,
             value_hi = value_hi,
             diagnostics = row.w_diagnostics,

@@ -575,10 +575,10 @@ end
 end
 
 @testset "lambda_sep derived identities and boundary cases" begin
-    @test isnan(PrefPol._separation_ratio(0.0, 0.0))
-    @test isinf(PrefPol._separation_ratio(0.2, 0.0))
-    @test PrefPol._separation_ratio(0.3, 0.3) == 1.0
-    @test PrefPol._separation_ratio(0.6, 0.3) == 2.0
+    @test isnan(PrefPol.Preferences.separation_ratio(0.0, 0.0))
+    @test isinf(PrefPol.Preferences.separation_ratio(0.2, 0.0))
+    @test PrefPol.Preferences.separation_ratio(0.3, 0.3) == 1.0
+    @test PrefPol.Preferences.separation_ratio(0.6, 0.3) == 2.0
 
     components = DataFrame(
         group = [:A, :B],
@@ -620,22 +620,20 @@ end
     @test only(lambda_rows.value) == lambda
 end
 
-@testset "grouped scalar algebra is delegated to Preferences" begin
-    for raw_C in (0.5, 0.625, 0.75, 1.0)
-        expected = PrefPol.Preferences.group_coherence_from_within_dispersion(1.0 - raw_C)
-        @test PrefPol._normalize_group_coherence(raw_C) == expected
-        @test isapprox(
-            PrefPol._within_dispersion_from_normalized_C(expected),
-            PrefPol.Preferences.within_dispersion_from_group_coherence(expected);
-            atol = 1e-12,
-        )
+@testset "grouped scalar algebra uses Preferences directly" begin
+    for C01 in (0.5, 0.625, 0.75, 1.0)
+        W_from_C01 = 1.0 - C01
+        C = PrefPol.Preferences.group_coherence_from_within_dispersion(W_from_C01)
+        W = PrefPol.Preferences.within_dispersion_from_group_coherence(C)
+
+        @test isapprox(C, (2 * C01) - 1; atol = 1e-12)
+        @test isapprox(W, (1 - C) / 2; atol = 1e-12)
+        @test isapprox(W, W_from_C01; atol = 1e-12)
     end
 
-    @test PrefPol._grouped_geometric_index(0.25, 0.64) ==
-          PrefPol.Preferences.grouped_geometric_index(0.25, 0.64)
-    @test PrefPol._grouped_geometric_index(-0.25, 0.64) == 0.0
-    @test PrefPol._separation_ratio(0.2, 0.0) ==
-          PrefPol.Preferences.separation_ratio(0.2, 0.0)
+    @test PrefPol.Preferences.grouped_geometric_index(0.25, 0.64) == 0.4
+    @test PrefPol.Preferences.grouped_geometric_index(-0.25, 0.64) == 0.0
+    @test isinf(PrefPol.Preferences.separation_ratio(0.2, 0.0))
 end
 
 @testset "grouped measure details scalar regressions" begin
@@ -666,6 +664,62 @@ end
     @test reversal.lambda_sep == PrefPol.Preferences.separation_ratio(reversal.D, reversal.W)
     @test all(row -> row.W == 0.0 && row.D == 1.0 && isinf(row.lambda_sep),
               reversal.diagnostics.group_components)
+
+    acb = ranking_dict([:A, :C, :B])
+    cab = ranking_dict([:C, :A, :B])
+    dispersed_df = vcat(
+        DataFrame(grp = fill("left", 3), profile = [abc, abc, acb]),
+        DataFrame(grp = fill("right", 3), profile = [cba, cba, cab]),
+    )
+    metadata!(dispersed_df, "candidates", [:A, :B, :C])
+    metadata!(dispersed_df, "profile_kind", "linearized")
+    dispersed = PrefPol.compute_group_measure_details(
+        PrefPol.Preferences.dataframe_to_annotated_profile(dispersed_df),
+        :grp;
+        tie_policy = :hash,
+    )
+
+    @test dispersed.W > 0.0
+    @test dispersed.D > 0.0
+    @test dispersed.C < 1.0
+    @test dispersed.S > 0.0
+    @test dispersed.G > 0.0
+    @test isapprox(
+        dispersed.W,
+        PrefPol.Preferences.within_dispersion_from_group_coherence(dispersed.C);
+        atol = 1e-12,
+    )
+    @test isapprox(
+        dispersed.G,
+        PrefPol.Preferences.grouped_geometric_index(dispersed.C, dispersed.D);
+        atol = 1e-12,
+    )
+    @test isapprox(
+        dispersed.lambda_sep,
+        PrefPol.Preferences.separation_ratio(dispersed.D, dispersed.W);
+        atol = 1e-12,
+    )
+    @test isapprox(
+        dispersed.E,
+        PrefPol.Preferences.normalized_consensus_separation(dispersed.W, dispersed.D);
+        atol = 1e-12,
+    )
+    @test isapprox(
+        dispersed.S,
+        PrefPol.Preferences.overall_sstar_from_CD(dispersed.C, dispersed.D);
+        atol = 1e-12,
+    )
+    @test all(row -> row.W > 0.0 && row.D > 0.0, dispersed.diagnostics.group_components)
+    @test all(row -> isapprox(
+            row.E,
+            PrefPol.Preferences.normalized_consensus_separation(row.W, row.D);
+            atol = 1e-12,
+        ), dispersed.diagnostics.group_components)
+    @test all(row -> isapprox(
+            row.lambda_sep,
+            PrefPol.Preferences.separation_ratio(row.D, row.W);
+            atol = 1e-12,
+        ), dispersed.diagnostics.group_components)
 
     one_group_df = DataFrame(grp = fill("only", 4), profile = fill(abc, 4))
     metadata!(one_group_df, "candidates", [:A, :B, :C])
@@ -751,11 +805,17 @@ end
     @test 0.0 <= avg.Sep <= 1.0
     @test isapprox(avg.S, PrefPol.Preferences.overall_sstar_from_CD(avg.C, avg.D))
     @test isapprox(avg.S, avg.D - avg.W; atol = 1e-12)
-    @test isapprox(avg.lambda_sep, avg.D / avg.W; atol = 1e-12)
+    @test isapprox(avg.lambda_sep, PrefPol.Preferences.separation_ratio(avg.D, avg.W); atol = 1e-12)
     @test isapprox(avg.lambda_sep, 1 + avg.S / avg.W; atol = 1e-12)
     @test all(row -> isapprox(row.S, row.D - row.W; atol = 1e-12), avg.diagnostics.group_components)
+    @test isapprox(avg.E, PrefPol.Preferences.normalized_consensus_separation(avg.W, avg.D); atol = 1e-12)
+    @test all(row -> isapprox(
+            row.E,
+            PrefPol.Preferences.normalized_consensus_separation(row.W, row.D);
+            atol = 1e-12,
+        ), avg.diagnostics.group_components)
     @test all(row -> row.W == 0.0 ? (isnan(row.lambda_sep) || isinf(row.lambda_sep)) :
-                            isapprox(row.lambda_sep, row.D / row.W; atol = 1e-12),
+                            isapprox(row.lambda_sep, PrefPol.Preferences.separation_ratio(row.D, row.W); atol = 1e-12),
               avg.diagnostics.group_components)
     @test avg.S_old == hash.S_old
     @test hash.S_old == interval.S_old

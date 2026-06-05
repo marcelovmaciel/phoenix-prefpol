@@ -323,16 +323,6 @@ function _ensure_preferences_module()
         :candidate_display_symbols,
         :guess_weight_col,
         :resolve_candidate_cols_from_set,
-        :profile_pattern_proportions,
-        :ranked_count,
-        :has_ties,
-        :ranking_type_support,
-        :ranking_type_template,
-        :profile_ranksize_summary,
-        :profile_ranking_type_proportions,
-        :pretty_print_profile_patterns,
-        :pretty_print_ranksize_summary,
-        :pretty_print_ranking_type_proportions,
     )
     for sym in required
         isdefined(prefs, sym) || throw(ArgumentError(
@@ -615,7 +605,6 @@ function resolve_active_candidate_set(wcfg::SurveyWaveConfig;
     )
 end
 
-@inline _normalize_score(v) = normalize_eseb_score(v)
 
 function _build_profile_with_candidates(df::DataFrame,
                                         candidate_cols::Vector{String},
@@ -635,7 +624,7 @@ function _build_profile_with_candidates(df::DataFrame,
         allow_incomplete = allow_incomplete,
         all_unranked_as_indifferent = all_unranked_as_indifferent,
         weight_col = weight_col,
-        score_normalizer = _normalize_score,
+        score_normalizer = normalize_eseb_score,
         empty_profile_error_message =
             "No valid preference rows remained after filtering. " *
             "Rules: keep scores in [0,10], treat 96-99 as unranked, " *

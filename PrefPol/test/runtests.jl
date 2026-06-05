@@ -2,7 +2,7 @@ using Test
 
 include("package_load_tests.jl")
 
-include("score_semantics_tests.jl")
+include("eseb_semantics_tests.jl")
 
 include("derived_groups_tests.jl")
 

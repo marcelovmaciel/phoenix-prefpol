@@ -346,13 +346,13 @@ end
             [PrefPol.Scenario("front", ["D"])],
         )
 
-        @test PrefPol._normalize_score(96) === missing
-        @test PrefPol._normalize_score(97) === missing
-        @test PrefPol._normalize_score(98) === missing
-        @test PrefPol._normalize_score(99) === missing
-        @test PrefPol._normalize_score(11) === missing
-        @test PrefPol._normalize_score(-1) === missing
-        @test PrefPol._normalize_score("7") == 7.0
+        @test PrefPol.normalize_eseb_score(96) === missing
+        @test PrefPol.normalize_eseb_score(97) === missing
+        @test PrefPol.normalize_eseb_score(98) === missing
+        @test PrefPol.normalize_eseb_score(99) === missing
+        @test PrefPol.normalize_eseb_score(11) === missing
+        @test PrefPol.normalize_eseb_score(-1) === missing
+        @test PrefPol.normalize_eseb_score("7") == 7.0
 
         prof = PrefPol.build_profile(_SURVEY_REFACTOR_DF, cfg;
                                      candidate_set = ["A", "B", "C", "D"],
@@ -374,7 +374,7 @@ end
         @test PrefPol.Preferences.nballots(prof_w) == 4
         @test PrefPol.Preferences.weights(prof_w) == [1.0, 3.0, 4.0, 5.0]
 
-        patterns = PrefPol.profile_pattern_proportions(prof; weighted = false)
+        patterns = PrefPol.Preferences.profile_pattern_proportions(prof; weighted = false)
         @test any(occursin("A~B~C~D", String(row.pattern)) for row in eachrow(patterns))
 
         no_weight = select(_SURVEY_REFACTOR_DF, Not(:peso))
