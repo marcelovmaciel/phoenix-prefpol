@@ -931,9 +931,12 @@ function _consensus_ballots_for_result(result, pool::Preferences.CandidatePool, 
     ]
 end
 
-@inline _normalize_group_coherence(raw_C::Real) = (2.0 * Float64(raw_C)) - 1.0
-@inline _within_dispersion_from_normalized_C(C::Real) = (1.0 - Float64(C)) / 2.0
-@inline _separation_ratio(D::Real, W::Real) = Float64(D) / Float64(W)
+@inline _normalize_group_coherence(raw_C::Real) =
+    Preferences.group_coherence_from_within_dispersion(1.0 - Float64(raw_C))
+@inline _within_dispersion_from_normalized_C(C::Real) =
+    Preferences.within_dispersion_from_group_coherence(C)
+@inline _separation_ratio(D::Real, W::Real) = Preferences.separation_ratio(D, W)
+@inline _grouped_geometric_index(C::Real, D::Real) = Preferences.grouped_geometric_index(C, D)
 @inline _normalized_consensus_separation(W::Real, D::Real) =
     Preferences.normalized_consensus_separation(W, D)
 @inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
@@ -1118,9 +1121,9 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     lambda_sep = _separation_ratio(D, W)
     lambda_sep_lo = _separation_ratio(D_lo, W)
     lambda_sep_hi = _separation_ratio(D_hi, W)
-    G = sqrt(max(C * D, 0.0))
-    G_lo = sqrt(max(C * D_lo, 0.0))
-    G_hi = sqrt(max(C * D_hi, 0.0))
+    G = _grouped_geometric_index(C, D)
+    G_lo = _grouped_geometric_index(C, D_lo)
+    G_hi = _grouped_geometric_index(C, D_hi)
     Gsep = Preferences.grouped_gsep(C, Sep)
     Gsep_lo = Gsep
     Gsep_hi = Gsep

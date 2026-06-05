@@ -620,6 +620,95 @@ end
     @test only(lambda_rows.value) == lambda
 end
 
+@testset "grouped scalar algebra is delegated to Preferences" begin
+    for raw_C in (0.5, 0.625, 0.75, 1.0)
+        expected = PrefPol.Preferences.group_coherence_from_within_dispersion(1.0 - raw_C)
+        @test PrefPol._normalize_group_coherence(raw_C) == expected
+        @test isapprox(
+            PrefPol._within_dispersion_from_normalized_C(expected),
+            PrefPol.Preferences.within_dispersion_from_group_coherence(expected);
+            atol = 1e-12,
+        )
+    end
+
+    @test PrefPol._grouped_geometric_index(0.25, 0.64) ==
+          PrefPol.Preferences.grouped_geometric_index(0.25, 0.64)
+    @test PrefPol._grouped_geometric_index(-0.25, 0.64) == 0.0
+    @test PrefPol._separation_ratio(0.2, 0.0) ==
+          PrefPol.Preferences.separation_ratio(0.2, 0.0)
+end
+
+@testset "grouped measure details scalar regressions" begin
+    abc = ranking_dict([:A, :B, :C])
+    cba = ranking_dict([:C, :B, :A])
+
+    reversal_df = vcat(
+        DataFrame(grp = fill("left", 3), profile = fill(abc, 3)),
+        DataFrame(grp = fill("right", 2), profile = fill(cba, 2)),
+    )
+    metadata!(reversal_df, "candidates", [:A, :B, :C])
+    metadata!(reversal_df, "profile_kind", "linearized")
+    reversal = PrefPol.compute_group_measure_details(
+        PrefPol.Preferences.dataframe_to_annotated_profile(reversal_df),
+        :grp;
+        tie_policy = :average,
+    )
+
+    @test reversal.C == 1.0
+    @test reversal.W == 0.0
+    @test reversal.D == 1.0
+    @test reversal.S == 1.0
+    @test reversal.E == 1.0
+    @test isinf(reversal.lambda_sep)
+    @test reversal.G == 1.0
+    @test reversal.G == PrefPol.Preferences.grouped_geometric_index(reversal.C, reversal.D)
+    @test reversal.W == PrefPol.Preferences.within_dispersion_from_group_coherence(reversal.C)
+    @test reversal.lambda_sep == PrefPol.Preferences.separation_ratio(reversal.D, reversal.W)
+    @test all(row -> row.W == 0.0 && row.D == 1.0 && isinf(row.lambda_sep),
+              reversal.diagnostics.group_components)
+
+    one_group_df = DataFrame(grp = fill("only", 4), profile = fill(abc, 4))
+    metadata!(one_group_df, "candidates", [:A, :B, :C])
+    metadata!(one_group_df, "profile_kind", "linearized")
+    one_group = PrefPol.compute_group_measure_details(
+        PrefPol.Preferences.dataframe_to_annotated_profile(one_group_df),
+        :grp,
+    )
+
+    @test one_group.C == 1.0
+    @test one_group.W == 0.0
+    @test one_group.D == 0.0
+    @test one_group.S == 0.0
+    @test one_group.E == 0.0
+    @test isnan(one_group.lambda_sep)
+    @test one_group.G == 0.0
+    @test one_group.diagnostics.n_groups == 1
+
+    identical_df = vcat(
+        DataFrame(grp = fill("left", 2), profile = fill(abc, 2)),
+        DataFrame(grp = fill("right", 3), profile = fill(abc, 3)),
+    )
+    metadata!(identical_df, "candidates", [:A, :B, :C])
+    metadata!(identical_df, "profile_kind", "linearized")
+    identical = PrefPol.compute_group_measure_details(
+        PrefPol.Preferences.dataframe_to_annotated_profile(identical_df),
+        :grp,
+    )
+
+    @test identical.C == 1.0
+    @test identical.D == 0.0
+    @test identical.S == 0.0
+    @test identical.E == 0.0
+    @test isnan(identical.lambda_sep)
+    @test identical.G == 0.0
+
+    no_group_df = DataFrame(profile = fill(abc, 2))
+    metadata!(no_group_df, "candidates", [:A, :B, :C])
+    metadata!(no_group_df, "profile_kind", "linearized")
+    no_group_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(no_group_df)
+    @test_throws ArgumentError PrefPol.compute_group_measure_details(no_group_bundle, :grp)
+end
+
 @testset "nested pipeline exposes consensus tie policy for group measures" begin
     df = DataFrame(
         profile = [
@@ -646,7 +735,7 @@ end
     @test isapprox(hash.C, avg.C)
     @test isapprox(interval.C, avg.C)
     @test 0.0 <= avg.C <= 1.0
-    @test isapprox(avg.W, (1 - avg.C) / 2; atol = 1e-12)
+    @test isapprox(avg.W, PrefPol.Preferences.within_dispersion_from_group_coherence(avg.C); atol = 1e-12)
     @test interval.D_lo <= interval.D <= interval.D_hi
     @test avg.D_median == hash.D_median
     @test hash.D_median == interval.D_median
@@ -675,11 +764,11 @@ end
     @test isapprox(interval.S_hi, PrefPol.Preferences.overall_sstar_from_CD(interval.C, interval.D_hi))
     @test interval.S_old_lo == interval.S_old
     @test interval.S_old == interval.S_old_hi
-    @test isapprox(avg.Gsep, sqrt(max(avg.C * avg.Sep, 0.0)))
-    @test isapprox(avg.G, sqrt(max(avg.C * avg.D, 0.0)))
+    @test isapprox(avg.Gsep, PrefPol.Preferences.grouped_gsep(avg.C, avg.Sep))
+    @test isapprox(avg.G, PrefPol.Preferences.grouped_geometric_index(avg.C, avg.D))
     @test interval.G_lo <= interval.G <= interval.G_hi
-    @test isapprox(interval.G_lo, sqrt(max(interval.C * interval.D_lo, 0.0)))
-    @test isapprox(interval.G_hi, sqrt(max(interval.C * interval.D_hi, 0.0)))
+    @test isapprox(interval.G_lo, PrefPol.Preferences.grouped_geometric_index(interval.C, interval.D_lo))
+    @test isapprox(interval.G_hi, PrefPol.Preferences.grouped_geometric_index(interval.C, interval.D_hi))
     @test interval.D_lo <= hash.D <= interval.D_hi
 end
 

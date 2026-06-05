@@ -136,6 +136,8 @@ export smoothed_overlap, overall_overlap, overall_overlap_smoothed
 export overall_overlaps, overall_overlaps_smoothed
 export overall_divergence_median, overall_divergences_median
 export overall_separation, overall_separations, grouped_gsep
+export group_coherence_from_within_dispersion, within_dispersion_from_group_coherence
+export grouped_geometric_index, separation_ratio
 export normalized_consensus_separation, consensus_excess_separation
 export group_E, aggregate_E, E
 export S, S_old

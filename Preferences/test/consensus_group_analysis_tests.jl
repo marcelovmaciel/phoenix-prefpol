@@ -143,6 +143,26 @@ end
     @test pp.group_E(0.2, 0.4) == pp.normalized_consensus_separation(0.2, 0.4)
     @test pp.aggregate_E(0.2, 0.4) == pp.normalized_consensus_separation(0.2, 0.4)
     @test pp.E(0.2, 0.4) == pp.normalized_consensus_separation(0.2, 0.4)
+
+    for W in (0.0, 0.125, 0.25, 0.5)
+        C_from_W = pp.group_coherence_from_within_dispersion(W)
+        @test isapprox(pp.within_dispersion_from_group_coherence(C_from_W), W; atol = 1e-12)
+    end
+    @test pp.group_coherence_from_within_dispersion(0.0) == 1.0
+    @test pp.group_coherence_from_within_dispersion(0.5) == 0.0
+    @test pp.within_dispersion_from_group_coherence(1.0) == 0.0
+    @test pp.within_dispersion_from_group_coherence(0.0) == 0.5
+    @test pp.overall_sstar_from_CD(0.8, 0.6) ==
+          0.6 - pp.within_dispersion_from_group_coherence(0.8)
+
+    @test pp.grouped_geometric_index(0.25, 0.64) == 0.4
+    @test pp.grouped_geometric_index(0.0, 1.0) == 0.0
+    @test pp.grouped_geometric_index(-0.25, 0.64) == 0.0
+    @test pp.grouped_geometric_index(0.25, -0.64) == 0.0
+    @test pp.separation_ratio(0.3, 0.3) == 1.0
+    @test isinf(pp.separation_ratio(0.2, 0.0))
+    @test isnan(pp.separation_ratio(0.0, 0.0))
+
     @test isapprox(pp.S_old(group_profiles, Dict(:A => 4.0, :B => 6.0)), 1.0; atol = 1e-12)
 
     bt_profiles = Dict(:mice => [whole_df, whole_df], :rand => [whole_df])

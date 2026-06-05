@@ -1203,6 +1203,57 @@ function grouped_gsep(C::Real, Sep::Real)
 end
 
 @doc raw"""
+    group_coherence_from_within_dispersion(W)
+
+Return the normalized grouped coherence
+
+```math
+C = 1 - 2W
+```
+
+from within-group consensus dispersion `W`. This is the scalar conversion used
+in the grouped `C`-`D` decomposition. The helper intentionally performs no range
+validation so callers can preserve existing numerical behavior while deciding
+where profile-derived admissibility checks belong.
+"""
+group_coherence_from_within_dispersion(W::Real) = 1.0 - (2.0 * Float64(W))
+
+@doc raw"""
+    within_dispersion_from_group_coherence(C)
+
+Return the within-group dispersion baseline
+
+```math
+W = \frac{1-C}{2}
+```
+
+from normalized grouped coherence `C`.
+"""
+within_dispersion_from_group_coherence(C::Real) = (1.0 - Float64(C)) / 2.0
+
+@doc raw"""
+    grouped_geometric_index(C, D)
+
+Return the geometric grouped index `sqrt(max(C * D, 0))`.
+
+This preserves the historical grouped-`G` convention: negative products are
+floored at zero before the square root instead of being treated as domain
+errors. The helper is pure scalar algebra and does not validate whether `C` and
+`D` came from an admissible profile.
+"""
+grouped_geometric_index(C::Real, D::Real) = sqrt(max(Float64(C) * Float64(D), 0.0))
+
+@doc raw"""
+    separation_ratio(D, W)
+
+Return the scalar grouped separation ratio `D / W`.
+
+The function deliberately uses ordinary floating-point division so `W == 0`
+keeps Julia's existing `Inf` or `NaN` behavior.
+"""
+separation_ratio(D::Real, W::Real) = Float64(D) / Float64(W)
+
+@doc raw"""
     overall_sstar_from_CD(C, D)
 
 Return the excess-divergence component `D - (1 - C) / 2` from the
@@ -1217,7 +1268,7 @@ are invalid for this diagnostic.
 function overall_sstar_from_CD(C::Real, D::Real)
     coherence = _unit_interval(C, "C")
     divergence = _unit_interval(D, "D")
-    return divergence - ((1.0 - coherence) / 2.0)
+    return divergence - within_dispersion_from_group_coherence(coherence)
 end
 
 @doc raw"""
@@ -1600,7 +1651,7 @@ function _compute_group_metric_details(df::AbstractDataFrame, demo;
         group_sizes[group] = Float64(_profile_mass(profile))
     end
 
-    W = (1.0 - C) / 2.0
+    W = within_dispersion_from_group_coherence(C)
     cleaned_S = overall_sstar_from_CD(C, D)
     normalized_S = normalized_consensus_separation(W, D)
     support_separation_S_old = overall_support_separation_old(group_profiles, group_sizes)
