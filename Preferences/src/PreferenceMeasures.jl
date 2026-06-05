@@ -77,34 +77,33 @@ function reversal_pairs(unique_rankings::AbstractVector{<:Tuple})
     return paired_accum, unpaired_accum
 end
 
-function _ranking_masses(p::Profile{<:StrictRank})
+_profile_total_mass(p::Profile) = Float64(nballots(p))
+_profile_total_mass(p::WeightedProfile) = Float64(total_weight(p))
+
+_weighted_ballots(p::Profile) = zip(p.ballots, Iterators.repeated(1.0))
+_weighted_ballots(p::WeightedProfile) = zip(p.ballots, p.weights)
+
+function _ranking_masses_from_weighted_ballots(iter, total::Real, pool::CandidatePool)
     masses = Dict{Tuple,Float64}()
     order = Tuple[]
 
-    for ballot in p.ballots
-        sig = ranking_signature(ballot, p.pool)
-        if !haskey(masses, sig)
-            push!(order, sig)
-        end
-        masses[sig] = get(masses, sig, 0.0) + 1.0
-    end
-
-    return masses, order, Float64(nballots(p))
-end
-
-function _ranking_masses(p::WeightedProfile{<:StrictRank})
-    masses = Dict{Tuple,Float64}()
-    order = Tuple[]
-
-    @inbounds for (ballot, weight) in zip(p.ballots, p.weights)
-        sig = ranking_signature(ballot, p.pool)
+    for (ballot, weight) in iter
+        sig = ranking_signature(ballot, pool)
         if !haskey(masses, sig)
             push!(order, sig)
         end
         masses[sig] = get(masses, sig, 0.0) + Float64(weight)
     end
 
-    return masses, order, Float64(total_weight(p))
+    return masses, order, Float64(total)
+end
+
+function _ranking_masses(p::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRank}})
+    return _ranking_masses_from_weighted_ballots(
+        _weighted_ballots(p),
+        _profile_total_mass(p),
+        p.pool,
+    )
 end
 
 @doc raw"""
@@ -444,61 +443,54 @@ same candidate universe. Empty profiles and zero-total-weight profiles throw
 Interpretation: this is a normalized within-profile dispersion or incoherence
 around a proposed strict consensus, with `0` indicating perfect agreement.
 """
+function _average_normalized_distance_from_weighted_ballots(iter,
+                                                            consensus::StrictRank,
+                                                            total::Real,
+                                                            m::Integer)
+    norm_factor = binomial(m, 2)
+
+    dist_mass = 0.0
+    for (ballot, weight) in iter
+        dist_mass += Float64(weight) * kendall_tau_distance(ballot, consensus)
+    end
+
+    return dist_mass / (Float64(total) * norm_factor)
+end
+
 function average_normalized_distance(p::Profile{<:StrictRank}, consensus::StrictRank)
-    n = nballots(p)
-    n > 0 || throw(ArgumentError("Profile must contain at least one ballot"))
+    total = _profile_total_mass(p)
+    total > 0 || throw(ArgumentError("Profile must contain at least one ballot"))
 
     m = length(p.pool)
     m ≥ 2 || throw(ArgumentError("At least two candidates are required"))
-    norm_factor = binomial(m, 2)
 
-    total = 0.0
-    @inbounds for ballot in p.ballots
-        total += kendall_tau_distance(ballot, consensus)
-    end
-
-    return total / (n * norm_factor)
+    return _average_normalized_distance_from_weighted_ballots(
+        _weighted_ballots(p),
+        consensus,
+        total,
+        m,
+    )
 end
 
 function average_normalized_distance(p::WeightedProfile{<:StrictRank}, consensus::StrictRank)
-    total = Float64(total_weight(p))
+    total = _profile_total_mass(p)
     total > 0 || throw(ArgumentError("WeightedProfile total weight must be positive"))
 
     m = length(p.pool)
     m ≥ 2 || throw(ArgumentError("At least two candidates are required"))
-    norm_factor = binomial(m, 2)
 
-    dist_mass = 0.0
-    @inbounds for (ballot, weight) in zip(p.ballots, p.weights)
-        dist_mass += Float64(weight) * kendall_tau_distance(ballot, consensus)
-    end
-
-    return dist_mass / (total * norm_factor)
+    return _average_normalized_distance_from_weighted_ballots(
+        _weighted_ballots(p),
+        consensus,
+        total,
+        m,
+    )
 end
 
-function _pairwise_preference_counts(p::Profile{<:StrictRank})
-    n = length(p.pool)
+function _pairwise_preference_counts_from_weighted_ballots(iter, n::Integer)
     counts = zeros(Float64, n, n)
 
-    @inbounds for ballot in p.ballots
-        perm = to_perm(ballot)
-        for pos_i in 1:(n - 1)
-            i = perm[pos_i]
-            for pos_j in (pos_i + 1):n
-                j = perm[pos_j]
-                counts[i, j] += 1.0
-            end
-        end
-    end
-
-    return counts
-end
-
-function _pairwise_preference_counts(p::WeightedProfile{<:StrictRank})
-    n = length(p.pool)
-    counts = zeros(Float64, n, n)
-
-    @inbounds for (ballot, weight) in zip(p.ballots, p.weights)
+    for (ballot, weight) in iter
         perm = to_perm(ballot)
         w = Float64(weight)
         for pos_i in 1:(n - 1)
@@ -511,6 +503,13 @@ function _pairwise_preference_counts(p::WeightedProfile{<:StrictRank})
     end
 
     return counts
+end
+
+function _pairwise_preference_counts(p::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRank}})
+    return _pairwise_preference_counts_from_weighted_ballots(
+        _weighted_ballots(p),
+        length(p.pool),
+    )
 end
 
 @doc raw"""
@@ -535,7 +534,7 @@ Interpretation: `Ψ` measures pairwise balance across all unordered candidate
 pairs and does not require exact reversed ranking types.
 """
 function can_polarization(p::Union{Profile{<:StrictRank},WeightedProfile{<:StrictRank}})
-    total = p isa WeightedProfile ? Float64(total_weight(p)) : Float64(nballots(p))
+    total = _profile_total_mass(p)
     total > 0 || throw(ArgumentError("Profile must contain positive mass"))
 
     m = length(p.pool)

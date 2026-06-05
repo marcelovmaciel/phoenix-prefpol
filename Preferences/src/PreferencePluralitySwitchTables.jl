@@ -10,8 +10,6 @@ function _candidate_id(pool::CandidatePool, candidate)
 end
 
 _candidate_label(pool::CandidatePool, id::Integer) = pool[Int(id)]
-_profile_total_mass(p::Profile) = Float64(nballots(p))
-_profile_total_mass(p::WeightedProfile) = Float64(total_weight(p))
 _profile_weight_at(p::Profile, i::Integer) = 1.0
 _profile_weight_at(p::WeightedProfile, i::Integer) = Float64(p.weights[Int(i)])
 
