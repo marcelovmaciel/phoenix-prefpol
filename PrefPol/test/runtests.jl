@@ -14,6 +14,8 @@ include("processing_tests.jl")
 
 include("preprocessing_tests.jl")
 
+include("year_preprocessing_recoder_tests.jl")
+
 include("polarization_measures_tests.jl")
 
 include("nested_pipeline_tests.jl")
