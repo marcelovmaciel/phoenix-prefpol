@@ -217,9 +217,10 @@ function lines_alt_by_variant(measures_over_m::AbstractDict;
     nv = length(variant_syms)
 
     mlabels = Dict(
-        :calc_reversal_HHI => "HHI",
-        :calc_total_reversal_component => "R",
-        :fast_reversal_geometric => "RHHI",
+        :Psi => _measure_label(:Psi),
+        :R => "R",
+        :HHI => _measure_label(:HHI),
+        :RHHI => "RHHI",
     )
 
     fig = Figure(resolution = figsize)
@@ -319,9 +320,10 @@ function dotwhisker_alt_by_variant(measures_over_m::AbstractDict;
     nv = length(variant_syms)
 
     mlabels = Dict(
-        :calc_reversal_HHI => "HHI",
-        :calc_total_reversal_component => "R",
-        :fast_reversal_geometric => "RHHI",
+        :Psi => _measure_label(:Psi),
+        :R => "R",
+        :HHI => _measure_label(:HHI),
+        :RHHI => "RHHI",
     )
 
     fig = Figure(resolution = figsize)

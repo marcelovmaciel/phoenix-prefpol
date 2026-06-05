@@ -1377,6 +1377,43 @@ function _require_linearized_slice(slice, scen, m)
     ))
 end
 
+const LEGACY_PIPELINE_GLOBAL_MEASURES = (:Psi, :R, :HHI, :RHHI)
+
+function _legacy_measure_input(x)
+    if x isa DataFrame
+        return x
+    elseif hasproperty(x, :profile)
+        return getproperty(x, :profile)
+    end
+    return x
+end
+
+function _legacy_global_measure_value(measure::Symbol, rep)
+    profile = Preferences.strict_profile(_legacy_measure_input(rep))
+
+    if measure === :Psi
+        return Preferences.can_polarization(profile)
+    elseif measure === :R
+        return Preferences.total_reversal_component(profile)
+    elseif measure === :HHI
+        return Preferences.reversal_hhi(profile)
+    elseif measure === :RHHI
+        return Preferences.reversal_geometric(profile)
+    end
+
+    throw(ArgumentError("Unsupported global measure `$measure`."))
+end
+
+function _apply_legacy_global_measures_to_bts(bts; measures = LEGACY_PIPELINE_GLOBAL_MEASURES)
+    return Dict(
+        measure => Dict(
+            variant => map(rep -> _legacy_global_measure_value(measure, rep), bts[variant])
+            for variant in keys(bts)
+        )
+        for measure in measures
+    )
+end
+
 """
     apply_measures_for_year(profiles_year) -> OrderedDict
 
@@ -1402,7 +1439,7 @@ function apply_measures_for_year(
 
             #####  first replicate: discover measure names  #####
             var_map1 = Dict(var => [slice[var, 1]] for var in variants)
-            meas1     = apply_all_measures_to_bts(var_map1)
+            meas1     = _apply_legacy_global_measures_to_bts(var_map1)
             meas_syms = collect(keys(meas1))
 
             accum = init_accumulator(variants, meas_syms)
@@ -1423,7 +1460,7 @@ function apply_measures_for_year(
                 end
                 isempty(var_map) && continue
 
-                meas_i = apply_all_measures_to_bts(var_map)
+                meas_i = _apply_legacy_global_measures_to_bts(var_map)
                 update_accumulator!(accum, meas_i)
 
                 pm.next!(prog)                           # advance bar

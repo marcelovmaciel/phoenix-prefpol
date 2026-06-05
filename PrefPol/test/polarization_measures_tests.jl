@@ -66,41 +66,33 @@ end
 
 
 # ---------------------------------------------------------------------------
-# Tests for: Ψ
+# Tests for: nested global measure dispatch
 # ---------------------------------------------------------------------------
 
-@testset "Ψ" begin
-    # Unanimous profile → Ψ = 0
-    unanim = fill(ranking_dict([:a,:b,:c]), 10)
-    @test PrefPol.Ψ(unanim) == 0
-
-    # Equiprobable over all 3! permutations → Ψ = 1
-    allperms = [[ :a,:b,:c ], [ :a,:c,:b ], [ :b,:a,:c ],
-                [ :b,:c,:a ], [ :c,:a,:b ], [ :c,:b,:a ]]
-    eqprof = [ranking_dict(perm) for perm in allperms]
-    @test PrefPol.Ψ(eqprof) == 1
-end
-
-# ---------------------------------------------------------------------------
-# Tests for: profile reversal wrappers
-#            calc_total_reversal_component(profile),
-#            calc_reversal_HHI(profile),
-#            fast_reversal_geometric(profile)
-# ---------------------------------------------------------------------------
-
-@testset "profile reversal wrappers" begin
+@testset "nested global measures delegate directly to Preferences" begin
     profile = profile_from_counts(example_counts)
+    df = DataFrame(profile = profile)
+    metadata!(df, "candidates", [:a, :b, :c])
+    metadata!(df, "profile_kind", "linearized")
+    bundle = PrefPol.Preferences.dataframe_to_annotated_profile(df)
+    strict_profile = PrefPol.Preferences.strict_profile(bundle)
 
-    # Wrappers must reproduce EX_R, EX_HHI, EX_RHHI
-    @test isapprox(PrefPol.calc_total_reversal_component(profile), EX_R; atol=1e-12)
-    @test isapprox(PrefPol.calc_reversal_HHI(profile), EX_HHI; atol=1e-12)
-    @test isapprox(PrefPol.fast_reversal_geometric(profile), EX_RHHI; atol=1e-12)
+    @test PrefPol._global_measure_value(:Psi, bundle) ==
+          PrefPol.Preferences.can_polarization(strict_profile)
+    @test isapprox(PrefPol._global_measure_value(:R, bundle), EX_R; atol=1e-12)
+    @test isapprox(PrefPol._global_measure_value(:HHI, bundle), EX_HHI; atol=1e-12)
+    @test isapprox(PrefPol._global_measure_value(:RHHI, bundle), EX_RHHI; atol=1e-12)
+    @test_throws ArgumentError PrefPol._global_measure_value(:unsupported, bundle)
 
-    # Empty / no-pair case should return 0.0 (spec)
-    prof_nopair = [ranking_dict([:a,:b,:c]) for _ in 1:5] # all identical → no reversals
-    @test PrefPol.calc_total_reversal_component(prof_nopair) == 0.0
-    @test PrefPol.calc_reversal_HHI(prof_nopair) == 0.0
-    @test PrefPol.fast_reversal_geometric(prof_nopair) == 0.0  # enforces the spec/guard
+    prof_nopair = [ranking_dict([:a,:b,:c]) for _ in 1:5]
+    nopair_df = DataFrame(profile = prof_nopair)
+    metadata!(nopair_df, "candidates", [:a, :b, :c])
+    metadata!(nopair_df, "profile_kind", "linearized")
+    nopair_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(nopair_df)
+
+    @test PrefPol._global_measure_value(:R, nopair_bundle) == 0.0
+    @test PrefPol._global_measure_value(:HHI, nopair_bundle) == 0.0
+    @test PrefPol._global_measure_value(:RHHI, nopair_bundle) == 0.0
 end
 
 # ---------------------------------------------------------------------------
@@ -262,48 +254,6 @@ end
     group_sizes = Dict(:A => 3.0, :B => 3.0)
 
     @test isapprox(PrefPol.Preferences.S_old(group_profiles, group_sizes), 1.0; atol = 1e-12)
-end
-
-# ---------------------------------------------------------------------------
-# Tests for: apply_measure_to_bts, apply_all_measures_to_bts
-# ---------------------------------------------------------------------------
-
-@testset "apply_measure_to_bts / apply_all_measures_to_bts" begin
-    # Build two profiles with known values
-    unanim = fill(ranking_dict([:a,:b,:c]), 5)
-    eqprof = [ranking_dict(perm) for perm in
-              ([ :a,:b,:c ], [ :a,:c,:b ], [ :b,:a,:c ],
-               [ :b,:c,:a ], [ :c,:a,:b ], [ :c,:b,:a ])]
-
-    # A "bootstrap" dictionary shaped like your pipeline expects:
-    # Each variant maps to a vector of NamedTuples that have a `.profile` field.
-    bts = Dict(
-        :mice => [(; profile = unanim), (; profile = eqprof)],
-        :rand => [(; profile = eqprof)]
-    )
-
-    # Single measure
-    outΨ = PrefPol.apply_measure_to_bts(bts, PrefPol.Ψ)
-    @test keys(outΨ) == keys(bts)
-    @test outΨ[:mice] == [0.0, 1.0]
-    @test outΨ[:rand] == [1.0]
-
-    # All measures (subset relevant to this file)
-    out_all = PrefPol.apply_all_measures_to_bts(bts;
-        measures=[PrefPol.Ψ,
-                  PrefPol.calc_total_reversal_component,
-                  PrefPol.calc_reversal_HHI,
-                  PrefPol.fast_reversal_geometric])
-
-    @test Set(keys(out_all)) == Set(Symbol.(["Ψ",
-                                     "calc_total_reversal_component",
-                                     "calc_reversal_HHI",
-                                     "fast_reversal_geometric"]))
-
-    # Sanity: unanimity has no reversals ⇒ R = HHI = RHHI = 0
-    @test out_all[:calc_total_reversal_component][:mice][1] == 0.0
-    @test out_all[:calc_reversal_HHI][:mice][1] == 0.0
-    @test out_all[:fast_reversal_geometric][:mice][1] == 0.0
 end
 
 # ---------------------------------------------------------------------------

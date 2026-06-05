@@ -102,7 +102,6 @@ end
 include("preprocessing_general.jl")
 include("preprocessing_specific.jl")
 include("profile_adapters.jl")
-include("polarization_measures.jl")
 include("pipeline.jl")
 include("raw_profiles.jl")
 include("variance_decomposition.jl")

@@ -1301,14 +1301,16 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
 end
 
 function _global_measure_value(measure::Symbol, bundle::AnnotatedProfile)
+    profile = Preferences.strict_profile(bundle)
+
     if measure === :Psi
-        return Ψ(bundle)
+        return Preferences.can_polarization(profile)
     elseif measure === :R
-        return calc_total_reversal_component(bundle)
+        return Preferences.total_reversal_component(profile)
     elseif measure === :HHI
-        return calc_reversal_HHI(bundle)
+        return Preferences.reversal_hhi(profile)
     elseif measure === :RHHI
-        return fast_reversal_geometric(bundle)
+        return Preferences.reversal_geometric(profile)
     end
 
     throw(ArgumentError("Unsupported global measure `$measure`."))

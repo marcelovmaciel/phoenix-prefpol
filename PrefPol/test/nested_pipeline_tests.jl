@@ -1091,6 +1091,41 @@ end
     end
 end
 
+@testset "legacy year-level measure path uses active global symbols" begin
+    df = DataFrame(profile = [
+        ranking_dict([:a, :b, :c]),
+        ranking_dict([:c, :b, :a]),
+    ])
+    metadata!(df, "candidates", [:a, :b, :c])
+    metadata!(df, "profile_kind", "linearized")
+    bundle = PrefPol.Preferences.dataframe_to_annotated_profile(df; ballot_kind = :strict)
+    artifact = PrefPol.Preferences.compact_profile_artifact_dataframe(bundle)
+    strict_profile = PrefPol.Preferences.strict_profile(bundle)
+
+    mktempdir() do dir
+        path = joinpath(dir, "linearized.jld2")
+        JLD2.@save path artifact
+        profiles_year = OrderedDict(
+            "all" => OrderedDict(
+                3 => PrefPol.LinearizedProfilesSlice(
+                    2022,
+                    "all",
+                    3,
+                    [:a, :b, :c],
+                    Dict(:zero => [path]),
+                ),
+            ),
+        )
+
+        measures = PrefPol.apply_measures_for_year(profiles_year)["all"][3]
+        @test Set(keys(measures)) == Set([:Psi, :R, :HHI, :RHHI])
+        @test measures[:Psi][:zero] == [PrefPol.Preferences.can_polarization(strict_profile)]
+        @test measures[:R][:zero] == [PrefPol.Preferences.total_reversal_component(strict_profile)]
+        @test measures[:HHI][:zero] == [PrefPol.Preferences.reversal_hhi(strict_profile)]
+        @test measures[:RHHI][:zero] == [PrefPol.Preferences.reversal_geometric(strict_profile)]
+    end
+end
+
 @testset "nested measure stage rejects weak profile slices" begin
     weak_df = PrefPol.profile_dataframe(
         DataFrame(
