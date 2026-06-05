@@ -99,6 +99,7 @@ end
 @inline _call_plotting_extension(name::Symbol, args...; kwargs...) =
     getfield(_plotting_extension_module(), name)(args...; kwargs...)
 
+include("score_semantics.jl")
 include("preprocessing_general.jl")
 include("preprocessing_specific.jl")
 include("profile_adapters.jl")
@@ -110,6 +111,14 @@ include("variance_decomposition_report.jl")
 
 
 export project_root
+export ESEB_SCORE_MISSING_CODES,
+       ESEB_VALID_SCORE_MIN,
+       ESEB_VALID_SCORE_MAX,
+       is_eseb_missing_score,
+       normalize_eseb_score,
+       normalize_eseb_score_column!,
+       normalize_eseb_score_columns!
+
 export load_raw_pref_data,
        build_profile
 

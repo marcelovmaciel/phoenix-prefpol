@@ -36,11 +36,7 @@ function load_and_prepare_scores_df(data_path::String; candidates = CANDIDATOS_e
     rename!(df_e22, Dict(zip(build_column_symbols("Q17_", 13), candidates)))
 
 
-    pairs = (96.0 => 99.0, 97.0 => 99.0, 98.0 => 99.0)
-
-    for col in candidates
-            replace!(df_e22[!, col], pairs...)
-    end
+    normalize_eseb_score_columns!(df_e22, candidates)
 
 
     # Recode D10 (religion)
@@ -173,10 +169,7 @@ function load_and_prepare_e2018(df_path; candidates = candidates2018)
 
 
     rename!(df_e18, Dict(zip(build_column_symbols("Q16", 21), candidates)))
-    pairs = (96.0 => 99.0, 97.0 => 99.0, 98.0 => 99.0)
-    for col in candidates
-        replace!(df_e18[!, col], pairs...)
-    end
+    normalize_eseb_score_columns!(df_e18, candidates)
 
     if !("Lula" in names(df_e18))
         throw(ArgumentError(

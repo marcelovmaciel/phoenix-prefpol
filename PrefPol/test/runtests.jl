@@ -2,6 +2,8 @@ using Test
 
 include("package_load_tests.jl")
 
+include("score_semantics_tests.jl")
+
 include("profile_adapters_tests.jl")
 
 include("raw_profiles_tests.jl")

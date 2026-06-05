@@ -67,21 +67,12 @@ return a sorted vector of `(name, percent)` pairs.
 """
 function compute_dont_know_her(countmaps::Dict{String,Dict{Int,Int}}, nrespondents::Int)
     return sort([
-        (k, 100 * sum(get(v, code, 0) for code in (96, 97, 98,99)) / nrespondents)
+        (k, 100 * sum((count for (score, count) in v if is_eseb_missing_score(score)); init = 0) / nrespondents)
         for (k, v) in countmaps
     ], by = x -> x[2])
 end
 
-@inline function _is_missing_score_value(v)
-    ismissing(v) && return true
-    v isa Integer && return v in (96, 97, 98, 99)
-    if v isa AbstractFloat
-        isfinite(v) || return false
-        r = round(Int, v)
-        return isapprox(v, r; atol = 1e-8) && (r in (96, 97, 98, 99))
-    end
-    return false
-end
+@inline _is_missing_score_value(v) = is_eseb_missing_score(v)
 
 function _normalize_weight_vector(weights)
     out = zeros(Float64, length(weights))
@@ -152,7 +143,7 @@ function compute_weighted_dont_know_her(scores_df::DataFrame,
             miss_weight = 0.0
             col = scores_df[!, cand]
             for i in eachindex(col)
-                _is_missing_score_value(col[i]) || continue
+                is_eseb_missing_score(col[i]) || continue
                 miss_weight += w[i]
             end
             (String(cand), 100 * miss_weight / total_weight)
@@ -168,27 +159,43 @@ end
 
 Prepare Brazil/ESEB score columns for deterministic zero-style imputation.
 
-Numeric candidate score columns are converted to `Union{Missing,Int}` and survey
-codes `96`-`99` are declared missing through `Impute`. Optional demographic or
+Candidate score columns are normalized with PrefPol's centralized ESEB score
+semantics and converted to `Union{Missing,Int}`. Optional demographic or
 auxiliary columns are appended unchanged. This helper is used before the nested
 pipeline's imputation stage and does not write cache.
 """
+@inline function _can_normalize_eseb_score_column(col)
+    return all(x -> ismissing(x) || x isa Real || x isa AbstractString || x isa CategoricalValue, col)
+end
+
+@inline function _normalize_eseb_score_to_int(value, col)
+    normalized = normalize_eseb_score(value)
+    normalized === missing && return missing
+
+    rounded = round(Int, normalized)
+    isapprox(normalized, rounded; atol = 1e-8) || throw(ArgumentError(
+        "Score column `$col` contains non-integer ESEB score $(repr(value)).",
+    ))
+    return rounded
+end
+
 function prepare_scores_for_imputation_int(df::DataFrame,
     score_cols::Vector{String};
     extra_cols::Vector{String}=String[])
-    # (1) Split truly numeric from anything that isn't
-    numeric_cols   = Base.filter(c -> eltype(df[!, c]) <: Union{Missing, Real}, score_cols)
-    nonnumeric     = setdiff(score_cols, numeric_cols)
-    if !isempty(nonnumeric)
-        @warn "prepare_scores_for_imputation_int: skipping non‑numeric columns $(nonnumeric)"
+    normalizable_cols = Base.filter(c -> _can_normalize_eseb_score_column(df[!, c]), score_cols)
+    nonnormalizable = setdiff(score_cols, normalizable_cols)
+    if !isempty(nonnormalizable)
+        @warn "prepare_scores_for_imputation_int: skipping non-normalizable columns $(nonnormalizable)"
     end
 
-    # (2) Work only on the numeric score columns
-    scores_int = mapcols(col -> Union{Missing,Int}[ismissing(x) ? missing : Int(x) for x in col], df[:, numeric_cols])
-    declared   = Impute.declaremissings(scores_int; values = (96, 97, 98, 99))
+    scores_int = DataFrame()
+    for col in normalizable_cols
+        scores_int[!, col] = Union{Missing,Int}[
+            _normalize_eseb_score_to_int(x, col) for x in df[!, col]
+        ]
+    end
 
-    # (3) Append any extra (demographic) columns, untouched
-    return isempty(extra_cols) ? declared : hcat(declared, df[:, extra_cols])
+    return isempty(extra_cols) ? scores_int : hcat(scores_int, df[:, extra_cols])
 end
 
 
@@ -540,27 +547,20 @@ function get_row_candidate_score_pairs(row, score_cols)
     Dict(Symbol(c) => row[c] for c in score_cols)
 end
 
-@inline function _normalize_score_value(value)
-    raw = value isa CategoricalValue ? unwrap(value) : value
-
-    if ismissing(raw)
-        return missing
-    elseif raw isa Real
-        return Float64(raw)
-    elseif raw isa AbstractString
-        parsed = tryparse(Float64, strip(raw))
-        parsed === nothing || return parsed
+@inline function _coerce_completed_score_value(value)
+    raw = _unwrap_eseb_score(value)
+    if !(ismissing(raw) || raw isa Real || raw isa AbstractString)
+        throw(ArgumentError(
+            "Score values must be numeric, missing, or categorical-wrapped numeric values; got $(typeof(value)).",
+        ))
     end
-
-    throw(ArgumentError(
-        "Score values must be numeric, missing, or categorical-wrapped numeric values; got $(typeof(value)).",
-    ))
+    return normalize_eseb_score(raw)
 end
 
 @inline _score_sort_key(value) = ismissing(value) ? -Inf : value
 
 function _normalized_score_dict(score_dict)
-    return Dict(cand => _normalize_score_value(score) for (cand, score) in score_dict)
+    return Dict(cand => _coerce_completed_score_value(score) for (cand, score) in score_dict)
 end
 
 """

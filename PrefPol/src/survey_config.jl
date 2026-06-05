@@ -567,24 +567,7 @@ function resolve_active_candidate_set(wcfg::SurveyWaveConfig;
     )
 end
 
-@inline function _normalize_score(v)
-    v === missing && return missing
-
-    x = if v isa Real
-        Float64(v)
-    elseif v isa AbstractString
-        parsed = tryparse(Float64, strip(v))
-        parsed === nothing && return missing
-        parsed
-    else
-        return missing
-    end
-
-    isfinite(x) || return missing
-    x in (96.0, 97.0, 98.0, 99.0) && return missing
-    (0.0 <= x <= 10.0) || return missing
-    return x
-end
+@inline _normalize_score(v) = normalize_eseb_score(v)
 
 function _build_profile_with_candidates(df::DataFrame,
                                         candidate_cols::Vector{String},
