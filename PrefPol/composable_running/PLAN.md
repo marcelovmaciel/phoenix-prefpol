@@ -233,21 +233,19 @@ Minimal API additions to propose:
 These should reuse the existing private logic and file layout rather than
 creating a parallel cache format.
 
-### `PrefPol/src/pipeline.jl`
+### `PrefPol/src/survey_config.jl`
 
-This file contains older pipeline APIs and legacy helpers. Several functions
-explicitly warn that newer code should use `SurveyWaveConfig`,
-`NestedStochasticPipeline`, `StudyBatchSpec`, `run_pipeline`, and `run_batch`.
-The composable refactor should avoid building new stages on the old
-`save_all_bootstraps`, `impute_from_f3`, `generate_profiles_for_year_*`, and
-`save_or_load_*` APIs unless a specific legacy artifact still depends on them.
+The retired year-level `pipeline.jl` file has been removed from the active
+package. TOML parsing and survey data loading support now lives in
+`survey_config.jl`, and candidate-set resolution is consumed by raw-profile
+helpers and `SurveyWaveConfig`/`NestedStochasticPipeline` flows.
 
 Still useful:
 
 - `load_election_cfg`
 - `ElectionConfig`
-- `describe_candidate_set`
-- plotting shims are legacy wrappers around newer nested plotting functions
+- `Scenario`
+- `load_election_data`
 
 ### `PrefPol/src/PrefPol.jl`
 

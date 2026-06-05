@@ -427,8 +427,6 @@ end
 # === Imputation ===
 
 const SUPPORTED_IMPUTATION_VARIANTS = (:zero, :random, :mice)
-const DEFAULT_PIPELINE_IMPUTATION_VARIANTS = (:zero, :mice)
-
 """
     normalize_imputation_variants(variants) -> Tuple{Vararg{Symbol}}
 

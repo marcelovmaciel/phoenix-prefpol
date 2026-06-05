@@ -102,7 +102,7 @@ end
 include("preprocessing_general.jl")
 include("preprocessing_specific.jl")
 include("profile_adapters.jl")
-include("pipeline.jl")
+include("survey_config.jl")
 include("raw_profiles.jl")
 include("variance_decomposition.jl")
 include("nested_pipeline.jl")

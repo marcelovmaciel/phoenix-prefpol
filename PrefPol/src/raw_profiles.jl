@@ -66,7 +66,6 @@ function _load_raw_profile_cfg(year::Int; config_path=nothing)
     return cfg, cfg_path
 end
 
-@inline _infer_m(cfg) = cfg.n_alternatives > 0 ? cfg.n_alternatives : cfg.max_candidates
 
 # Generic candidate-label helpers live in Preferences.
 @inline _humanize_candidate_name(name::AbstractString) = _prefs().humanize_candidate_name(name)
@@ -86,16 +85,6 @@ function _resolve_candidate_cols_from_set(df::DataFrame,
     return _prefs().resolve_candidate_cols_from_set(df, universe_cols, candidate_set)
 end
 
-function _scenario_for_year(cfg, scenario_name)::Scenario
-    sname = String(scenario_name)
-    for sc in cfg.scenarios
-        sc.name == sname && return sc
-    end
-    available = [sc.name for sc in cfg.scenarios]
-    throw(ArgumentError(
-        "Unknown scenario `$sname` for year $(cfg.year). Available scenarios: $(available).",
-    ))
-end
 
 function _resolve_candidate_cols(df::DataFrame, cfg;
                                  candidate_set = nothing,
@@ -108,17 +97,14 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
     configured_universe = Vector{String}(cfg.candidates)
 
     if scenario_name !== nothing
-        sc = _scenario_for_year(cfg, scenario_name)
+        sc = _lookup_scenario(cfg, scenario_name)
         mm = _validate_candidate_count(
             m === nothing ? _infer_m(cfg) : Int(m),
             cfg.max_candidates;
             context = "Raw profile scenario `$(sc.name)` for year $(cfg.year)",
             min_allowed = 1,
         )
-        full_list = compute_global_candidate_list(cfg;
-                                                  scenario = sc,
-                                                  m = mm,
-                                                  data = df)
+        full_list = _candidate_order(cfg; scenario = sc, m = mm, data = df)
         return length(full_list) < mm ? full_list : first(full_list, mm)
     end
 
@@ -132,9 +118,7 @@ function _resolve_candidate_cols(df::DataFrame, cfg;
         context = "Raw profile candidate selection for year $(cfg.year)",
         min_allowed = 1,
     )
-    full_list = compute_global_candidate_list(cfg;
-                                              m = mm,
-                                              data = df)
+    full_list = _candidate_order(cfg; m = mm, data = df)
     return length(full_list) < mm ? full_list : first(full_list, mm)
 end
 

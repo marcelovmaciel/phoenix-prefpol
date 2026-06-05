@@ -43,8 +43,8 @@ end
 """
     SurveyWaveConfig(cfg::ElectionConfig; wave_id=string(cfg.year))
 
-Convert the legacy election TOML configuration into the nested-pipeline wave
-configuration used by the reproducible BRK pipeline.
+Convert a year TOML configuration into the survey-wave configuration used by
+the reproducible BRK pipeline.
 """
 SurveyWaveConfig(cfg::ElectionConfig; wave_id::AbstractString = string(cfg.year)) =
     SurveyWaveConfig(
@@ -898,6 +898,20 @@ function _resolve_nested_linearizer(weak_bundle::AnnotatedProfile,
     throw(ArgumentError(
         "Unsupported linearizer_policy `$(spec.linearizer_policy)`. Supported policies: $(SUPPORTED_LINEARIZER_POLICIES).",
     ))
+end
+
+function _assert_complete_weak_orders(bundle::AnnotatedProfile;
+                                      context::AbstractString)
+    profile = bundle.profile
+
+    if !Preferences.is_weak_order(profile) || !Preferences.is_complete(profile)
+        throw(ArgumentError(
+            "$context expected complete weak orders before linearization. " *
+            "This pipeline stage does not define incomplete-ballot completion semantics.",
+        ))
+    end
+
+    return bundle
 end
 
 function _linearize_imputed(imputed::ImputedData,
@@ -2172,8 +2186,21 @@ function _stage_path(cache_dir::AbstractString,
     throw(ArgumentError("Unsupported stage `$stage`."))
 end
 
+_mkparent(path) = mkpath(dirname(path))
+
+function _atomic_jldsave(path::AbstractString, entries::Pair...)
+    _mkparent(path)
+    tmp = path * ".tmp"
+    isfile(tmp) && rm(tmp; force = true)
+    JLD2.jldopen(tmp, "w"; iotype = IOStream) do f
+        for (name, value) in entries
+            f[String(name)] = value
+        end
+    end
+    mv(tmp, path; force = true)
+end
+
 function _save_artifact(path::AbstractString, artifact)
-    mkpath(dirname(path))
     _atomic_jldsave(path, "artifact" => artifact)
     return bytes2hex(SHA.sha256(read(path)))
 end
@@ -3377,6 +3404,12 @@ Return the candidate-set label used by pipeline plotting wrappers. PrefPol first
 uses explicit batch metadata when present, otherwise it derives a compact label
 from the active-candidate key in the selected panel rows.
 """
+function describe_candidate_set(candidates::AbstractVector{<:AbstractString})
+    pretty_names = [join([uppercasefirst(lowercase(w)) for w in split(String(name), "_")], " ")
+                    for name in candidates]
+    return "Candidates: " * join(pretty_names, ", ")
+end
+
 function pipeline_candidate_label(rows::AbstractDataFrame)
     isempty(rows) && return ""
 
