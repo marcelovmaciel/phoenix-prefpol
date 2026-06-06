@@ -28,8 +28,8 @@ executable:
 
 ```bash
 ROOT=$(pwd)
-(cd /tmp && julia --project="$ROOT/PrefPol/docs" -e 'using Pkg; Pkg.instantiate()')
-(cd /tmp && julia --project="$ROOT/PrefPol/docs" "$ROOT/PrefPol/docs/make.jl")
+(cd /tmp && julia +1.11.9 --project="$ROOT/PrefPol/docs" -e 'using Pkg; Pkg.instantiate()')
+(cd /tmp && julia +1.11.9 --project="$ROOT/PrefPol/docs" "$ROOT/PrefPol/docs/make.jl")
 ```
 
 Starting Julia outside the repository tree avoids shadowing Julia's internal

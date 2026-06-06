@@ -79,8 +79,7 @@ D = overall_divergence(group_profiles, consensus_map)
  g1_avg_distance = w1.avg_distance,
  g2_avg_distance = w2.avg_distance,
  C = C,
- D = D,
- S = S(C, D))
+ D = D)
 ```
 
 
@@ -160,15 +159,15 @@ Overlap `O` is useful as a distributional support diagnostic. `Sep` is an
 overlap-adjusted consensus separation. `pairwise_group_separation`,
 `overall_separation`, `grouped_gsep`, and the median/overlap separation
 variants are legacy or experimental separation diagnostics, not the primary
-`C`-`D` group diagnostics. `S_old` is the legacy support-separation statistic
-and is separate from current `S`.
+`C`-`D` group diagnostics. `S(C,D)` and `E` remain available as derived
+diagnostics from the current `C`-`D` decomposition. `S_old` is the legacy
+support-separation statistic and is separate from current `S`.
 
 ## API
 
 ```@docs
 ConsensusResult
 kendall_tau_distance
-average_normalized_distance
 consensus_kendall
 get_consensus_ranking
 kendall_tau_dict

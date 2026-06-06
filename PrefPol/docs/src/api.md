@@ -15,6 +15,8 @@ SurveyWaveConfig
 load_survey_wave_config
 build_source_registry
 resolve_active_candidate_set
+available_election_years
+default_config_path
 ```
 
 ## Raw Data and Profiles
@@ -38,6 +40,10 @@ grouped-measure pipeline through `compute_group_measure_details`.
 ```@docs; canonical=false
 compute_group_measure_details
 ```
+
+Diagnostic and legacy grouped measures remain available in the pipeline
+registry for explicit extended runs. They are not part of the publication
+default set unless a separate config requests them.
 
 ## Nested Pipeline Types
 
@@ -86,7 +92,6 @@ pipeline_summary_table
 pipeline_variance_decomposition_table
 pipeline_panel_table
 select_pipeline_panel_rows
-pipeline_candidate_label
 pipeline_scenario_plot_data
 pipeline_group_plot_data
 pipeline_group_heatmap_values

@@ -82,6 +82,9 @@ If plotting fails when running a stage directly, run plotting stages through
 `--project=PrefPol/running/plotting_env`. The wrapper selects that environment
 automatically for plot stages.
 
+`10_lambda_table.jl` is optional. It is skipped unless `[lambda_table].enabled`
+is true in the orchestration config.
+
 If a downstream stage reports a missing upstream manifest, rerun from the
 earliest missing stage or rerun the full wrapper. Use `--force` only when
 intentionally regenerating publication outputs or replacing existing cached

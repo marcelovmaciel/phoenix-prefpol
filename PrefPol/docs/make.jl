@@ -17,6 +17,12 @@ makedocs(;
     remotes = nothing,
     pages = [
         "Home" => "index.md",
+        "Publication Workflow" => "publication_workflow.md",
+        "Configuration" => "configuration.md",
+        "Pipeline" => "pipeline.md",
+        "Outputs" => "outputs.md",
+        "Variance Decomposition" => "variance_decomposition.md",
+        "Plotting" => "plotting.md",
         "API Reference" => "api.md",
     ],
 )

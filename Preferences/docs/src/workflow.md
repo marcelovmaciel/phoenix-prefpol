@@ -50,6 +50,9 @@ CandidatePool
 StrictRank
 Profile
 WeightedProfile
+nballots
+weights
+total_weight
 rank
 prefers
 indifferent

@@ -3,18 +3,17 @@
 This directory contains local HTML documentation for the `Preferences` Julia
 package in this monorepo.
 
-From the repository root, instantiate and build the docs with:
+From the repository root, instantiate and build the docs with Julia 1.11.9:
 
 ```bash
 ROOT=$(pwd)
-(cd /tmp && julia --project="$ROOT/Preferences/docs" -e 'using Pkg; Pkg.instantiate()')
-(cd /tmp && julia --project="$ROOT/Preferences/docs" "$ROOT/Preferences/docs/make.jl")
+(cd /tmp && julia +1.11.9 --project="$ROOT/Preferences/docs" -e 'using Pkg; Pkg.instantiate()')
+(cd /tmp && julia +1.11.9 --project="$ROOT/Preferences/docs" "$ROOT/Preferences/docs/make.jl")
 ```
 
 Starting Julia outside the repository tree avoids shadowing Julia's internal
 `Preferences` dependency with the local package directory during dependency
-resolution. Use a Julia 1.11.9 executable for this package; with juliaup, that can be
-spelled as `julia +1.11.9`.
+resolution.
 
 To browse the generated site locally, serve the build directory:
 

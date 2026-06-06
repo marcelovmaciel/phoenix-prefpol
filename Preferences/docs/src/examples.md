@@ -90,11 +90,12 @@ Cstar = 0.5 * (group_avg_distance(g1).group_coherence +
                group_avg_distance(g2).group_coherence)
 C = 2Cstar - 1
 
-(C = C, D = D, S = S(C, D))
+(C = C, D = D)
 ```
 
-`C` and `D` should be read separately. `S(C,D)` is only a derived excess
-divergence diagnostic. See [Group Diagnostics](group_measures.md).
+`C` and `D` should be read separately. `S(C,D)` remains available as an
+optional derived excess-divergence diagnostic, but it is not needed for the
+basic group summary. See [Group Diagnostics](group_measures.md).
 
 ## Majority Support Teaser
 

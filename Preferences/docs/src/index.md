@@ -1,9 +1,24 @@
 # Preferences.jl
 
-`Preferences.jl` is a formal and empirical toolkit for finite preference
-profiles. It provides candidate pools, strict and weak rankings, unweighted and
-weighted profiles, tabular score adapters, profile diagnostics, consensus-based
-group diagnostics, and majority-graph exploration tools.
+`Preferences.jl` is the reusable formal preference and social-choice package in
+the monorepo. It defines the ranking, profile, and diagnostic objects used by
+applied packages such as `PrefPol.jl`; it does not own survey-wave loading,
+publication cache layout, or paper artifact collection.
+
+The package covers:
+
+- candidate pools and pool-relative candidate identifiers,
+- strict rankings, weak rankings, and weak-order linearization,
+- profiles and weighted profiles,
+- annotated profiles with row-aligned metadata,
+- tabular score-to-profile construction,
+- global profile diagnostics,
+- reversal structure and effective ranking support,
+- single-peakedness diagnostics,
+- group coherence and divergence,
+- majority-graph support and majority-graph roles,
+- plurality switch tables, and
+- low-level pairwise representations.
 
 The main workflow starts with ranked profiles, often built from survey score
 columns, and then studies global preference structure, effective support,
@@ -21,6 +36,7 @@ based on `C` and `D` use Kendall/Kemeny consensuses to describe groups.
 | Handle ties, missing evaluations, and linearization | [Weak Orders and Linearization](weak_orders.md) |
 | Keep respondent metadata aligned with ballots | [Annotated Profiles](annotated_profiles.md) |
 | Compute global profile diagnostics | [Global Profile Diagnostics](global_measures.md) |
+| Check one-dimensional domain structure | [Single-Peakedness Diagnostics](single_peakedness.md) |
 | Compute group coherence and divergence | [Group Diagnostics](group_measures.md) |
 | Analyze majority-edge support | [Majority-Graph Support](majority_support.md) |
 | Classify majority-support roles | [Majority-Graph Roles](majority_roles.md) |

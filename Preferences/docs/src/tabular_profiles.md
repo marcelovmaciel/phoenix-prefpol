@@ -68,5 +68,15 @@ normalize_nonnegative_weight
 row_to_weak_rank_from_scores
 build_profile_from_scores
 profile_build_meta
+profile_pattern_proportions
+ranked_count
+has_ties
+ranking_type_support
+ranking_type_template
+profile_ranksize_summary
+profile_ranking_type_proportions
+pretty_print_profile_patterns
+pretty_print_ranksize_summary
+pretty_print_ranking_type_proportions
 ```
 
