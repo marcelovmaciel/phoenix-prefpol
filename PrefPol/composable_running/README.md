@@ -24,6 +24,34 @@ julia +1.11.9 --project=PrefPol \
 Use Julia 1.11.9 explicitly. In this repository, plain `julia` may resolve to a
 newer Julia and fail because of depot or package compatibility.
 
+## Stage Organization
+
+Numbered stage files are ordered by dependency, so the numeric order is the
+topological order used by `run_all_paper.jl`. Shared stage runtime code lives in
+the unnumbered helper `PrefPol/composable_running/stage_common.jl`; numbered
+stages should not include other numbered stages. Individual stage scripts remain
+debugging entry points for a failed wrapper run, while the publication entry
+point remains:
+
+```bash
+julia +1.11.9 --project=PrefPol \
+  PrefPol/composable_running/run_all_paper.jl \
+  --config PrefPol/config/publication.toml
+```
+
+## Full Smoke Validation
+
+For CI-style validation of the full composable paper workflow without running
+the publication-scale B=30/R=10/K=10 job, use:
+
+```bash
+julia +1.11.9 --project=PrefPol PrefPol/composable_running/test_full_smoke_run.jl
+```
+
+The script uses `PrefPol/config/publication_smoke_full.toml`, deletes only
+`PrefPol/composable_running/output/publication_smoke_full`, runs the wrapper
+with B=1/R=1/K=2, and checks manifests plus collected paper artifacts.
+
 ## Publication Config
 
 `PrefPol/config/publication.toml` is the public entry point for the article. It

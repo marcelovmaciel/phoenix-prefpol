@@ -1,0 +1,95 @@
+# Low-cost end-to-end publication workflow smoke config.
+#
+# This keeps the publication targets, measures, backends, and plot/table/artifact
+# settings, but writes to an isolated output root and uses tiny B/R/K values.
+
+[run]
+B = 1
+R = 1
+K = 2
+force = false
+dry_run = false
+cache_root = "PrefPol/composable_running/output/publication_smoke_full/cache"
+output_root = "PrefPol/composable_running/output/publication_smoke_full"
+consensus_tie_policy = "average"
+imputer_backends = ["mice", "zero"]
+linearizer_policies = ["pattern_conditional", "random_ties"]
+measures = ["Psi", "R", "HHI", "RHHI", "C", "D"]
+
+[measure_sets]
+main = ["Psi", "R", "HHI", "RHHI", "C", "D"]
+global = ["Psi", "R", "HHI", "RHHI"]
+group = ["C", "D"]
+
+[global_plots]
+plot_root = "PrefPol/composable_running/output/publication_smoke_full/plots/global"
+run_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/plot_manifest.csv"
+
+[group_plots]
+plot_root = "PrefPol/composable_running/output/publication_smoke_full/plots/group"
+run_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/run_manifest.csv"
+measure_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/measure_manifest.csv"
+plot_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/plot_manifest.csv"
+group_plot_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/group_plot_manifest.csv"
+measures = ["C", "D"]
+measure_labels = { C = "C", D = "D" }
+complement_measures = []
+basename = "paper_group_heatmap_panel_C_D"
+
+[group_plots.o_smoothed]
+enabled = false
+
+[extra_measures]
+run_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/run_manifest.csv"
+extra_measure_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/extra_measure_manifest.csv"
+output_dir = "PrefPol/composable_running/output/publication_smoke_full/extra_measures"
+
+[effective_rankings]
+source = "PrefPol/composable_running/output/publication_smoke_full/extra_measures/effective_counts/effective_counts_summary.csv"
+table_root = "PrefPol/composable_running/output/publication_smoke_full/tables"
+table_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/table_manifest.csv"
+
+[extra_plots]
+extra_plot_root = "PrefPol/composable_running/output/publication_smoke_full/extra_plots"
+table_root = "PrefPol/composable_running/output/publication_smoke_full/tables/effective_rankings"
+extra_plot_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/extra_plot_manifest.csv"
+formats = ["png"]
+
+[extra_plots.variance_decomposition]
+source = "PrefPol/composable_running/output/publication_smoke_full/measures/decomposition_table.csv"
+value_kind = "variance"
+
+[paper_artifacts.collection]
+output_root = "PrefPol/composable_running/output/publication_smoke_full"
+destination_root = "PrefPol/composable_running/output/publication_smoke_full/paper_artifacts"
+manifests_root = "PrefPol/composable_running/output/publication_smoke_full/manifests"
+paper_artifact_manifest = "PrefPol/composable_running/output/publication_smoke_full/manifests/paper_artifact_manifest.csv"
+copy_mode = "copy"
+update_writing_imgs = false
+writing_imgs_root = "writing/imgs"
+default_backend = "mice"
+default_linearizer = "pattern_conditional"
+require_all = true
+
+[[targets]]
+wave_id = "2006"
+scenario_name = "main_2006"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"
+
+[[targets]]
+wave_id = "2022"
+scenario_name = "main_2022"
+m_values = [2, 3, 4, 5]
+analysis_role = "main"
+groupings = "configured"

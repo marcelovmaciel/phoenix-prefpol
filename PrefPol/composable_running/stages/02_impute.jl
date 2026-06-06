@@ -1,6 +1,6 @@
 #!/usr/bin/env julia
 
-include(joinpath(@__DIR__, "04_measures.jl"))
+include(joinpath(@__DIR__, "..", "stage_common.jl"))
 
 function main(args = ARGS)
     if any(arg -> arg in ("--help", "-h"), args)

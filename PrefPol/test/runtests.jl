@@ -24,6 +24,8 @@ include("nested_pipeline_tests.jl")
 
 include("validation_matrix_tests.jl")
 
+include("composable_stage_order_tests.jl")
+
 include("variance_decomposition_report_tests.jl")
 
 try

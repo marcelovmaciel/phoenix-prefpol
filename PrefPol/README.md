@@ -94,8 +94,8 @@ paper artifacts default to `mice` with `pattern_conditional`.
    decomposition outputs.
 6. `05_plot_global.jl` and `06_plot_group.jl` produce publication plots in the
    plotting environment.
-7. `07_extra_measures.jl`, `08_extra_plots.jl`, and `09_tables.jl` produce
-   effective-count summaries, extra plots, and tables.
+7. `07_extra_measures.jl`, `08_tables.jl`, and `09_extra_plots.jl` produce
+   effective-count summaries, tables, and extra plots.
 8. `10_lambda_table.jl` runs only when `[lambda_table] enabled = true` in the
    orchestration config.
 9. `11_collect_paper_artifacts.jl` collects the reviewer-facing paper artifacts

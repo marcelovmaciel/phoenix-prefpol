@@ -3,7 +3,7 @@
 const PREFPOL_PROJECT_DIR = normpath(joinpath(@__DIR__, "..", ".."))
 PREFPOL_PROJECT_DIR in LOAD_PATH || pushfirst!(LOAD_PATH, PREFPOL_PROJECT_DIR)
 
-include(joinpath(@__DIR__, "04_measures.jl"))
+include(joinpath(@__DIR__, "..", "stage_common.jl"))
 
 using SHA
 
@@ -357,7 +357,8 @@ function selected_groupings(settings, target)
     return optional_symbol_vector(raw)
 end
 
-function _complement_group_plot_columns!(out::DataFrame, complemented::Set{Symbol})
+function _complement_group_plot_columns!(out::DataFrame, complemented::AbstractSet)
+    complemented = Set(Symbol.(collect(complemented)))
     isempty(complemented) && return Set{Symbol}()
 
     transformed = Set{Symbol}()

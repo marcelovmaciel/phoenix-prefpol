@@ -20,6 +20,10 @@ julia +1.11.9 --project=PrefPol \
   --config PrefPol/config/publication.toml
 ```
 
+Numbered stage files are in dependency/topological order. Shared stage code lives
+in the unnumbered helper `PrefPol/composable_running/stage_common.jl`, and no
+numbered stage should include another numbered stage.
+
 Use individual stage scripts only when debugging a failed publication run. Stage
 scripts should stay as shell entry points around `PrefPol` public APIs and use
 `CSV.jl` for manifests and tables.

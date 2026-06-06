@@ -121,10 +121,10 @@ function main(args = ARGS)
     end
 
     run_step("extra measures", julia_cmd(project, joinpath(stage_dir, "07_extra_measures.jl"), base_args))
-    run_step("tables", julia_cmd(project, joinpath(stage_dir, "09_tables.jl"), base_args))
+    run_step("tables", julia_cmd(project, joinpath(stage_dir, "08_tables.jl"), base_args))
 
     if !Bool(opts["skip-plots"])
-        run_step("extra plots", julia_cmd(plotting_project, joinpath(stage_dir, "08_extra_plots.jl"), base_args))
+        run_step("extra plots", julia_cmd(plotting_project, joinpath(stage_dir, "09_extra_plots.jl"), base_args))
     end
 
     if run_lambda_table

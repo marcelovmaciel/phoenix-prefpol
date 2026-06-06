@@ -3,14 +3,14 @@
 const PREFPOL_PROJECT_DIR = normpath(joinpath(@__DIR__, "..", ".."))
 PREFPOL_PROJECT_DIR in LOAD_PATH || pushfirst!(LOAD_PATH, PREFPOL_PROJECT_DIR)
 
-include(joinpath(@__DIR__, "04_measures.jl"))
+include(joinpath(@__DIR__, "..", "stage_common.jl"))
 
 try
     @eval using CairoMakie
 catch err
     throw(ArgumentError(
         "Extra plotting requires CairoMakie. Run with Julia 1.11.9 and the plotting environment:\n" *
-        "  julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/08_extra_plots.jl"
+        "  julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/09_extra_plots.jl"
     ))
 end
 
@@ -24,7 +24,7 @@ function parse_extra_plot_args(args)
     if any(arg -> arg in ("--help", "-h"), args)
         println("""
         Usage:
-          julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/08_extra_plots.jl [--config PATH] [--year YEAR] [--scenario NAME] [--force] [--dry-run] [--smoke-test]
+          julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/09_extra_plots.jl [--config PATH] [--year YEAR] [--scenario NAME] [--force] [--dry-run] [--smoke-test]
 
         Phase 8:
           Builds effective-ranking evolution plots and optional variance
@@ -84,13 +84,13 @@ function extra_plot_settings(cfg, opts)
 end
 
 function load_evolution_tables(input_dir::AbstractString)
-    isdir(input_dir) || error("Effective-ranking table directory not found: $(input_dir). Run 09_tables first.")
+    isdir(input_dir) || error("Effective-ranking table directory not found: $(input_dir). Run 08_tables first.")
     files = [
         joinpath(input_dir, file)
         for file in readdir(input_dir)
         if startswith(file, "effective_rankings_evolution_") && endswith(file, ".csv")
     ]
-    isempty(files) && error("No effective-ranking evolution CSVs found in $(input_dir). Run 09_tables first.")
+    isempty(files) && error("No effective-ranking evolution CSVs found in $(input_dir). Run 08_tables first.")
     tables = DataFrame[]
     for file in sort(files)
         df = CSV.read(file, DataFrame)

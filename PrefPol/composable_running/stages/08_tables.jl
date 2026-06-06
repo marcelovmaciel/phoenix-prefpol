@@ -3,7 +3,7 @@
 const PREFPOL_PROJECT_DIR = normpath(joinpath(@__DIR__, "..", ".."))
 PREFPOL_PROJECT_DIR in LOAD_PATH || pushfirst!(LOAD_PATH, PREFPOL_PROJECT_DIR)
 
-include(joinpath(@__DIR__, "04_measures.jl"))
+include(joinpath(@__DIR__, "..", "stage_common.jl"))
 
 using Printf
 using SHA
@@ -21,7 +21,7 @@ function parse_table_args(args)
     if any(arg -> arg in ("--help", "-h"), args)
         println("""
         Usage:
-          julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/09_tables.jl [--config PATH] [--year YEAR] [--scenario NAME] [--m VALUE_OR_RANGE] [--backend NAME] [--linearizer NAME] [--force] [--dry-run] [--smoke-test]
+          julia +1.11.9 --project=PrefPol PrefPol/composable_running/stages/08_tables.jl [--config PATH] [--year YEAR] [--scenario NAME] [--m VALUE_OR_RANGE] [--backend NAME] [--linearizer NAME] [--force] [--dry-run] [--smoke-test]
 
         Phase 8:
           Builds effective-ranking CSV, Markdown, and TeX tables from
