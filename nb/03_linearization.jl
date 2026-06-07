@@ -1,12 +1,20 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
 
 # ╔═╡ 2f2ef4ec-51dd-4a42-9d98-0c9f3acfc2f0
 begin
     import Pkg
     Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ b3483a33-a7b4-4951-830d-44e267d74bf2
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
+    using Preferences
 end
 
 # ╔═╡ bdbbc6f5-7f3b-4396-a5a2-2b5171f12f8a
@@ -37,13 +45,6 @@ This corresponds to the production linearization pass: both construct a
 notebook does not call the CLI wrapper; it uses `nb/notebook_config.toml` and
 writes only under the notebook output/cache roots.
 """
-
-# ╔═╡ b3483a33-a7b4-4951-830d-44e267d74bf2
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-    using Preferences
-end
 
 # ╔═╡ 2ad8a9df-d005-4fc9-b3e5-29f730b18a56
 begin
@@ -79,7 +80,7 @@ begin
 end
 
 # ╔═╡ f48d638e-f92d-419e-b983-1a27f0fae8c5
-selected_spec_table = DataFrame(
+selected_spec_table = pp.DataFrame(
     item = [
         "batch index",
         "wave",
@@ -111,7 +112,7 @@ selected_spec_table = DataFrame(
 )
 
 # ╔═╡ cbf6ae8d-95dc-47b0-8122-599fa00ccf4d
-small_table(selected_spec_table; n = nrow(selected_spec_table))
+small_table(selected_spec_table; n = pp.nrow(selected_spec_table))
 
 # ╔═╡ 42adf18e-33d1-4d11-847e-930ef50cd509
 begin
@@ -170,7 +171,7 @@ begin
 end
 
 # ╔═╡ 782196ef-1694-4a90-9978-c0a9e90c045b
-upstream_artifact_counts = DataFrame(
+upstream_artifact_counts = pp.DataFrame(
     stage = ["resample", "imputed"],
     artifacts = [
         count(==(:resample), upstream_resample_manifest_raw.stage),
@@ -179,7 +180,7 @@ upstream_artifact_counts = DataFrame(
 )
 
 # ╔═╡ 758e847d-195a-43d3-a839-6d576766b46d
-small_table(upstream_artifact_counts; n = nrow(upstream_artifact_counts))
+small_table(upstream_artifact_counts; n = pp.nrow(upstream_artifact_counts))
 
 # ╔═╡ 86beb017-587c-420f-97a3-c42b0849f7d8
 md"""
@@ -203,7 +204,7 @@ begin
 end
 
 # ╔═╡ 6de996a9-6d9b-412d-89da-c58ab958c8a3
-linearization_manifest_compact = select(
+linearization_manifest_compact = pp.select(
     linearization_manifest,
     intersect(
         [
@@ -228,7 +229,7 @@ linearization_manifest_compact = select(
 )
 
 # ╔═╡ b1c24da9-95b7-4541-94ee-406e91160c28
-small_table(linearization_manifest_compact; n = nrow(linearization_manifest_compact))
+small_table(linearization_manifest_compact; n = pp.nrow(linearization_manifest_compact))
 
 # ╔═╡ 1f98af1f-14da-47c0-9700-3785cb45095e
 begin
@@ -238,7 +239,7 @@ begin
         (linearization_manifest_raw.r .== 1) .&
         (linearization_manifest_raw.k .== 1)
     ])
-    first_linearized_artifact_table = DataFrame(pp.load_stage_artifact(first_linearized_path))
+    first_linearized_artifact_table = pp.DataFrame(pp.load_stage_artifact(first_linearized_path))
     first_linearized_bundle = Preferences.dataframe_to_annotated_profile(
         first_linearized_artifact_table;
         ballot_kind = :strict,
@@ -247,7 +248,7 @@ begin
 end
 
 # ╔═╡ ad6dc95f-28a2-4710-8fb2-93eb6e811124
-first_linearized_artifact_summary = DataFrame(
+first_linearized_artifact_summary = pp.DataFrame(
     item = [
         "artifact path",
         "artifact rows",
@@ -258,7 +259,7 @@ first_linearized_artifact_summary = DataFrame(
     ],
     value = [
         first_linearized_path,
-        string(nrow(first_linearized_artifact_table)),
+        string(pp.nrow(first_linearized_artifact_table)),
         string(Preferences.nballots(first_linearized_bundle.profile)),
         join(String.(Preferences.candidates(first_linearized_bundle.profile.pool)), ", "),
         String(selected_pipeline_spec.linearizer_policy),
@@ -272,7 +273,7 @@ first_linearized_artifact_summary = DataFrame(
 )
 
 # ╔═╡ bb3c0e65-db64-4ba9-9124-d29d1da233df
-small_table(first_linearized_artifact_summary; n = nrow(first_linearized_artifact_summary))
+small_table(first_linearized_artifact_summary; n = pp.nrow(first_linearized_artifact_summary))
 
 # ╔═╡ 8a69364d-bd8a-4670-a16a-3cbf68b892e3
 function ranking_signature_text(ranking::AbstractDict)
@@ -284,29 +285,29 @@ end
 # ╔═╡ 9bfa7f28-c725-4e44-b6fb-1a05895c70bf
 begin
     ranking_preview_count = min(8, length(first_linearized_rankings))
-    strict_ranking_preview_table = DataFrame(
+    strict_ranking_preview_table = pp.DataFrame(
         row = collect(1:ranking_preview_count),
         strict_ranking = ranking_signature_text.(first_linearized_rankings[1:ranking_preview_count]),
     )
 end
 
 # ╔═╡ 35d7d2d1-091d-4619-8613-9e6f18fb9dc9
-small_table(strict_ranking_preview_table; n = nrow(strict_ranking_preview_table))
+small_table(strict_ranking_preview_table; n = pp.nrow(strict_ranking_preview_table))
 
 # ╔═╡ 98a37fe5-5dfb-48f1-b3fe-c4722d9e43a7
 begin
-    strict_signature_frame = DataFrame(
+    strict_signature_frame = pp.DataFrame(
         strict_ranking = ranking_signature_text.(first_linearized_rankings),
     )
-    unique_ranking_counts = combine(
-        groupby(strict_signature_frame, :strict_ranking),
-        nrow => :count,
+    unique_ranking_counts = pp.combine(
+        pp.groupby(strict_signature_frame, :strict_ranking),
+        pp.nrow => :count,
     )
     sort!(unique_ranking_counts, [:count, :strict_ranking]; rev = [true, false])
 end
 
 # ╔═╡ c501c712-ec84-4cd5-8382-6892541d49e3
-small_table(unique_ranking_counts; n = min(10, nrow(unique_ranking_counts)))
+small_table(unique_ranking_counts; n = min(10, pp.nrow(unique_ranking_counts)))
 
 # ╔═╡ 0447c27e-437a-4e30-979e-974cb22d1ce4
 function score_pattern_text(score_row, candidate_cols::Vector{String})
@@ -328,8 +329,8 @@ function score_pattern_text(score_row, candidate_cols::Vector{String})
 end
 
 # ╔═╡ db22a71d-71a1-4d22-98ee-436f17efbe37
-function first_row_with_tied_scores(score_table::AbstractDataFrame, candidate_cols::Vector{String})
-    for row_index in 1:nrow(score_table)
+function first_row_with_tied_scores(score_table, candidate_cols::Vector{String})
+    for row_index in 1:pp.nrow(score_table)
         row_scores = [score_table[row_index, candidate_name] for candidate_name in candidate_cols]
         length(unique(row_scores)) < length(row_scores) && return row_index
     end
@@ -344,7 +345,7 @@ begin
         (upstream_imputation_manifest_raw.r .== 1)
     ])
     first_imputed_artifact = pp.load_stage_artifact(first_imputed_path)
-    first_imputed_table = DataFrame(first_imputed_artifact.table)
+    first_imputed_table = pp.DataFrame(first_imputed_artifact.table)
     inspection_row_index = first_row_with_tied_scores(
         first_imputed_table,
         selected_pipeline_spec.active_candidates,
@@ -352,7 +353,7 @@ begin
 end
 
 # ╔═╡ b3833be7-1f78-4528-ab0f-34f8399d3c14
-weak_to_strict_example = DataFrame(
+weak_to_strict_example = pp.DataFrame(
     item = [
         "imputed artifact",
         "row",
@@ -376,7 +377,7 @@ weak_to_strict_example = DataFrame(
 )
 
 # ╔═╡ 0b64c137-ff31-44d1-a22c-fc6c01d93585
-small_table(weak_to_strict_example; n = nrow(weak_to_strict_example))
+small_table(weak_to_strict_example; n = pp.nrow(weak_to_strict_example))
 
 # ╔═╡ 6f8380c3-a8d5-4c8f-9657-7ef743807f01
 md"""
@@ -392,7 +393,7 @@ begin
         linearization_manifest_raw.stage .== :linearized,
         :,
     ]
-    leaf_count_table = DataFrame(
+    leaf_count_table = pp.DataFrame(
         item = [
             "B bootstrap branches",
             "R imputations per bootstrap",
@@ -403,16 +404,16 @@ begin
             string(selected_pipeline_spec.B),
             string(selected_pipeline_spec.R),
             string(selected_pipeline_spec.K),
-            string(nrow(linearized_leaf_manifest)),
+            string(pp.nrow(linearized_leaf_manifest)),
         ],
     )
 end
 
 # ╔═╡ bb984da3-bc48-4f0f-96d7-f096d0404d67
-small_table(leaf_count_table; n = nrow(leaf_count_table))
+small_table(leaf_count_table; n = pp.nrow(leaf_count_table))
 
 # ╔═╡ d15b94b3-450e-4bcd-80c7-46fca35c6938
-artifact_count_mapping = DataFrame(
+artifact_count_mapping = pp.DataFrame(
     level = [
         "resample",
         "imputed",
@@ -431,21 +432,21 @@ artifact_count_mapping = DataFrame(
     artifact_count = [
         count(==(:resample), linearization_manifest_raw.stage),
         count(==(:imputed), linearization_manifest_raw.stage),
-        nrow(linearized_leaf_manifest),
+        pp.nrow(linearized_leaf_manifest),
     ],
 )
 
 # ╔═╡ f8d6786d-a303-4db6-93c0-3f0189affb06
-small_table(artifact_count_mapping; n = nrow(artifact_count_mapping))
+small_table(artifact_count_mapping; n = pp.nrow(artifact_count_mapping))
 
 # ╔═╡ b814ff1a-aabc-4620-bad5-0b0e4ac86eae
-linearized_leaves_by_branch = combine(
-    groupby(linearized_leaf_manifest, [:b, :r]),
-    nrow => :linearized_artifacts,
+linearized_leaves_by_branch = pp.combine(
+    pp.groupby(linearized_leaf_manifest, [:b, :r]),
+    pp.nrow => :linearized_artifacts,
 )
 
 # ╔═╡ 83f5f1ec-212e-47c2-89b6-89fdb066e918
-small_table(linearized_leaves_by_branch; n = nrow(linearized_leaves_by_branch))
+small_table(linearized_leaves_by_branch; n = pp.nrow(linearized_leaves_by_branch))
 
 # ╔═╡ f43c28ef-b57c-4fa4-a237-c10ed1d761d5
 md"""
@@ -472,7 +473,7 @@ begin
 end
 
 # ╔═╡ bcab10ce-5d86-48b6-9679-c66066e2c819
-notebook_csv_table = DataFrame(
+notebook_csv_table = pp.DataFrame(
     artifact = [
         "linearization manifest summary",
         "linearized ranking counts",
@@ -484,7 +485,7 @@ notebook_csv_table = DataFrame(
 )
 
 # ╔═╡ 26f1025a-e581-4f6f-95cf-984d6e0651db
-small_table(notebook_csv_table; n = nrow(notebook_csv_table))
+small_table(notebook_csv_table; n = pp.nrow(notebook_csv_table))
 
 # ╔═╡ c923c6bf-e0d6-4db3-a2e5-a804e7d74de6
 function is_under_directory(child_path::AbstractString, parent_path::AbstractString)
@@ -503,7 +504,7 @@ begin
         output_path -> is_under_directory(output_path, notebook_run_settings.output_root),
         notebook_csv_table.path,
     )
-    validation_table = DataFrame(
+    validation_table = pp.DataFrame(
         check = [
             "linearized artifacts exist",
             "linearized artifacts under notebook cache",
@@ -520,7 +521,7 @@ begin
 end
 
 # ╔═╡ 090cc7df-6707-49c3-903e-abdbbe688c24
-small_table(validation_table; n = nrow(validation_table))
+small_table(validation_table; n = pp.nrow(validation_table))
 
 # ╔═╡ Cell order:
 # ╠═2f2ef4ec-51dd-4a42-9d98-0c9f3acfc2f0
