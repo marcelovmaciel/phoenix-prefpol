@@ -1,12 +1,31 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
 
 # ╔═╡ f3f55370-21e3-44f2-8fe4-6be130f24166
 begin
     import Pkg
     Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 8822521b-afab-4757-a03b-5375b0110644
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
+    using Printf
+    using Statistics
+end
+
+# ╔═╡ a5fc0fa3-b0e2-46fe-af45-d6057cbe314c
+begin
+    cairomakie_available = try
+        @eval using CairoMakie
+        true
+    catch
+        false
+    end
 end
 
 # ╔═╡ c6101304-df6a-4f37-bf5e-c1a6a612e8f7
@@ -27,14 +46,6 @@ The notebook keeps the same data flow but uses local notebook-scale outputs
 under `nb/output/notebook_smoke`. It does not attempt to reproduce publication
 figure aesthetics.
 """
-
-# ╔═╡ 8822521b-afab-4757-a03b-5375b0110644
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-    using Printf
-    using Statistics
-end
 
 # ╔═╡ 516fa1c8-5b38-434f-a4d2-eea3bce2dc4a
 begin
@@ -372,16 +383,6 @@ plot_data = load_local_evolution_tables(local_effective_table_dir)
 
 # ╔═╡ 9dff55ab-50ce-47c1-8e83-060998888cf4
 small_table(plot_data; n = min(12, nrow(plot_data)))
-
-# ╔═╡ a5fc0fa3-b0e2-46fe-af45-d6057cbe314c
-begin
-    cairomakie_available = try
-        @eval using CairoMakie
-        true
-    catch
-        false
-    end
-end
 
 # ╔═╡ 3f8c3139-4a14-4619-918c-858902b67dff
 begin

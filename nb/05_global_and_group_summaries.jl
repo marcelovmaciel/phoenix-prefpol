@@ -1,12 +1,22 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
 
 # ╔═╡ 1b48c92a-5d58-4db7-9f55-f92c1a52a1f2
 begin
     import Pkg
     Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 87c29c6b-04d2-4227-9b5c-ce14d610894e
+using CairoMakie
+
+# ╔═╡ 11efc93a-5930-4478-b110-f8c042d984d4
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
 # ╔═╡ 8ec3853a-a893-456a-b254-a3171433054b
@@ -29,12 +39,6 @@ The priority here is inspectable tables and intermediate summaries. Any plots
 below are small interactive checks, not publication figures and not attempts to
 reproduce the paper aesthetics.
 """
-
-# ╔═╡ 11efc93a-5930-4478-b110-f8c042d984d4
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-end
 
 # ╔═╡ 2cd34337-ae3e-4d7a-8611-c7724e10ff4f
 begin
@@ -66,7 +70,7 @@ begin
 end
 
 # ╔═╡ 09e68af2-41fd-45a2-b0bf-efafbd12c484
-notebook_batch_table = DataFrame(
+notebook_batch_table = pp.DataFrame(
     batch_index = collect(eachindex(notebook_batch.items)),
     year = [item.metadata.year for item in notebook_batch.items],
     wave_id = [item.spec.wave_id for item in notebook_batch.items],
@@ -114,7 +118,7 @@ begin
 end
 
 # ╔═╡ 1399cbd4-b08a-4464-9843-6f66f1581cec
-pipeline_result_table = DataFrame(
+pipeline_result_table = pp.DataFrame(
     batch_index = collect(eachindex(batch_results.results)),
     cache_dir = [result.cache_dir for result in batch_results.results],
     measure_cube_rows = [nrow(result.measure_cube) for result in batch_results.results],
@@ -194,7 +198,7 @@ m_sweep_note
 
 # ╔═╡ af12e60d-cee1-4b4b-9e07-72501d72473d
 begin
-    scenario_plot_data_tables = DataFrame[]
+    scenario_plot_data_tables = pp.DataFrame[]
     for row in eachrow(unique(select(
         global_summary_table,
         [:wave_id, :scenario, :imputer_backend, :linearizer_policy],
@@ -242,7 +246,7 @@ begin
     end
 
     scenario_plot_data_table = isempty(scenario_plot_data_tables) ?
-        DataFrame() :
+        pp.DataFrame() :
         vcat(scenario_plot_data_tables...; cols = :union)
 end
 
@@ -288,7 +292,7 @@ small_table(groupings_by_wave; n = nrow(groupings_by_wave))
 
 # ╔═╡ 4127132e-6657-4d1b-bcad-9fbc3206196b
 begin
-    heatmap_ready_tables = DataFrame[]
+    heatmap_ready_tables = pp.DataFrame[]
     for row in eachrow(unique(select(
         group_panel_rows,
         [:year, :wave_id, :scenario_name, :imputer_backend, :linearizer_policy],
@@ -341,7 +345,7 @@ begin
     end
 
     group_summary_table = isempty(heatmap_ready_tables) ?
-        DataFrame(
+        pp.DataFrame(
             year = Int[],
             wave_id = String[],
             scenario = String[],
@@ -378,7 +382,7 @@ fails, the notebook keeps running and the CSV tables are still written.
 """
 
 # ╔═╡ f0dc9bd9-175f-41df-a6cf-5b5912500048
-function try_write_notebook_plots(global_df::DataFrame, group_df::DataFrame, plot_dir::AbstractString)
+function try_write_notebook_plots(global_df::pp.DataFrame, group_df::pp.DataFrame, plot_dir::AbstractString)
     rows = NamedTuple[]
 
     try
@@ -389,7 +393,7 @@ function try_write_notebook_plots(global_df::DataFrame, group_df::DataFrame, plo
                 path = "",
                 message = "CairoMakie is not loaded. To enable plots, load CairoMakie in the notebook environment and rerun this cell.",
             ))
-            return DataFrame(rows)
+            return pp.DataFrame(rows)
         end
 
         mkpath(plot_dir)
@@ -433,8 +437,11 @@ function try_write_notebook_plots(global_df::DataFrame, group_df::DataFrame, plo
         ))
     end
 
-    return DataFrame(rows)
+    return pp.DataFrame(rows)
 end
+
+# ╔═╡ 15d95ade-7bdb-4a3b-90ff-ea8f90788e13
+
 
 # ╔═╡ 5b69ce9e-e173-4ed6-875d-41cdcb555d34
 plot_status_table = try_write_notebook_plots(
@@ -469,7 +476,7 @@ begin
 end
 
 # ╔═╡ 4996dd6d-2b2f-41ba-a7f0-89ad330574dd
-local_output_paths = DataFrame(
+local_output_paths = pp.DataFrame(
     table = ["global summary", "group summary"],
     path = [global_summary_csv_path, group_summary_csv_path],
     rows = [nrow(global_summary_table), nrow(group_summary_table)],
@@ -480,6 +487,7 @@ small_table(local_output_paths; n = nrow(local_output_paths))
 
 # ╔═╡ Cell order:
 # ╠═1b48c92a-5d58-4db7-9f55-f92c1a52a1f2
+# ╠═87c29c6b-04d2-4227-9b5c-ce14d610894e
 # ╟─8ec3853a-a893-456a-b254-a3171433054b
 # ╠═11efc93a-5930-4478-b110-f8c042d984d4
 # ╠═2cd34337-ae3e-4d7a-8611-c7724e10ff4f
@@ -508,6 +516,7 @@ small_table(local_output_paths; n = nrow(local_output_paths))
 # ╠═c81db0c1-8bcb-4f84-9b41-a555bcd4cc1a
 # ╟─3e0246fe-58e7-4c55-94ff-85e3474c818d
 # ╠═f0dc9bd9-175f-41df-a6cf-5b5912500048
+# ╠═15d95ade-7bdb-4a3b-90ff-ea8f90788e13
 # ╠═5b69ce9e-e173-4ed6-875d-41cdcb555d34
 # ╠═2507eee6-961f-4e9d-be81-79bba975f9a8
 # ╟─34b3996c-bf8b-433a-87b3-46fd5137ac8c

@@ -1,12 +1,19 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
 
 # ╔═╡ 7c3d90a4-f6bd-4a55-96c5-7d7a2c32d43f
 begin
     import Pkg
     Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ c6dd4249-8a59-4875-b1ab-1d4d47a24b41
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
 # ╔═╡ 7fe45a66-0cae-4b1f-a6a8-08c1db4e75cf
@@ -27,12 +34,6 @@ This corresponds to the production measure-computation pass: both instantiate a
 uses `nb/notebook_config.toml`, avoids CLI shelling, and writes only notebook
 inspection CSVs under `nb/output/notebook_smoke/notebook_tables`.
 """
-
-# ╔═╡ c6dd4249-8a59-4875-b1ab-1d4d47a24b41
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-end
 
 # ╔═╡ 3dcf8706-0880-4dc7-9de5-7eff33fa3db4
 begin
@@ -70,7 +71,7 @@ begin
 end
 
 # ╔═╡ f7891308-c89f-42af-99f4-ac3d8d4b9b2a
-selected_spec_table = DataFrame(
+selected_spec_table = pp.DataFrame(
     item = [
         "batch index",
         "wave",
@@ -106,7 +107,7 @@ selected_spec_table = DataFrame(
 )
 
 # ╔═╡ c36606b5-f7e9-42fe-bc08-96a2875cf3cc
-small_table(selected_spec_table; n = nrow(selected_spec_table))
+small_table(selected_spec_table; n = pp.nrow(selected_spec_table))
 
 # ╔═╡ e55c7603-d62d-4ea6-8121-bbd077e69df0
 begin
@@ -147,7 +148,7 @@ begin
 end
 
 # ╔═╡ 4e254dd3-9b28-4840-9b07-2da39146511c
-upstream_counts = DataFrame(
+upstream_counts = pp.DataFrame(
     stage = ["resample", "imputed", "linearized"],
     rows = [
         count(==(:resample), resample_manifest_raw.stage),
@@ -157,7 +158,7 @@ upstream_counts = DataFrame(
 )
 
 # ╔═╡ 267fd915-1f31-4dc7-9c36-02b11a245857
-small_table(upstream_counts; n = nrow(upstream_counts))
+small_table(upstream_counts; n = pp.nrow(upstream_counts))
 
 # ╔═╡ e992a412-7f1e-4f8d-b1d4-52864ae435e8
 md"""
@@ -178,7 +179,7 @@ result = pp.ensure_measures!(
 )
 
 # ╔═╡ 04de3092-d697-462a-a96a-1ad9897097cb
-result_fields = DataFrame(
+result_fields = pp.DataFrame(
     field = [
         "spec",
         "cache_dir",
@@ -188,13 +189,13 @@ result_fields = DataFrame(
     value = [
         "wave=$(result.spec.wave_id), m=$(length(result.spec.active_candidates)), B=$(result.spec.B), R=$(result.spec.R), K=$(result.spec.K)",
         result.cache_dir,
-        string(nrow(result.stage_manifest)),
-        string(nrow(result.measure_cube)),
+        string(pp.nrow(result.stage_manifest)),
+        string(pp.nrow(result.measure_cube)),
     ],
 )
 
 # ╔═╡ 7b9a2c58-592e-4705-bf31-b047d3788fb6
-small_table(result_fields; n = nrow(result_fields))
+small_table(result_fields; n = pp.nrow(result_fields))
 
 # ╔═╡ 83f864ef-04c8-43b5-9bdb-eaa18950b8a4
 begin
@@ -218,7 +219,7 @@ profile rather than a demographic partition.
 """
 
 # ╔═╡ 80e03543-a3c9-4c43-98f2-354571eab264
-small_table(global_measure_rows; n = min(16, nrow(global_measure_rows)))
+small_table(global_measure_rows; n = min(16, pp.nrow(global_measure_rows)))
 
 # ╔═╡ a05b1a07-3541-4fbc-9390-a2146e36ca14
 md"""
@@ -229,7 +230,7 @@ against a configured demographic partition.
 """
 
 # ╔═╡ 696895c3-1463-48f4-86c7-25c1c847d0f6
-small_table(grouped_measure_rows; n = min(20, nrow(grouped_measure_rows)))
+small_table(grouped_measure_rows; n = min(20, pp.nrow(grouped_measure_rows)))
 
 # ╔═╡ decc0ce4-7e72-44fc-82ff-7243ad2d32c2
 begin
@@ -267,10 +268,10 @@ reimplemented in this notebook.
 """
 
 # ╔═╡ 25355ff5-b7c7-430a-818f-0fbc415f680a
-small_table(global_measure_summary; n = nrow(global_measure_summary))
+small_table(global_measure_summary; n = pp.nrow(global_measure_summary))
 
 # ╔═╡ 1222fe1e-dd42-4387-a295-b6df2a38be19
-small_table(group_measure_summary; n = min(20, nrow(group_measure_summary)))
+small_table(group_measure_summary; n = min(20, pp.nrow(group_measure_summary)))
 
 # ╔═╡ 1ad6bb0b-068a-49e0-aea3-e80244a943f1
 md"""
@@ -320,7 +321,7 @@ begin
 end
 
 # ╔═╡ b85fb599-00d9-4ec2-aef0-88ef1da87d9e
-local_output_paths = DataFrame(
+local_output_paths = pp.DataFrame(
     table = [
         "measure cube sample",
         "global measure summary",
@@ -332,14 +333,14 @@ local_output_paths = DataFrame(
         group_summary_csv_path,
     ],
     rows = [
-        nrow(measure_cube_sample),
-        nrow(global_measure_summary),
-        nrow(group_measure_summary),
+        pp.nrow(measure_cube_sample),
+        pp.nrow(global_measure_summary),
+        pp.nrow(group_measure_summary),
     ],
 )
 
 # ╔═╡ b9ec8997-34e7-44d8-8eba-3cb596f30d0b
-small_table(local_output_paths; n = nrow(local_output_paths))
+small_table(local_output_paths; n = pp.nrow(local_output_paths))
 
 # ╔═╡ Cell order:
 # ╠═7c3d90a4-f6bd-4a55-96c5-7d7a2c32d43f

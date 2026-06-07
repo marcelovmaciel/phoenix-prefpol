@@ -1,12 +1,21 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
 
 # ╔═╡ 26f5b7cf-f12f-4ef3-b6e8-9f39e176a9a1
 begin
     import Pkg
     Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 4d35c77f-d36b-45d8-a329-7d0ee29760e1
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
+    using Preferences
+    using Statistics
 end
 
 # ╔═╡ a1b9f4a4-01d5-4a85-9ef4-efb3aeeff1f1
@@ -29,14 +38,6 @@ survey scores have been resampled, imputed, and linearized into strict
 profiles. The notebook keeps the tiny `nb/notebook_config.toml` scale and
 writes only compact inspection CSVs under `nb/output/notebook_smoke`.
 """
-
-# ╔═╡ 4d35c77f-d36b-45d8-a329-7d0ee29760e1
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-    using Preferences
-    using Statistics
-end
 
 # ╔═╡ 5c7fb3d7-493e-4344-9e86-67ad86be413d
 begin
@@ -62,7 +63,7 @@ begin
 end
 
 # ╔═╡ a07632bf-1858-4905-b93f-476e7856d532
-notebook_plan = DataFrame(
+notebook_plan = pp.DataFrame(
     batch_index = collect(eachindex(batch.items)),
     wave_id = [item.spec.wave_id for item in batch.items],
     scenario_name = [item.metadata.scenario_name for item in batch.items],
@@ -75,7 +76,7 @@ notebook_plan = DataFrame(
 )
 
 # ╔═╡ 3f55b9f1-bcad-4f36-b10b-93cefa9db5ea
-small_table(notebook_plan; n = nrow(notebook_plan))
+small_table(notebook_plan; n = pp.nrow(notebook_plan))
 
 # ╔═╡ 451c9a56-d696-4bdb-b0ff-bc95f40a7953
 md"""
@@ -90,7 +91,7 @@ cache.
 
 # ╔═╡ 84491fdb-9c3d-4d39-966e-c4e83f033fb7
 begin
-    raw_linearization_manifests = DataFrame[]
+    raw_linearization_manifests = pp.DataFrame[]
     for item in batch.items
         push!(raw_linearization_manifests, pp.ensure_linearizations!(
             pipeline,
@@ -104,7 +105,7 @@ begin
 end
 
 # ╔═╡ 58fc4f56-54ac-44e0-b1c9-65d39efb7601
-linearized_leaf_table = select(
+linearized_leaf_table = pp.select(
     linearized_rows,
     intersect(
         [
@@ -128,7 +129,7 @@ linearized_leaf_table = select(
 )
 
 # ╔═╡ a46d2dbb-b962-4e5a-8679-4bf780468f75
-small_table(linearized_leaf_table; n = min(12, nrow(linearized_leaf_table)))
+small_table(linearized_leaf_table; n = min(12, pp.nrow(linearized_leaf_table)))
 
 # ╔═╡ d8792324-1f16-4c84-bb04-b3701c853132
 md"""
@@ -205,8 +206,13 @@ end
 
 # ╔═╡ d0f28631-54ed-49f9-82ec-cfe7073145f1
 function strict_profile_from_linearized(path::AbstractString)
-    artifact = pp.load_stage_artifact(path)
-    artifact_table = DataFrame(artifact)
+    artifact_path = resolve_nb_path(path)
+    isfile(artifact_path) || error(
+        "Linearized profile artifact not found: $(artifact_path). " *
+        "Rerun the linearization cell in this notebook, or rerun with force=true if the cache is stale.",
+    )
+    artifact = pp.load_stage_artifact(artifact_path)
+    artifact_table = pp.DataFrame(artifact)
     return Preferences.dataframe_to_annotated_profile(
         artifact_table;
         ballot_kind = :strict,
@@ -236,7 +242,7 @@ function draw_base(row)
 end
 
 # ╔═╡ f0c76616-35cb-4dd0-82b0-ea0c591183a1
-function build_extra_diagnostic_draws(rows::DataFrame)
+function build_extra_diagnostic_draws(rows::pp.DataFrame)
     ranking_rows = NamedTuple[]
     effective_rows = NamedTuple[]
 
@@ -248,7 +254,7 @@ function build_extra_diagnostic_draws(rows::DataFrame)
         push!(effective_rows, merge(base, effective_number_stats(profile)))
     end
 
-    return sorted_table(DataFrame(ranking_rows)), sorted_table(DataFrame(effective_rows))
+    return sorted_table(pp.DataFrame(ranking_rows)), sorted_table(pp.DataFrame(effective_rows))
 end
 
 # ╔═╡ e8050948-5074-4eca-91f9-4d3bd27211e2
@@ -257,7 +263,7 @@ begin
 end
 
 # ╔═╡ a330a8c2-c026-4cd6-9e3b-21dfe5e9952e
-ranking_draws_compact = select(
+ranking_draws_compact = pp.select(
     ranking_draws,
     [
         :year,
@@ -278,10 +284,10 @@ ranking_draws_compact = select(
 )
 
 # ╔═╡ ef8d9e29-33e3-497d-813e-6067f3ea24d9
-small_table(ranking_draws_compact; n = min(16, nrow(ranking_draws_compact)))
+small_table(ranking_draws_compact; n = min(16, pp.nrow(ranking_draws_compact)))
 
 # ╔═╡ 5f6c90d7-7da7-4468-a596-cbf42091f7c8
-effective_draws_compact = select(
+effective_draws_compact = pp.select(
     effective_draws,
     [
         :year,
@@ -301,7 +307,7 @@ effective_draws_compact = select(
 )
 
 # ╔═╡ 61ca5f0f-7987-472e-99d3-e553b4a8410a
-small_table(effective_draws_compact; n = min(16, nrow(effective_draws_compact)))
+small_table(effective_draws_compact; n = min(16, pp.nrow(effective_draws_compact)))
 
 # ╔═╡ f8e0409e-192f-42ee-8f38-55d107c55f32
 md"""
@@ -321,7 +327,7 @@ function compact_quantiles(values)
 end
 
 # ╔═╡ 08035708-2a6d-45fd-b886-c0f349fba4eb
-function summarize_compact(draws::DataFrame, metrics)
+function summarize_compact(draws::pp.DataFrame, metrics)
     group_cols = [
         :analysis_role,
         :wave_id,
@@ -342,7 +348,7 @@ function summarize_compact(draws::DataFrame, metrics)
             stats = compact_quantiles(subdf[!, metric])
             push!(rows, merge(base, (
                 metric = String(metric),
-                n_draws = nrow(subdf),
+                n_draws = pp.nrow(subdf),
                 mean = stats.mean,
                 median = stats.median,
                 q25 = stats.q25,
@@ -351,7 +357,7 @@ function summarize_compact(draws::DataFrame, metrics)
             )))
         end
     end
-    return sorted_table(DataFrame(rows))
+    return sorted_table(pp.DataFrame(rows))
 end
 
 # ╔═╡ 1e19ca53-2716-469d-a214-2dde55fbe55e
@@ -367,10 +373,10 @@ begin
 end
 
 # ╔═╡ ed9b3a67-fb13-4c76-8f15-4e991015b294
-small_table(ranking_summary_compact; n = min(20, nrow(ranking_summary_compact)))
+small_table(ranking_summary_compact; n = min(20, pp.nrow(ranking_summary_compact)))
 
 # ╔═╡ 0a461086-03c5-41ab-b95d-89654ca5d9d0
-small_table(effective_summary_compact; n = min(20, nrow(effective_summary_compact)))
+small_table(effective_summary_compact; n = min(20, pp.nrow(effective_summary_compact)))
 
 # ╔═╡ c18e4a03-c656-4a1a-bf78-0a2022d44dbb
 md"""
@@ -386,7 +392,7 @@ begin
     example_row = linearized_rows[1, :]
     example_profile = strict_profile_from_linearized(string(example_row.path))
     example_masses, example_order, example_total = ranking_masses(example_profile)
-    example_ranking_support = DataFrame(
+    example_ranking_support = pp.DataFrame(
         ranking = ranking_signature_text.(example_order),
         mass = [example_masses[sig] for sig in example_order],
         share = [example_masses[sig] / example_total for sig in example_order],
@@ -395,12 +401,12 @@ begin
 end
 
 # ╔═╡ baebaa2c-17b1-4d8c-b6f3-16f0c9d0663f
-small_table(example_ranking_support; n = min(10, nrow(example_ranking_support)))
+small_table(example_ranking_support; n = min(10, pp.nrow(example_ranking_support)))
 
 # ╔═╡ 64350afc-9082-4c3b-8da8-417658697a3f
 begin
     paired_rankings, unpaired_rankings = Preferences.reversal_pairs(example_order)
-    example_reversal_pairs = DataFrame(
+    example_reversal_pairs = pp.DataFrame(
         ranking = [ranking_signature_text(pair[1]) for pair in paired_rankings],
         reverse_ranking = [ranking_signature_text(pair[3]) for pair in paired_rankings],
         local_reversal_mass = [
@@ -412,7 +418,7 @@ begin
 end
 
 # ╔═╡ 94642928-b6ef-4864-9e1b-631d0f325abd
-small_table(example_reversal_pairs; n = min(10, nrow(example_reversal_pairs)))
+small_table(example_reversal_pairs; n = min(10, pp.nrow(example_reversal_pairs)))
 
 # ╔═╡ f37d3f1a-1f4f-45a1-a37d-991a8c38ea27
 begin
@@ -436,7 +442,7 @@ begin
 end
 
 # ╔═╡ 83ce9a92-3e36-4058-ad9b-316c4578a949
-local_outputs = DataFrame(
+local_outputs = pp.DataFrame(
     artifact = [
         "ranking draw diagnostics",
         "effective-count draw diagnostics",
@@ -450,15 +456,15 @@ local_outputs = DataFrame(
         effective_summary_csv,
     ],
     rows = [
-        nrow(ranking_draws_compact),
-        nrow(effective_draws_compact),
-        nrow(ranking_summary_compact),
-        nrow(effective_summary_compact),
+        pp.nrow(ranking_draws_compact),
+        pp.nrow(effective_draws_compact),
+        pp.nrow(ranking_summary_compact),
+        pp.nrow(effective_summary_compact),
     ],
 )
 
 # ╔═╡ ef6b9d33-929a-44f1-b154-c04367dd066c
-small_table(local_outputs; n = nrow(local_outputs))
+small_table(local_outputs; n = pp.nrow(local_outputs))
 
 # ╔═╡ b3da13ed-72f8-4429-8a5e-a407d5cb04ef
 function is_under_directory(child_path::AbstractString, parent_path::AbstractString)
@@ -467,7 +473,7 @@ function is_under_directory(child_path::AbstractString, parent_path::AbstractStr
 end
 
 # ╔═╡ 696914f3-f9e5-41aa-bbd8-0f97701391b6
-validation_table = DataFrame(
+validation_table = pp.DataFrame(
     check = [
         "linearized artifacts under notebook cache",
         "notebook CSV outputs under notebook output root",
@@ -476,12 +482,12 @@ validation_table = DataFrame(
     value = [
         string(all(path -> is_under_directory(resolve_nb_path(path), settings.cache_root), linearized_rows.path)),
         string(all(path -> is_under_directory(path, settings.output_root), local_outputs.path)),
-        string(nrow(effective_draws) == sum(item.spec.B * item.spec.R * item.spec.K for item in batch.items)),
+        string(pp.nrow(effective_draws) == sum(item.spec.B * item.spec.R * item.spec.K for item in batch.items)),
     ],
 )
 
 # ╔═╡ 33895577-0e14-4e65-857f-0fb9bc164aae
-small_table(validation_table; n = nrow(validation_table))
+small_table(validation_table; n = pp.nrow(validation_table))
 
 # ╔═╡ Cell order:
 # ╠═26f5b7cf-f12f-4ef3-b6e8-9f39e176a9a1
