@@ -1,0 +1,54 @@
+# Default Pluto notebook execution config.
+#
+# This is intentionally much smaller than PrefPol/config/publication.toml and
+# writes only under nb/output/notebook_smoke.
+
+[run]
+B = 2
+R = 2
+K = 2
+force = false
+dry_run = false
+cache_root = "nb/output/notebook_smoke/cache"
+output_root = "nb/output/notebook_smoke"
+consensus_tie_policy = "average"
+imputer_backends = ["zero"]
+linearizer_policies = ["pattern_conditional"]
+measures = ["Psi", "R", "HHI", "RHHI", "C", "D"]
+
+[[targets]]
+wave_id = "2018"
+scenario_name = "main_2018"
+m_values = [2, 3]
+analysis_role = "main"
+groupings = "configured"
+
+# To widen the run for a larger interactive pass, edit the values above.
+#
+# All three paper years:
+# [[targets]]
+# wave_id = "2006"
+# scenario_name = "main_2006"
+# m_values = [2, 3, 4, 5]
+# analysis_role = "main"
+# groupings = "configured"
+#
+# [[targets]]
+# wave_id = "2018"
+# scenario_name = "main_2018"
+# m_values = [2, 3, 4, 5]
+# analysis_role = "main"
+# groupings = "configured"
+#
+# [[targets]]
+# wave_id = "2022"
+# scenario_name = "main_2022"
+# m_values = [2, 3, 4, 5]
+# analysis_role = "main"
+# groupings = "configured"
+#
+# Both imputation backends:
+# imputer_backends = ["mice", "zero"]
+#
+# Both linearizers:
+# linearizer_policies = ["pattern_conditional", "random_ties"]
