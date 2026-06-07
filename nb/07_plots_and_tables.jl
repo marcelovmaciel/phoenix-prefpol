@@ -62,7 +62,7 @@ In this notebook, the source is the compact draw table written by
 fails so table values cannot be invented by a fallback.
 """
 
-# ╔═╡ 0e51831a-841d-4f0a-a67b-a48be8ee95a17
+# ╔═╡ 0644a672-8a25-4d77-a8be-0464e18cc15e
 begin
     notebook_table_dir = joinpath(settings.output_root, "notebook_tables")
     effective_draws_path = joinpath(
@@ -482,15 +482,15 @@ small_table(validation_table; n = nrow(validation_table))
 # ╠═516fa1c8-5b38-434f-a4d2-eea3bce2dc4a
 # ╠═246f8d01-e5f2-4761-a894-73dc34cb25b9
 # ╟─cddfe01b-70ca-4f40-91f2-1fc80324289e
-# ╠═0e51831a-841d-4f0a-a67b-a48be8ee95a17
+# ╠═0644a672-8a25-4d77-a8be-0464e18cc15e
 # ╠═1a3082cf-4597-43b0-ba58-9f121865dc85
 # ╠═4102cfe5-c626-42c5-8e12-f399d1da2bc5
 # ╠═8045fed9-e5a3-41ef-99c8-1d5e3fb8cd2e
 # ╠═06e31fda-903a-42e7-b592-19c90cf7efae
 # ╠═d656a29f-0f9b-4888-a36b-a9cdb0245800
 # ╠═d6849655-7c1a-4ee4-bf8c-69c5636a5aa4
-# ╟─08217786-04e0-4314-b045-7796c18aaadf
-# ╟─6ab869ca-1a12-42ca-9b3b-de23da4e104b
+# ╠═08217786-04e0-4314-b045-7796c18aaadf
+# ╠═6ab869ca-1a12-42ca-9b3b-de23da4e104b
 # ╟─1daac4ef-0f08-492c-8a3c-08bbf0ec6c65
 # ╠═c5285a79-bf7b-43f1-b8da-62eda84cfd60
 # ╠═d1b9e636-a06f-4f50-80ff-8618063c9414
@@ -502,18 +502,18 @@ small_table(validation_table; n = nrow(validation_table))
 # ╠═ddc4af92-6d9c-49dd-a69f-ae71dfbdb3dd
 # ╠═a7a14476-2017-4f22-a4a4-b8329b86c7a5
 # ╠═811e435f-cc0d-426e-b11b-450b1502ce93
-# ╟─e41f1db4-6e3e-4130-a9ac-bbe59d4a8030
+# ╠═e41f1db4-6e3e-4130-a9ac-bbe59d4a8030
 # ╟─099ff0ce-b29f-457b-b79c-13446dce2729
 # ╠═01783069-b0fb-45ad-bcf0-417032c09b4f
 # ╠═c77d7443-6b3b-4179-b0cf-ae9cb5d18a70
-# ╟─9dff55ab-50ce-47c1-8e83-060998888cf4
+# ╠═9dff55ab-50ce-47c1-8e83-060998888cf4
 # ╠═a5fc0fa3-b0e2-46fe-af45-d6057cbe314c
 # ╠═3f8c3139-4a14-4619-918c-858902b67dff
 # ╠═118b4a83-cb79-4ae0-9a77-315e7b3178b2
-# ╟─ccc40dd0-c689-49fc-b6bd-e51db564ef20
+# ╠═ccc40dd0-c689-49fc-b6bd-e51db564ef20
 # ╟─43ca314e-c53a-48dd-a902-1f86de2a6fb2
 # ╠═3f1ad613-8a04-4827-b573-5ac1b21795e7
-# ╟─d751c8f2-d1ad-4f08-9fa0-87fa5908ac34
+# ╠═d751c8f2-d1ad-4f08-9fa0-87fa5908ac34
 # ╠═4eff5688-a346-49db-baf2-4baaa3caee89
 # ╠═01208348-c961-4d93-a46b-edffb88f4b5b
-# ╟─843ece57-211f-49e8-806d-723d02c258b3
+# ╠═843ece57-211f-49e8-806d-723d02c258b3

@@ -58,6 +58,12 @@ Run the lightweight source check from the repository root:
 julia +1.11.9 --project=nb nb/check_notebooks.jl
 ```
 
+Run the Pluto serialization validation from the repository root:
+
+```bash
+julia scripts/validate_pluto_notebooks.jl
+```
+
 Run the provenance and dynamic integrity check from the repository root:
 
 ```bash

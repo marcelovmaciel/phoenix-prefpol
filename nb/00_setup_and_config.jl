@@ -1,12 +1,19 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
 
 # ╔═╡ 7a5d57e2-c695-4d46-95f1-4828ea6633d3
 begin
     import Pkg
     Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 6501521b-e6c9-4f0a-9fb2-18203b4d1de0
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
 # ╔═╡ 07ef75f7-7cbb-4a6e-9783-e831e08b1f4b
@@ -21,12 +28,6 @@ The production path is the composable replication runner. This notebook reads
 `nb/notebook_config.toml` and writes only under
 `nb/output/notebook_smoke`.
 """
-
-# ╔═╡ 6501521b-e6c9-4f0a-9fb2-18203b4d1de0
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-end
 
 # ╔═╡ a065d4cc-4737-4463-a698-77bd18f33dad
 md"""
@@ -130,11 +131,11 @@ configuration.
 # ╠═5be8706f-3820-42e4-bc29-dd83ee2edac6
 # ╠═d813c4f2-1bc1-4842-beb2-cd8a69f856d0
 # ╠═462ec38b-d714-4079-ad8f-8abf331fb980
-# ╟─97775176-e203-4353-9e84-67be62ae7e13
+# ╠═97775176-e203-4353-9e84-67be62ae7e13
 # ╟─d799f604-81f1-4f59-9801-2250cc568f46
 # ╠═024cc796-d678-4aae-9083-a87ec643bb53
 # ╠═166f74a8-e9d9-4b6b-9021-21c3a0511c27
-# ╟─3e8e9bfc-3627-4b24-a453-964944046151
+# ╠═3e8e9bfc-3627-4b24-a453-964944046151
 # ╠═72d15f3e-3094-4584-8bf9-a1b3e804e51f
-# ╟─7dd23e5e-29c3-4c0e-90d8-381da9b41135
+# ╠═7dd23e5e-29c3-4c0e-90d8-381da9b41135
 # ╟─8846c4f7-ee7e-404e-b57a-7df89271c0ad

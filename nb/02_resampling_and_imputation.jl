@@ -202,7 +202,7 @@ resample_diagnostics = DataFrame(
 # ╔═╡ 605c4198-1900-47e3-8fc6-3b01af87fa4c
 small_table(resample_diagnostics; n = nrow(resample_diagnostics))
 
-# ╔═╡ c1f0b4e4-277e-47e3-a368-c3732943c2c
+# ╔═╡ 20fb42f3-6cfa-4b14-8a46-b26e5e98acea
 md"""
 The first bootstrap artifact stores sampled row indices and multiplicities
 rather than a large duplicate table. The diagnostics above show the core
@@ -397,32 +397,32 @@ small_table(validation_table; n = nrow(validation_table))
 # ╠═d26c6c96-4732-4d49-a01a-344627bb117f
 # ╠═fa45769d-0a25-40c9-90a3-f84278c14875
 # ╠═a58c4ffc-f6dc-472d-bd08-3ab8d0697ba7
-# ╟─7f7a83be-961e-4760-8842-b857c02627f6
+# ╠═7f7a83be-961e-4760-8842-b857c02627f6
 # ╟─a99b83ea-bde6-4ccf-9bee-a2f8d92e953c
 # ╠═e12e9d14-9540-4267-8188-a57707d32b72
 # ╠═40611b6e-c658-47c3-95b9-eb0bd69cc92e
 # ╠═32741471-8900-455d-b149-ae2549f2d31f
-# ╟─fb58d660-8ada-4382-8053-3a4ab8ed0f5c
+# ╠═fb58d660-8ada-4382-8053-3a4ab8ed0f5c
 # ╟─4dc60b1e-545e-4582-9080-7cd663cb1fb6
 # ╠═47be0c6d-05a3-4d5c-9a86-8e175bf504f6
-# ╟─3b769033-09e6-4fa7-9fb3-a78391f4d564
+# ╠═3b769033-09e6-4fa7-9fb3-a78391f4d564
 # ╠═71210589-9dc8-41ac-8ed5-17d2c2f79508
 # ╠═c4ec6268-a850-4aaa-8e35-54943d2bd7c5
-# ╟─605c4198-1900-47e3-8fc6-3b01af87fa4c
-# ╟─c1f0b4e4-277e-47e3-a368-c3732943c2c
+# ╠═605c4198-1900-47e3-8fc6-3b01af87fa4c
+# ╟─20fb42f3-6cfa-4b14-8a46-b26e5e98acea
 # ╟─251afc25-d026-4bdc-9e03-2389255783a2
 # ╠═bf085e43-0e55-4064-95a9-9e93559f4c7c
 # ╠═11b68308-c611-468b-8315-72ed8786ac4e
-# ╟─e9d2176a-264d-4702-b9e2-1082c8764ac0
+# ╠═e9d2176a-264d-4702-b9e2-1082c8764ac0
 # ╠═b42c3a64-7b56-49e6-a88c-49885dc68373
 # ╠═02d3bf03-b094-4c2d-a06e-b5836eb9df10
 # ╠═ad1c2021-d1b4-42f9-85e6-0115ae11d10a
-# ╟─b0c8296b-de01-4ca6-b911-7d0caf90c5fd
+# ╠═b0c8296b-de01-4ca6-b911-7d0caf90c5fd
 # ╠═619c7969-6255-4d4b-88a7-b72efad68175
-# ╟─2c6fb4c0-40eb-4d8e-bbdf-48f232d49222
+# ╠═2c6fb4c0-40eb-4d8e-bbdf-48f232d49222
 # ╟─2345c5bd-fc0d-4665-aa83-1912038d627c
 # ╠═d9451515-7216-4131-89fd-9710151616e5
 # ╠═14da4a04-ef2c-4a73-b122-9a085d04318f
-# ╟─0b052b23-e2b5-4090-8d87-4db780c47aa8
+# ╠═0b052b23-e2b5-4090-8d87-4db780c47aa8
 # ╠═8f393058-eeb3-4426-bd07-e4d5ce7e9a27
-# ╟─30f6a4d3-2e6f-4470-bb74-99abe98905dc
+# ╠═30f6a4d3-2e6f-4470-bb74-99abe98905dc

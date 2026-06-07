@@ -95,7 +95,7 @@ objects are then wrapped in a `BatchRunResult`, matching the type consumed by
 the plot-data construction APIs.
 """
 
-# ╔═╡ 689cd1e3-9504-460c-8f83-5417822810d
+# ╔═╡ 01b5e188-5b19-4b7f-9398-9b4750aa6694
 begin
     notebook_results = pp.PipelineResult[]
     notebook_metadata = NamedTuple[]
@@ -488,7 +488,7 @@ small_table(local_output_paths; n = nrow(local_output_paths))
 # ╠═09e68af2-41fd-45a2-b0bf-efafbd12c484
 # ╠═29ba8b54-a01b-4a90-8646-5feb394a2f82
 # ╟─60a66ff2-c61b-4949-80f3-b4065b25cad3
-# ╠═689cd1e3-9504-460c-8f83-5417822810d
+# ╠═01b5e188-5b19-4b7f-9398-9b4750aa6694
 # ╠═1399cbd4-b08a-4464-9843-6f66f1581cec
 # ╠═a5e6d5ac-a579-44dc-9036-3d28ac354936
 # ╟─a25da9b6-96ff-4b63-bd54-4a9f91428a11
@@ -496,7 +496,7 @@ small_table(local_output_paths; n = nrow(local_output_paths))
 # ╠═a0265370-9bd1-48e1-8a16-7d35632c4aa3
 # ╠═11656802-f99b-466d-8d72-2a338e58d76a
 # ╠═5f01469a-3f1d-4567-ab8e-796c7043de25
-# ╟─fb87d454-a9e8-4be9-a3d9-f870dc089dfc
+# ╠═fb87d454-a9e8-4be9-a3d9-f870dc089dfc
 # ╠═af12e60d-cee1-4b4b-9e07-72501d72473d
 # ╟─d6bd892b-dcb8-4646-87e5-4d5a1b375d38
 # ╠═2fddc636-dba3-4994-a233-3621d25140d5

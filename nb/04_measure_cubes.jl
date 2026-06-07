@@ -220,7 +220,7 @@ profile rather than a demographic partition.
 # ╔═╡ 80e03543-a3c9-4c43-98f2-354571eab264
 small_table(global_measure_rows; n = min(16, nrow(global_measure_rows)))
 
-# ╔═╡ b079863d-6d96-4640-8843-1a7a3e9ee4055
+# ╔═╡ a05b1a07-3541-4fbc-9390-a2146e36ca14
 md"""
 ### Grouped Rows
 
@@ -363,7 +363,7 @@ small_table(local_output_paths; n = nrow(local_output_paths))
 # ╠═83f864ef-04c8-43b5-9bdb-eaa18950b8a4
 # ╟─a4e19da0-d2f4-4af3-8e40-8f0183df4003
 # ╠═80e03543-a3c9-4c43-98f2-354571eab264
-# ╟─b079863d-6d96-4640-8843-1a7a3e9ee4055
+# ╟─a05b1a07-3541-4fbc-9390-a2146e36ca14
 # ╠═696895c3-1463-48f4-86c7-25c1c847d0f6
 # ╠═decc0ce4-7e72-44fc-82ff-7243ad2d32c2
 # ╟─3e88717b-b71b-4355-b197-c449ff651dbf

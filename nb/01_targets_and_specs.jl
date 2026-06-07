@@ -1,12 +1,19 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
 
 # ╔═╡ 1793d860-770c-4b7c-9c1e-7f3f5d4e7b0e
 begin
     import Pkg
     Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 432a8713-f937-46d8-95ea-ed59180d9fbf
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
 # ╔═╡ cff8cf11-283b-4ae5-9e62-2c4056cd5b13
@@ -17,12 +24,6 @@ This notebook shows how configured notebook targets become `PipelineSpec`s and
 batch items. Target selection starts from `nb/notebook_config.toml`, then expands
 over candidate-set size `m`, imputation backends, and linearizer policies.
 """
-
-# ╔═╡ 432a8713-f937-46d8-95ea-ed59180d9fbf
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-end
 
 # ╔═╡ ec5caa06-3381-40e5-8675-ad0a6b016f53
 md"""
@@ -166,14 +167,14 @@ target and `PipelineSpec` construction used by CLI stages 01-04.
 # ╠═1e1e8e8a-a3dd-4fde-8376-dd2bb964d7dd
 # ╠═2eda82b7-7913-4e86-bdf7-c0761cf2c5c3
 # ╠═61f42098-fb5d-4e32-bf77-d0db82db0f65
-# ╟─a706c5e5-e0c4-4cae-a3fc-20e6b8eeb4b7
+# ╠═a706c5e5-e0c4-4cae-a3fc-20e6b8eeb4b7
 # ╟─e046fd51-4206-4219-8d0a-491673291e37
 # ╠═4bf181cd-faa6-4ab5-98b1-0b44f95488d8
 # ╠═95fd3210-a0b6-4a37-bd2c-7f3fb1d0c328
-# ╟─4a1d27e6-2ab0-4c6a-aa48-b9979a7149cb
+# ╠═4a1d27e6-2ab0-4c6a-aa48-b9979a7149cb
 # ╠═fce6c1cd-f0ad-4214-8e2d-b2aa5e8ecbb2
-# ╟─78859088-0a85-4715-b0e9-cdfec77947f2
+# ╠═78859088-0a85-4715-b0e9-cdfec77947f2
 # ╠═3df38422-8c5b-4235-86e7-e289d15ad444
 # ╠═3bb847f1-b350-4836-af55-e6f6a87e4b21
-# ╟─d5a88f3b-514e-4d12-b8ec-0e30c5a31213
+# ╠═d5a88f3b-514e-4d12-b8ec-0e30c5a31213
 # ╟─e907ed8a-8c65-43d8-9d5c-89fa813e3436
