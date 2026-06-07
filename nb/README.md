@@ -48,6 +48,53 @@ nb/output/notebook_smoke/cache
 `nb/notebook_common.jl` resolves paths relative to the repository and guards
 against writing notebook artifacts into the publication output tree.
 
+## Notebook provenance and integrity checks
+
+Run the notebook checks before relying on notebook outputs in analysis or reporting. These checks verify that notebook summaries are derived from the configured survey data through PrefPol APIs and that notebook outputs remain isolated from the production publication workflow.
+
+Run the lightweight source check from the repository root:
+
+```bash
+julia +1.11.9 --project=nb nb/check_notebooks.jl
+```
+
+Run the provenance and dynamic integrity check from the repository root:
+
+```bash
+julia +1.11.9 --project=nb nb/test_notebook_provenance.jl
+```
+
+The provenance check uses the real survey data configured through `nb/notebook_config.toml` and the same notebook helpers used by the notebooks. It does not use toy data, and it fails clearly if the configured raw ESEB data path is missing. It scans notebook code for manually embedded empirical result values, manually assembled result tables, production-output writes, and calls into the production CLI stage layer. It also runs a tiny real PrefPol pipeline and verifies that outputs respond to a meaningful config perturbation.
+
+The provenance report is written to:
+
+```text
+nb/output/notebook_smoke/provenance/notebook_provenance_report.md
+```
+
+Passing this check does not prove the paper is correct. It verifies the narrower notebook-integrity property that displayed notebook results are connected to the configured data and PrefPol workflow.
+
+## Julia 1.11.9 environment repair
+
+Use Julia 1.11.9 for the notebook environment. If Pluto reports that `nb/Manifest.toml` was resolved with another Julia version, repair the environment with Julia 1.11.9 from the repository root:
+
+```bash
+julia +1.11.9 --project=nb -e 'using Pkg; Pkg.resolve(); Pkg.instantiate()'
+```
+
+If the error mentions that package source code cannot be located after switching Julia versions, clear the compiled cache for Julia 1.11 and retry. This removes only compiled cache files; packages and manifests remain intact.
+
+```bash
+mv ~/.julia/compiled/v1.11 /tmp/julia-compiled-v1.11-backup-$(date +%Y%m%d%H%M%S)
+julia +1.11.9 --project=nb -e 'using Pkg; Pkg.instantiate()'
+```
+
+Then start Pluto:
+
+```bash
+julia +1.11.9 --project=nb -e 'using Pkg; Pkg.instantiate(); using Pluto; Pluto.run()'
+```
+
 ## Relation to the Production Workflow
 
 The notebooks are for inspection, explanation, and local debugging. They use the
