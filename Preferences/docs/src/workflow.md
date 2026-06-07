@@ -43,6 +43,9 @@ This produces a weighted weak-ranking profile. Read
 [Weak Orders and Linearization](weak_orders.md) for the interpretive choices
 needed before strict-profile diagnostics.
 
+Use `perm(x)` to inspect the ordered candidate IDs in a `StrictRank`, and
+`ranks(x)` to inspect rank vectors for rank-based representations.
+
 ## Core Objects
 
 ```@docs

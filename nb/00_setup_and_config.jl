@@ -17,28 +17,27 @@ This notebook introduces the notebook workflow and inspects the small notebook
 configuration. The notebook layer is for interactive inspection and teaching; it
 is not the production replication path.
 
-The production path is `PrefPol/composable_running/run_all_paper.jl`. This
-notebook reads `nb/notebook_config.toml` and writes only under
+The production path is the composable replication runner. This notebook reads
+`nb/notebook_config.toml` and writes only under
 `nb/output/notebook_smoke`.
 """
 
 # ╔═╡ 6501521b-e6c9-4f0a-9fb2-18203b4d1de0
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
 # ╔═╡ a065d4cc-4737-4463-a698-77bd18f33dad
 md"""
-The notebook configuration mirrors the validation concerns of CLI stage
-`PrefPol/composable_running/stages/00_validate_configs.jl`: read configuration,
-resolve paths, check targets against configured waves, and summarize the planned
-execution scale.
+The notebook configuration mirrors the validation concerns of the production
+configuration pass: read configuration, resolve paths, check targets against
+configured waves, and summarize the planned execution scale.
 """
 
 # ╔═╡ 5be8706f-3820-42e4-bc29-dd83ee2edac6
 begin
-    # composable-running concept: orchestration config loading.
+    # Load the notebook-scale orchestration config.
     cfg = load_notebook_config()
     settings = notebook_settings(cfg)
     targets = notebook_targets(cfg)
@@ -46,7 +45,7 @@ end
 
 # ╔═╡ d813c4f2-1bc1-4842-beb2-cd8a69f856d0
 begin
-    # composable-running concept: publication-output guard.
+    # Keep notebook writes isolated from publication outputs.
     @assert settings.output_root != NOTEBOOK_PUBLICATION_OUTPUT
     ensure_not_publication_output!(settings.output_root)
     ensure_not_publication_output!(settings.cache_root)
@@ -90,7 +89,7 @@ measures are created here.
 
 # ╔═╡ 024cc796-d678-4aae-9083-a87ec643bb53
 begin
-    # composable-running concept: year TOML discovery and SurveyWaveConfig loading.
+    # Discover year TOML files and load SurveyWaveConfig objects.
     waves, source_registry, wave_by_id = load_notebook_waves()
 end
 
@@ -118,9 +117,9 @@ small_table(selected_targets_table; n = nrow(selected_targets_table))
 
 # ╔═╡ 8846c4f7-ee7e-404e-b57a-7df89271c0ad
 md"""
-At this point the notebook has completed the configuration inspection that
-corresponds to CLI stage `00_validate_configs.jl`. Later notebooks will build
-and run staged artifacts from this small notebook configuration.
+At this point the notebook has completed the configuration inspection. Later
+notebooks will build and run staged artifacts from this small notebook
+configuration.
 """
 
 # ╔═╡ Cell order:

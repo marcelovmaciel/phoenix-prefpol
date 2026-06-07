@@ -29,7 +29,7 @@ based on `C` and `D` use Kendall/Kemeny consensuses to describe groups.
 
 ## Where to Start
 
-| Task | Read this page |
+| Goal | Read this page |
 |---|---|
 | Build rankings and profiles | [Workflow](workflow.md) |
 | Convert survey scores into weak rankings | [From Scores to Profiles](tabular_profiles.md) |

@@ -1,3 +1,5 @@
+__precompile__(false)
+
 """
     PrefPol
 
@@ -12,8 +14,6 @@ definitions live in `Preferences`; PrefPol adapters construct those
 formal objects from survey data for applied ESEB workflows.
 """
 module PrefPol
-
-using Pkg
 
 using CategoricalArrays
 using Combinatorics

@@ -18,9 +18,9 @@ becoming another production runner.
 
 It corresponds conceptually to two CLI stages:
 
-- `08_tables.jl` reads the effective-count summary produced by the extra
-  diagnostics stage and turns it into table-ready CSV, Markdown, and TeX.
-- `09_extra_plots.jl` reads those table CSVs and turns them into a compact
+- the table pass reads the effective-count summary produced by the extra
+  diagnostics notebook and turns it into table-ready CSV, Markdown, and TeX.
+- the extra-plot pass reads those table CSVs and turns them into a compact
   effective-ranking evolution plot.
 
 The notebook keeps the same data flow but uses local notebook-scale outputs
@@ -30,7 +30,7 @@ figure aesthetics.
 
 # ╔═╡ 8822521b-afab-4757-a03b-5375b0110644
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
     using Printf
     using Statistics
@@ -45,9 +45,9 @@ end
 
 # ╔═╡ 246f8d01-e5f2-4761-a894-73dc34cb25b9
 begin
-    @assert settings.B <= 5 "Notebook config should keep B tiny."
-    @assert settings.R <= 5 "Notebook config should keep R tiny."
-    @assert settings.K <= 5 "Notebook config should keep K tiny."
+    @assert settings.B <= 5 "Notebook config keeps B <= 5."
+    @assert settings.R <= 5 "Notebook config keeps R <= 5."
+    @assert settings.K <= 5 "Notebook config keeps K <= 5."
     ensure_not_publication_output!(settings.output_root)
     ensure_not_publication_output!(settings.cache_root)
 end
@@ -56,12 +56,10 @@ end
 md"""
 ## Effective-Count Source
 
-In the production pipeline, the table stage reads
-`output/extra_measures/effective_counts/effective_counts_summary.csv`. In this
-notebook, the preferred source is the compact draw table written by
+In the production pipeline, the table pass reads the effective-count summary.
+In this notebook, the source is the compact draw table written by
 `06_extra_diagnostics.jl`. If that local file is not present yet, the notebook
-uses a tiny deterministic fallback based on the notebook target configuration
-so the table-formatting layer can still be inspected.
+fails so table values cannot be invented by a fallback.
 """
 
 # ╔═╡ 0e51831a-841d-4f0a-a67b-a48be8ee95a17
@@ -130,39 +128,18 @@ function effective_summary_from_draws(draws::DataFrame)
 end
 
 # ╔═╡ 06e31fda-903a-42e7-b592-19c90cf7efae
-function fallback_effective_summary(targets)
-    rows = NamedTuple[]
-    for target in targets
-        for m in target.m_values
-            possible = factorial(Int(m))
-            push!(rows, (
-                year = parse(Int, target.wave_id),
-                scenario_name = target.scenario_name,
-                imputer_backend = String(first(settings.imputer_backends)),
-                linearizer_policy = String(first(settings.linearizer_policies)),
-                analysis_role = "main",
-                B = settings.B,
-                R = settings.R,
-                K = settings.K,
-                m = Int(m),
-                n_rankings_observed_mean = min(possible, 2.0 + m),
-                EO_median = min(possible, 1.5 + m / 2),
-                n_reversal_pairs_observed_mean = min(div(possible, 2), max(0.0, m - 1.0)),
-                ENRP_median = min(div(possible, 2), max(0.0, m / 2)),
-                max_rankings_possible = possible,
-                max_reversal_pairs_possible = div(possible, 2),
-            ))
-        end
-    end
-    return sort(DataFrame(rows), [:year, :scenario_name, :m])
+function require_effective_draws(path::AbstractString)
+    isfile(path) || error(
+        "Missing notebook diagnostic CSV: $(path). Run 06_extra_diagnostics.jl " *
+        "so table values are derived from PrefPol outputs instead of a fallback.",
+    )
+    return CSV.read(path, DataFrame)
 end
 
 # ╔═╡ d656a29f-0f9b-4888-a36b-a9cdb0245800
 begin
-    source_mode = isfile(effective_draws_path) ? "from 06_extra_diagnostics notebook CSV" : "tiny deterministic fallback"
-    effective_counts_summary = isfile(effective_draws_path) ?
-        effective_summary_from_draws(CSV.read(effective_draws_path, DataFrame)) :
-        fallback_effective_summary(targets)
+    source_mode = "from 06_extra_diagnostics notebook CSV"
+    effective_counts_summary = effective_summary_from_draws(require_effective_draws(effective_draws_path))
 end
 
 # ╔═╡ d6849655-7c1a-4ee4-bf8c-69c5636a5aa4

@@ -22,8 +22,7 @@ whole strict preference profile for one stochastic leaf `(b, r, k)`, so
 `grouping` is missing. `C` and `D` are **grouped measures**: each row is tied to
 one configured demographic grouping, so `grouping` is present.
 
-This corresponds to the CLI stage
-`PrefPol/composable_running/stages/04_measures.jl`: both instantiate a
+This corresponds to the production measure-computation pass: both instantiate a
 `NestedStochasticPipeline` and call `PrefPol.ensure_measures!`. The notebook
 uses `nb/notebook_config.toml`, avoids CLI shelling, and writes only notebook
 inspection CSVs under `nb/output/notebook_smoke/notebook_tables`.
@@ -31,13 +30,13 @@ inspection CSVs under `nb/output/notebook_smoke/notebook_tables`.
 
 # ╔═╡ c6dd4249-8a59-4875-b1ab-1d4d47a24b41
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
 # ╔═╡ 3dcf8706-0880-4dc7-9de5-7eff33fa3db4
 begin
-    # composable-running concept: notebook-scale orchestration config.
+    # Load the notebook-scale orchestration config.
     cfg = load_notebook_config()
     settings = notebook_settings(cfg)
     targets = notebook_targets(cfg)
@@ -46,17 +45,17 @@ end
 # ╔═╡ a792d836-9ed8-449c-a461-8ec8c75fb472
 begin
     notebook_main_measures = [:Psi, :R, :HHI, :RHHI, :C, :D]
-    @assert settings.measures == notebook_main_measures "Notebook measure path should stay on Psi, R, HHI, RHHI, C, D."
-    @assert settings.B <= 5 "Notebook config should keep B tiny."
-    @assert settings.R <= 5 "Notebook config should keep R tiny."
-    @assert settings.K <= 5 "Notebook config should keep K tiny."
+    @assert settings.measures == notebook_main_measures "Notebook measure path is Psi, R, HHI, RHHI, C, D."
+    @assert settings.B <= 5 "Notebook config keeps B <= 5."
+    @assert settings.R <= 5 "Notebook config keeps R <= 5."
+    @assert settings.K <= 5 "Notebook config keeps K <= 5."
     ensure_not_publication_output!(settings.output_root)
     ensure_not_publication_output!(settings.cache_root)
 end
 
 # ╔═╡ 9439e72e-6282-4ae7-bd3b-1a934cb5f2dd
 begin
-    # composable-running concept: SurveyWaveConfig lookup and StudyBatchSpec construction.
+    # Load survey-wave configs and construct the notebook batch.
     waves, source_registry, wave_by_id = load_notebook_waves()
     batch = build_notebook_batch(cfg)
 end
@@ -111,7 +110,7 @@ small_table(selected_spec_table; n = nrow(selected_spec_table))
 
 # ╔═╡ e55c7603-d62d-4ea6-8121-bbd077e69df0
 begin
-    # composable-running concept: instantiate the same pipeline object used by stages.
+    # Instantiate the pipeline object used by the production workflow.
     pipeline = pp.NestedStochasticPipeline(source_registry; cache_root = settings.cache_root)
     cache_dir = pp.pipeline_cache_dir(pipeline, selected_spec)
 end

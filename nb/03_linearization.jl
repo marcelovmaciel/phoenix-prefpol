@@ -32,8 +32,7 @@ that pattern as a conditional tie-breaking rule, with a uniform fallback when a
 tie pattern has no usable information. If both policies are configured, they
 become separate batch items with separate manifests and cache paths.
 
-This corresponds to the CLI stage
-`PrefPol/composable_running/stages/03_linearize.jl`: both construct a
+This corresponds to the production linearization pass: both construct a
 `NestedStochasticPipeline` and call `PrefPol.ensure_linearizations!`. This
 notebook does not call the CLI wrapper; it uses `nb/notebook_config.toml` and
 writes only under the notebook output/cache roots.
@@ -41,14 +40,14 @@ writes only under the notebook output/cache roots.
 
 # ╔═╡ b3483a33-a7b4-4951-830d-44e267d74bf2
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
     using Preferences
 end
 
 # ╔═╡ 2ad8a9df-d005-4fc9-b3e5-29f730b18a56
 begin
-    # composable-running concept: notebook-scale orchestration config.
+    # Load the notebook-scale orchestration config.
     notebook_config = load_notebook_config()
     notebook_run_settings = notebook_settings(notebook_config)
     notebook_targets_selected = notebook_targets(notebook_config)
@@ -56,23 +55,23 @@ end
 
 # ╔═╡ 1d3a2146-37fd-4e0e-9b20-d7da7f8f233c
 begin
-    @assert notebook_run_settings.B <= 5 "Notebook config should keep B tiny."
-    @assert notebook_run_settings.R <= 5 "Notebook config should keep R tiny."
-    @assert notebook_run_settings.K <= 5 "Notebook config should keep K tiny."
+    @assert notebook_run_settings.B <= 5 "Notebook config keeps B <= 5."
+    @assert notebook_run_settings.R <= 5 "Notebook config keeps R <= 5."
+    @assert notebook_run_settings.K <= 5 "Notebook config keeps K <= 5."
     ensure_not_publication_output!(notebook_run_settings.output_root)
     ensure_not_publication_output!(notebook_run_settings.cache_root)
 end
 
 # ╔═╡ b53e692b-4a5f-4b4d-99ce-16d089cd67b7
 begin
-    # composable-running concept: SurveyWaveConfig lookup and StudyBatchSpec construction.
+    # Load survey-wave configs and construct the notebook batch.
     notebook_waves, notebook_source_registry, notebook_wave_by_id = load_notebook_waves()
     notebook_batch = build_notebook_batch(notebook_config)
 end
 
 # ╔═╡ 6f1760ad-4c99-41fd-af95-c40528503ed8
 begin
-    # The first batch item is the default pedagogical example.
+    # The first batch item is the running notebook example.
     selected_batch_index = 1
     selected_batch_item = notebook_batch.items[selected_batch_index]
     selected_pipeline_spec = selected_batch_item.spec
@@ -139,7 +138,7 @@ linearizer_configuration_note
 
 # ╔═╡ d3f3ab4d-ea69-4c23-9e7d-76984a7267f9
 begin
-    # composable-running concept: instantiate the same pipeline object used by stages.
+    # Instantiate the pipeline object used by the production workflow.
     notebook_pipeline = pp.NestedStochasticPipeline(
         notebook_source_registry;
         cache_root = notebook_run_settings.cache_root,

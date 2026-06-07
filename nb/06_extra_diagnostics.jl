@@ -13,11 +13,10 @@ end
 md"""
 # Extra Diagnostics
 
-This notebook pedagogically reproduces the downstream diagnostics from
-`PrefPol/composable_running/stages/07_extra_measures.jl` without including or
-calling that stage file.
+This notebook interactively reproduces the downstream diagnostics pass without
+including or calling the production stage file.
 
-The production stage reads cached linearized strict profiles, then writes two
+The production pass reads cached linearized strict profiles, then writes two
 families of downstream diagnostics:
 
 - ranking support diagnostics, which describe how much of the `m!` strict
@@ -33,7 +32,7 @@ writes only compact inspection CSVs under `nb/output/notebook_smoke`.
 
 # ╔═╡ 4d35c77f-d36b-45d8-a329-7d0ee29760e1
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
     using Preferences
     using Statistics
@@ -48,9 +47,9 @@ end
 
 # ╔═╡ 50c02f04-d465-46da-a921-b30f1ef43322
 begin
-    @assert settings.B <= 5 "Notebook config should keep B tiny."
-    @assert settings.R <= 5 "Notebook config should keep R tiny."
-    @assert settings.K <= 5 "Notebook config should keep K tiny."
+    @assert settings.B <= 5 "Notebook config keeps B <= 5."
+    @assert settings.R <= 5 "Notebook config keeps R <= 5."
+    @assert settings.K <= 5 "Notebook config keeps K <= 5."
     ensure_not_publication_output!(settings.output_root)
     ensure_not_publication_output!(settings.cache_root)
 end
@@ -82,8 +81,8 @@ small_table(notebook_plan; n = nrow(notebook_plan))
 md"""
 ## Linearized Profiles
 
-Stage `07_extra_measures.jl` does not re-impute or re-linearize in a production
-run. It reads the cached linearized leaves produced upstream. For a standalone
+The production diagnostic pass does not re-impute or re-linearize. It reads
+the cached linearized leaves produced upstream. For a standalone
 notebook, the cell below calls `PrefPol.ensure_linearizations!` on the tiny
 notebook batch so the required strict-profile artifacts exist in the notebook
 cache.

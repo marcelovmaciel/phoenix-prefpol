@@ -20,21 +20,19 @@ They first pool and reshape the cube into scenario-level panel tables:
 global measures summarize the full preference profile, while grouped measures
 summarize configured demographic partitions.
 
-This notebook corresponds conceptually to the CLI stages
-`PrefPol/composable_running/stages/05_plot_global.jl` and
-`PrefPol/composable_running/stages/06_plot_group.jl`, but it does not call those
-numbered stage scripts. Instead, it builds the notebook-scale batch, computes or
-loads the tiny `PipelineResult`s, and calls the same PrefPol reporting and
-plot-data APIs that the plotting stages use.
+This notebook corresponds conceptually to the production global and grouped
+plot-data passes, but it does not call those stage scripts. Instead, it builds
+the notebook-scale batch, computes or loads the tiny `PipelineResult`s, and
+calls the same PrefPol reporting and plot-data APIs that the plotting stages use.
 
 The priority here is inspectable tables and intermediate summaries. Any plots
-below are small pedagogical checks, not publication figures and not attempts to
+below are small interactive checks, not publication figures and not attempts to
 reproduce the paper aesthetics.
 """
 
 # ╔═╡ 11efc93a-5930-4478-b110-f8c042d984d4
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
@@ -44,19 +42,18 @@ begin
     settings = notebook_settings(cfg)
     targets = notebook_targets(cfg)
     plot_specs_cfg = TOML.parsefile(joinpath(prefpol_root(), "config", "plot_specs.toml"))
-    publication_cfg = TOML.parsefile(joinpath(prefpol_root(), "config", "publication.toml"))
 end
 
 # ╔═╡ 5f3b0611-978f-4430-8043-95a681ef5302
 begin
-    notebook_global_measures = Symbol.(publication_cfg["measure_sets"]["global"])
-    notebook_group_measures = Symbol.(publication_cfg["measure_sets"]["group"])
+    notebook_global_measures = [:Psi, :R, :HHI, :RHHI]
+    notebook_group_measures = [:C, :D]
     @assert notebook_global_measures == [:Psi, :R, :HHI, :RHHI]
     @assert notebook_group_measures == [:C, :D]
     @assert all(measure -> measure in settings.measures, vcat(notebook_global_measures, notebook_group_measures))
-    @assert settings.B <= 5 "Notebook config should keep B tiny."
-    @assert settings.R <= 5 "Notebook config should keep R tiny."
-    @assert settings.K <= 5 "Notebook config should keep K tiny."
+    @assert settings.B <= 5 "Notebook config keeps B <= 5."
+    @assert settings.R <= 5 "Notebook config keeps R <= 5."
+    @assert settings.K <= 5 "Notebook config keeps K <= 5."
     ensure_not_publication_output!(settings.output_root)
     ensure_not_publication_output!(settings.cache_root)
 end
@@ -267,8 +264,8 @@ md"""
 The group plotting stage uses grouped panel rows and heatmap-ready values. This
 notebook keeps only the publication-facing grouped measures, `C` and `D`.
 The broader `plot_specs.toml` also contains `S` and `O` for internal plotting
-defaults, but `PrefPol/config/publication.toml` narrows the paper group panel to
-`C` and `D`; this notebook follows that publication setting and skips `S`/`O`.
+defaults, but the notebook main measure set narrows the grouped panel to `C`
+and `D`; this notebook follows that local setting and skips `S`/`O`.
 """
 
 # ╔═╡ 722e21cc-2030-4873-bc4f-5519dfe71f81

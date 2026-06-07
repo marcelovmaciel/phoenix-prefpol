@@ -20,7 +20,7 @@ over candidate-set size `m`, imputation backends, and linearizer policies.
 
 # ╔═╡ 432a8713-f937-46d8-95ea-ed59180d9fbf
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
@@ -33,12 +33,12 @@ backend and linearizer combination becomes a separate planned batch item.
 A `PipelineSpec` is the reproducibility contract for one analysis cell: wave,
 active candidates, groupings, measures, `B/R/K`, backend, linearizer, tie policy,
 seed namespace, and version metadata. This mirrors the early planning logic used
-by CLI stages 01-04 before any stochastic stage runs.
+by the production workflow before any stochastic stage runs.
 """
 
 # ╔═╡ c73564a7-96d4-420c-a8f1-26bdb97cdd3a
 begin
-    # composable-running concept: orchestration config and run settings.
+    # Load the notebook-scale config and run settings.
     cfg = load_notebook_config()
     settings = notebook_settings(cfg)
     targets = notebook_targets(cfg)
@@ -46,13 +46,13 @@ end
 
 # ╔═╡ 1e1e8e8a-a3dd-4fde-8376-dd2bb964d7dd
 begin
-    # composable-running concept: SurveyWaveConfig lookup for target validation.
+    # Load survey-wave configs for target validation.
     waves, source_registry, wave_by_id = load_notebook_waves()
 end
 
 # ╔═╡ 2eda82b7-7913-4e86-bdf7-c0761cf2c5c3
 begin
-    # composable-running concept: build_batch target/backend/linearizer expansion.
+    # Expand targets across backends and linearizer policies.
     batch = build_notebook_batch(cfg)
 end
 
@@ -87,7 +87,7 @@ measure artifact is created.
 
 # ╔═╡ 4bf181cd-faa6-4ab5-98b1-0b44f95488d8
 begin
-    # composable-running concept: select one StudyBatchItem for inspection.
+    # Select one StudyBatchItem for inspection.
     example_index = 1
     example_item = batch.items[example_index]
     example_spec = example_item.spec
@@ -128,7 +128,7 @@ small_table(active_candidate_table; n = nrow(active_candidate_table))
 
 # ╔═╡ 3df38422-8c5b-4235-86e7-e289d15ad444
 begin
-    # composable-running concept: spec hash and cache path planning.
+    # Compute the planned cache path for the selected spec.
     spec_hash = isdefined(pp, :_pipeline_cache_key) ?
                 getfield(pp, :_pipeline_cache_key)(example_spec) :
                 missing

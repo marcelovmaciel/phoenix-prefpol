@@ -1,8 +1,7 @@
 const _NB_REPO_ROOT = normpath(joinpath(@__DIR__, ".."))
-const _NB_PREFPOL_PROJECT = joinpath(_NB_REPO_ROOT, "PrefPol")
-if !(_NB_PREFPOL_PROJECT in LOAD_PATH)
-    insert!(LOAD_PATH, 1, _NB_PREFPOL_PROJECT)
-end
+# PrefPol is resolved from the active nb/Project.toml environment. Do not
+# force PrefPol/ onto LOAD_PATH, because that bypasses the notebook manifest and
+# can trigger a separate package precompile path.
 
 using CSV
 using DataFrames

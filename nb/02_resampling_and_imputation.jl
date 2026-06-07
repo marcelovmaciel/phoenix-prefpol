@@ -28,21 +28,20 @@ fast, local, and does not require R or `mice`; if both `zero` and `mice` are
 configured, the manifests below show both backends as separate batch items.
 
 In the nested design, `B` is the number of bootstrap samples and `R` is the
-number of imputations per bootstrap sample. This corresponds to the CLI stages
-`PrefPol/composable_running/stages/01_bootstrap.jl` and
-`PrefPol/composable_running/stages/02_impute.jl`, but this notebook uses
+number of imputations per bootstrap sample. This corresponds to the production
+resampling and imputation passes, but this notebook uses
 `nb/notebook_config.toml` and writes only under `nb/output/notebook_smoke`.
 """
 
 # ╔═╡ 8e6c729a-1671-4e0a-94c2-9c418c8d9bcf
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
 # ╔═╡ 98aa628b-9b14-4e6a-a0ca-8d68153c79c4
 begin
-    # composable-running concept: notebook-scale orchestration config.
+    # Load the notebook-scale orchestration config.
     cfg = load_notebook_config()
     settings = notebook_settings(cfg)
     targets = notebook_targets(cfg)
@@ -50,23 +49,23 @@ end
 
 # ╔═╡ 6ca3f04d-0851-4739-a620-0c6260acac51
 begin
-    @assert settings.B <= 5 "Notebook config should keep B tiny."
-    @assert settings.R <= 5 "Notebook config should keep R tiny."
-    @assert settings.K <= 5 "Notebook config should keep K tiny."
+    @assert settings.B <= 5 "Notebook config keeps B <= 5."
+    @assert settings.R <= 5 "Notebook config keeps R <= 5."
+    @assert settings.K <= 5 "Notebook config keeps K <= 5."
     ensure_not_publication_output!(settings.output_root)
     ensure_not_publication_output!(settings.cache_root)
 end
 
 # ╔═╡ d26c6c96-4732-4d49-a01a-344627bb117f
 begin
-    # composable-running concept: SurveyWaveConfig lookup and StudyBatchSpec construction.
+    # Load survey-wave configs and construct the notebook batch.
     waves, source_registry, wave_by_id = load_notebook_waves()
     batch = build_notebook_batch(cfg)
 end
 
 # ╔═╡ fa45769d-0a25-40c9-90a3-f84278c14875
 begin
-    # The first batch item is the default pedagogical example.
+    # The first batch item is the running notebook example.
     selected_index = 1
     selected_item = batch.items[selected_index]
     selected_spec = selected_item.spec
@@ -304,7 +303,7 @@ begin
     """
 else
     md"""
-    The notebook default config uses `zero` only. That keeps this pedagogical
+    The notebook default config uses `zero` only. That keeps this interactive
     run self-contained and avoids requiring R, `haven`, and `mice`. To compare
     against `mice`, edit `nb/notebook_config.toml` so
     `imputer_backends = ["mice", "zero"]`, then rerun the notebook.

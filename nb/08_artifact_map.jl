@@ -14,8 +14,8 @@ md"""
 # Paper Artifact Map
 
 This notebook explains the paper artifact collection layer. It corresponds
-conceptually to `PrefPol/composable_running/stages/11_collect_paper_artifacts.jl`,
-but it does not include or call that stage file.
+conceptually to the production artifact-collection pass, but it does not include
+or call that stage file.
 
 The collection layer is intentionally thin: generated figures and tables remain
 owned by their source stages, while `PrefPol/config/paper_artifacts.toml`
@@ -25,7 +25,7 @@ This notebook inspects that mapping only. It does not copy artifacts by default.
 
 # ╔═╡ a7719e62-0aa3-4435-b9e9-140e45cedaaa
 begin
-    # composable-running concept: shared setup from stage_common.jl.
+    # Load shared notebook helpers and the local PrefPol package.
     include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
@@ -34,16 +34,15 @@ begin
     cfg = load_notebook_config()
     settings = notebook_settings(cfg)
     artifact_config_path = joinpath(prefpol_root(), "config", "paper_artifacts.toml")
-    publication_config_path = joinpath(prefpol_root(), "config", "publication.toml")
     artifact_cfg = TOML.parsefile(artifact_config_path)
-    publication_cfg = TOML.parsefile(publication_config_path)
+    notebook_orchestration_cfg = cfg
 end
 
 # ╔═╡ 3a58d48e-c621-432e-b2c8-40b0ae653ec3
 begin
-    @assert settings.B <= 5 "Notebook config should keep B tiny."
-    @assert settings.R <= 5 "Notebook config should keep R tiny."
-    @assert settings.K <= 5 "Notebook config should keep K tiny."
+    @assert settings.B <= 5 "Notebook config keeps B <= 5."
+    @assert settings.R <= 5 "Notebook config keeps R <= 5."
+    @assert settings.K <= 5 "Notebook config keeps K <= 5."
     ensure_not_publication_output!(settings.output_root)
 end
 
@@ -52,9 +51,9 @@ md"""
 ## Collection Configuration
 
 `paper_artifacts.toml` provides collection defaults and the artifact list. The
-publication config can override the collection defaults to point at the
-publication output tree. The notebook displays both layers so the source
-manifests and destination names are explicit.
+notebook config may override the collection defaults for local inspection. The
+notebook displays the resolved layer so the source manifests and destination
+names are explicit.
 """
 
 # ╔═╡ 50436a4d-d449-4306-82e2-005549db5b07
@@ -75,7 +74,7 @@ function merged_collection_config(artifact_cfg, orchestration_cfg)
 end
 
 # ╔═╡ d68d5803-b80f-4c9a-a161-fd4f4f259b2b
-collection_cfg = merged_collection_config(artifact_cfg, publication_cfg)
+collection_cfg = merged_collection_config(artifact_cfg, notebook_orchestration_cfg)
 
 # ╔═╡ 26484b47-d6fb-4e99-8f1e-8777941c7715
 begin
@@ -101,7 +100,7 @@ end
 collection_summary = DataFrame(
     item = [
         "artifact config",
-        "publication config",
+        "notebook config",
         "output root",
         "manifests root",
         "destination root",
@@ -113,7 +112,7 @@ collection_summary = DataFrame(
     ],
     value = [
         artifact_config_path,
-        publication_config_path,
+        joinpath(nb_root(), "notebook_config.toml"),
         portable_path(output_root),
         portable_path(manifests_root),
         portable_path(destination_root),
@@ -229,7 +228,7 @@ begin
         ],
         stage_family = [source_stage_label(String(config_value(spec, "source_stage", ""))) for spec in artifact_specs],
         included_by_publication_config = [
-            source_stage_included(String(config_value(spec, "source_stage", "")), publication_cfg)
+            source_stage_included(String(config_value(spec, "source_stage", "")), notebook_orchestration_cfg)
             for spec in artifact_specs
         ],
     )
