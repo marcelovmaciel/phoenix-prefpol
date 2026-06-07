@@ -4,6 +4,18 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    return quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
+
 # ╔═╡ 26f5b7cf-f12f-4ef3-b6e8-9f39e176a9a1
 begin
     import Pkg
@@ -342,7 +354,7 @@ function summarize_compact(draws::pp.DataFrame, metrics)
         :K,
     ]
     rows = NamedTuple[]
-    for subdf in groupby(draws, group_cols)
+    for subdf in pp.groupby(draws, group_cols)
         base = NamedTuple(name => subdf[1, name] for name in group_cols)
         for metric in metrics
             stats = compact_quantiles(subdf[!, metric])
@@ -489,6 +501,32 @@ validation_table = pp.DataFrame(
 # ╔═╡ 33895577-0e14-4e65-857f-0fb9bc164aae
 small_table(validation_table; n = pp.nrow(validation_table))
 
+# ╔═╡ 36d03605-3266-4ceb-a63c-a78365d6da45
+TableOfContents()
+
+# ╔═╡ 7e9afa2b-ccf8-4f0f-94be-6139c65ec58f
+begin
+    @bind selected_leaf_index Select(1:pp.nrow(linearized_rows))
+end
+
+# ╔═╡ 4ed19b2a-1444-49aa-800c-c239b6efddf5
+selected_linearized_leaf = linearized_leaf_table[selected_leaf_index:selected_leaf_index, :]
+
+# ╔═╡ 0f77ce68-e455-4243-9d96-b2142f435858
+small_table(selected_linearized_leaf; n = pp.nrow(selected_linearized_leaf))
+
+# ╔═╡ 8e9256c6-19e9-4f57-807d-6ddfa9286314
+selected_effective_draw = effective_draws_compact[
+    (effective_draws_compact.b .== linearized_rows[selected_leaf_index, :b]) .&
+    (effective_draws_compact.r .== linearized_rows[selected_leaf_index, :r]) .&
+    (effective_draws_compact.k .== linearized_rows[selected_leaf_index, :k]) .&
+    (effective_draws_compact.m .== linearized_rows[selected_leaf_index, :m]),
+    :,
+]
+
+# ╔═╡ e7b62e56-e58c-4048-aba3-fa0010dcf656
+small_table(selected_effective_draw; n = pp.nrow(selected_effective_draw))
+
 # ╔═╡ Cell order:
 # ╠═26f5b7cf-f12f-4ef3-b6e8-9f39e176a9a1
 # ╟─a1b9f4a4-01d5-4a85-9ef4-efb3aeeff1f1
@@ -531,3 +569,9 @@ small_table(validation_table; n = pp.nrow(validation_table))
 # ╠═b3da13ed-72f8-4429-8a5e-a407d5cb04ef
 # ╠═696914f3-f9e5-41aa-bbd8-0f97701391b6
 # ╠═33895577-0e14-4e65-857f-0fb9bc164aae
+# ╠═36d03605-3266-4ceb-a63c-a78365d6da45
+# ╠═7e9afa2b-ccf8-4f0f-94be-6139c65ec58f
+# ╠═4ed19b2a-1444-49aa-800c-c239b6efddf5
+# ╠═0f77ce68-e455-4243-9d96-b2142f435858
+# ╠═8e9256c6-19e9-4f57-807d-6ddfa9286314
+# ╠═e7b62e56-e58c-4048-aba3-fa0010dcf656

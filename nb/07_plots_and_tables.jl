@@ -95,14 +95,14 @@ function compact_mean(values)
 end
 
 # ╔═╡ 8045fed9-e5a3-41ef-99c8-1d5e3fb8cd2e
-function effective_summary_from_draws(draws::DataFrame)
+function effective_summary_from_draws(draws::pp.DataFrame)
     group_cols = [
         :year,
         :scenario_name,
         :m,
     ]
-    base = combine(
-        groupby(draws, group_cols),
+    base = pp.combine(
+        pp.groupby(draws, group_cols),
         :n_rankings_observed => compact_mean => :n_rankings_observed_mean,
         :EO => compact_median => :EO_median,
         :n_reversal_pairs_observed => compact_mean => :n_reversal_pairs_observed_mean,
@@ -110,13 +110,13 @@ function effective_summary_from_draws(draws::DataFrame)
         :max_rankings_possible => first => :max_rankings_possible,
         :max_reversal_pairs_possible => first => :max_reversal_pairs_possible,
     )
-    base[!, :imputer_backend] = fill(String(first(settings.imputer_backends)), nrow(base))
-    base[!, :linearizer_policy] = fill(String(first(settings.linearizer_policies)), nrow(base))
-    base[!, :analysis_role] = fill("main", nrow(base))
-    base[!, :B] = fill(settings.B, nrow(base))
-    base[!, :R] = fill(settings.R, nrow(base))
-    base[!, :K] = fill(settings.K, nrow(base))
-    return sort(select(
+    base[!, :imputer_backend] = fill(String(first(settings.imputer_backends)), pp.nrow(base))
+    base[!, :linearizer_policy] = fill(String(first(settings.linearizer_policies)), pp.nrow(base))
+    base[!, :analysis_role] = fill("main", pp.nrow(base))
+    base[!, :B] = fill(settings.B, pp.nrow(base))
+    base[!, :R] = fill(settings.R, pp.nrow(base))
+    base[!, :K] = fill(settings.K, pp.nrow(base))
+    return sort(pp.select(
         base,
         [
             :year,
@@ -144,7 +144,7 @@ function require_effective_draws(path::AbstractString)
         "Missing notebook diagnostic CSV: $(path). Run 06_extra_diagnostics.jl " *
         "so table values are derived from PrefPol outputs instead of a fallback.",
     )
-    return CSV.read(path, DataFrame)
+    return CSV.read(path, pp.DataFrame)
 end
 
 # ╔═╡ d656a29f-0f9b-4888-a36b-a9cdb0245800
@@ -154,16 +154,16 @@ begin
 end
 
 # ╔═╡ d6849655-7c1a-4ee4-bf8c-69c5636a5aa4
-source_table = DataFrame(
+source_table = pp.DataFrame(
     item = ["source mode", "source path", "rows"],
-    value = [source_mode, effective_draws_path, string(nrow(effective_counts_summary))],
+    value = [source_mode, effective_draws_path, string(pp.nrow(effective_counts_summary))],
 )
 
 # ╔═╡ 08217786-04e0-4314-b045-7796c18aaadf
-small_table(source_table; n = nrow(source_table))
+small_table(source_table; n = pp.nrow(source_table))
 
 # ╔═╡ 6ab869ca-1a12-42ca-9b3b-de23da4e104b
-small_table(effective_counts_summary; n = min(12, nrow(effective_counts_summary)))
+small_table(effective_counts_summary; n = min(12, pp.nrow(effective_counts_summary)))
 
 # ╔═╡ 1daac4ef-0f08-492c-8a3c-08bbf0ec6c65
 md"""
@@ -193,14 +193,14 @@ function latex_escape(value)
 end
 
 # ╔═╡ 1801bc15-2f1c-4a1d-af58-9514054dd0bc
-function table_row_by_m(table::DataFrame, m::Integer)
+function table_row_by_m(table::pp.DataFrame, m::Integer)
     rows = table[Int.(table.m) .== Int(m), :]
-    nrow(rows) == 1 || error("Expected exactly one row for m=$(m), found $(nrow(rows)).")
+    pp.nrow(rows) == 1 || error("Expected exactly one row for m=$(m), found $(pp.nrow(rows)).")
     return rows[1, :]
 end
 
 # ╔═╡ 13db0754-356f-4a01-b695-633983971157
-function presentation_rows(per_year_tables::Dict{Int,DataFrame}; paper_only::Bool)
+function presentation_rows(per_year_tables::Dict{Int,pp.DataFrame}; paper_only::Bool)
     years = sort(collect(keys(per_year_tables)))
     headers = ["m"]
     for year in years
@@ -277,7 +277,7 @@ end
 # ╔═╡ ddc4af92-6d9c-49dd-a69f-ae71dfbdb3dd
 begin
     local_effective_table_dir = joinpath(notebook_table_dir, "effective_rankings")
-    per_year_tables = Dict{Int,DataFrame}()
+    per_year_tables = Dict{Int,pp.DataFrame}()
     per_year_csv_paths = String[]
 
     for target in targets
@@ -328,7 +328,7 @@ begin
 end
 
 # ╔═╡ 811e435f-cc0d-426e-b11b-450b1502ce93
-local_table_outputs = DataFrame(
+local_table_outputs = pp.DataFrame(
     artifact = [
         "per-year evolution CSVs",
         "combined CSV",
@@ -348,7 +348,7 @@ local_table_outputs = DataFrame(
 )
 
 # ╔═╡ e41f1db4-6e3e-4130-a9ac-bbe59d4a8030
-small_table(local_table_outputs; n = nrow(local_table_outputs))
+small_table(local_table_outputs; n = pp.nrow(local_table_outputs))
 
 # ╔═╡ 099ff0ce-b29f-457b-b79c-13446dce2729
 md"""
@@ -367,13 +367,13 @@ function load_local_evolution_tables(input_dir::AbstractString)
         for file in readdir(input_dir)
         if startswith(file, "effective_rankings_evolution_") && endswith(file, ".csv")
     ]
-    tables = DataFrame[]
+    tables = pp.DataFrame[]
     for file in sort(files)
-        df = CSV.read(file, DataFrame)
+        df = CSV.read(file, pp.DataFrame)
         required = [:year, :m, :EO_median, :ENRP_median]
         missing_cols = setdiff(required, propertynames(df))
         isempty(missing_cols) || error("$(file) is missing required columns $(missing_cols).")
-        push!(tables, select(df, intersect([:year, :scenario_name, :m, :EO_median, :ENRP_median], propertynames(df))))
+        push!(tables, pp.select(df, intersect([:year, :scenario_name, :m, :EO_median, :ENRP_median], propertynames(df))))
     end
     return sort(vcat(tables...; cols = :union), [:year, :m])
 end
@@ -382,7 +382,7 @@ end
 plot_data = load_local_evolution_tables(local_effective_table_dir)
 
 # ╔═╡ 9dff55ab-50ce-47c1-8e83-060998888cf4
-small_table(plot_data; n = min(12, nrow(plot_data)))
+small_table(plot_data; n = min(12, pp.nrow(plot_data)))
 
 # ╔═╡ 3f8c3139-4a14-4619-918c-858902b67dff
 begin
@@ -392,6 +392,7 @@ begin
         plot_data,
     )
     local_plot_path = ""
+    effective_evolution_fig = nothing
 
     if cairomakie_available
         mkpath(local_plot_dir)
@@ -409,19 +410,20 @@ begin
         end
         axislegend(ax1, "year"; position = :lt, framevisible = false)
 
+        effective_evolution_fig = fig
         local_plot_path = joinpath(local_plot_dir, "effective_rankings_evolution_local.png")
         save(local_plot_path, fig; px_per_unit = 2)
     end
 end
 
 # ╔═╡ 118b4a83-cb79-4ae0-9a77-315e7b3178b2
-plot_output_table = DataFrame(
+plot_output_table = pp.DataFrame(
     artifact = ["plot data CSV", "local plot PNG"],
     path = [plot_data_csv_path, isempty(local_plot_path) ? "(CairoMakie unavailable)" : local_plot_path],
 )
 
 # ╔═╡ ccc40dd0-c689-49fc-b6bd-e51db564ef20
-small_table(plot_output_table; n = nrow(plot_output_table))
+small_table(plot_output_table; n = pp.nrow(plot_output_table))
 
 # ╔═╡ 43ca314e-c53a-48dd-a902-1f86de2a6fb2
 md"""
@@ -432,13 +434,13 @@ This final compact view is the paper-facing core of the effective ranking table:
 """
 
 # ╔═╡ 3f1ad613-8a04-4827-b573-5ac1b21795e7
-local_eo_enrp_table = select(
+local_eo_enrp_table = pp.select(
     effective_counts_summary,
     [:year, :scenario_name, :m, :EO_median, :ENRP_median],
 )
 
 # ╔═╡ d751c8f2-d1ad-4f08-9fa0-87fa5908ac34
-small_table(local_eo_enrp_table; n = min(12, nrow(local_eo_enrp_table)))
+small_table(local_eo_enrp_table; n = min(12, pp.nrow(local_eo_enrp_table)))
 
 # ╔═╡ 4eff5688-a346-49db-baf2-4baaa3caee89
 function is_under_directory(child_path::AbstractString, parent_path::AbstractString)
@@ -459,7 +461,7 @@ begin
     ]
     isempty(local_plot_path) || push!(output_paths_to_check, local_plot_path)
 
-    validation_table = DataFrame(
+    validation_table = pp.DataFrame(
         check = [
             "table outputs under notebook output root",
             "plot outputs under notebook output root",
@@ -474,7 +476,19 @@ begin
 end
 
 # ╔═╡ 843ece57-211f-49e8-806d-723d02c258b3
-small_table(validation_table; n = nrow(validation_table))
+small_table(validation_table; n = pp.nrow(validation_table))
+
+# ╔═╡ 4daa728e-fdf3-4e53-a35f-73521bbabedf
+TableOfContents()
+
+# ╔═╡ 72b7b279-1df0-4f1e-b60a-05565b880d69
+effective_evolution_fig
+
+# ╔═╡ 68d0200e-157e-4728-89f1-0217557672c5
+inline_effective_plot = isempty(local_plot_path) ? missing : LocalResource(local_plot_path)
+
+# ╔═╡ 75ef5841-66e7-4d9b-93d6-2f04616e80b9
+inline_effective_plot
 
 # ╔═╡ Cell order:
 # ╠═f3f55370-21e3-44f2-8fe4-6be130f24166
@@ -518,3 +532,7 @@ small_table(validation_table; n = nrow(validation_table))
 # ╠═4eff5688-a346-49db-baf2-4baaa3caee89
 # ╠═01208348-c961-4d93-a46b-edffb88f4b5b
 # ╠═843ece57-211f-49e8-806d-723d02c258b3
+# ╠═4daa728e-fdf3-4e53-a35f-73521bbabedf
+# ╠═72b7b279-1df0-4f1e-b60a-05565b880d69
+# ╠═68d0200e-157e-4728-89f1-0217557672c5
+# ╠═75ef5841-66e7-4d9b-93d6-2f04616e80b9

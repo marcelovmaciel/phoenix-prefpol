@@ -1,12 +1,31 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
+
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    return quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
 
 # ╔═╡ 4c9c0dc8-1f16-4fcf-b31e-bf348a5c71f1
 begin
     import Pkg
     Pkg.activate(@__DIR__)
+end
+
+# ╔═╡ 8e6c729a-1671-4e0a-94c2-9c418c8d9bcf
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
 end
 
 # ╔═╡ 2dd177aa-ff1a-46c5-9291-7fae041e07a2
@@ -32,12 +51,6 @@ number of imputations per bootstrap sample. This corresponds to the production
 resampling and imputation passes, but this notebook uses
 `nb/notebook_config.toml` and writes only under `nb/output/notebook_smoke`.
 """
-
-# ╔═╡ 8e6c729a-1671-4e0a-94c2-9c418c8d9bcf
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-end
 
 # ╔═╡ 98aa628b-9b14-4e6a-a0ca-8d68153c79c4
 begin
@@ -73,7 +86,7 @@ begin
 end
 
 # ╔═╡ a58c4ffc-f6dc-472d-bd08-3ab8d0697ba7
-selected_spec_table = DataFrame(
+selected_spec_table = pp.DataFrame(
     item = [
         "batch index",
         "wave",
@@ -105,7 +118,7 @@ selected_spec_table = DataFrame(
 )
 
 # ╔═╡ 7f7a83be-961e-4760-8842-b857c02627f6
-small_table(selected_spec_table; n = nrow(selected_spec_table))
+small_table(selected_spec_table; n = pp.nrow(selected_spec_table))
 
 # ╔═╡ a99b83ea-bde6-4ccf-9bee-a2f8d92e953c
 md"""
@@ -133,7 +146,7 @@ begin
 end
 
 # ╔═╡ 32741471-8900-455d-b149-ae2549f2d31f
-resample_manifest_compact = select(
+resample_manifest_compact = pp.select(
     resample_manifest,
     intersect(
         [:stage, :b, :r, :k, :seed, :artifact_kind, :path, :wave_id, :scenario_name, :m, :B, :R],
@@ -142,7 +155,7 @@ resample_manifest_compact = select(
 )
 
 # ╔═╡ fb58d660-8ada-4382-8053-3a4ab8ed0f5c
-small_table(resample_manifest_compact; n = nrow(resample_manifest_compact))
+small_table(resample_manifest_compact; n = pp.nrow(resample_manifest_compact))
 
 # ╔═╡ 4dc60b1e-545e-4582-9080-7cd663cb1fb6
 md"""
@@ -154,7 +167,7 @@ upstream cache artifacts needed to make the bootstrap reproducible.
 """
 
 # ╔═╡ 47be0c6d-05a3-4d5c-9a86-8e175bf504f6
-resample_artifact_locations = DataFrame(
+resample_artifact_locations = pp.DataFrame(
     item = ["pipeline cache directory", "resample artifacts"],
     value = [
         cache_dir,
@@ -166,41 +179,7 @@ resample_artifact_locations = DataFrame(
 )
 
 # ╔═╡ 3b769033-09e6-4fa7-9fb3-a78391f4d564
-small_table(resample_artifact_locations; n = nrow(resample_artifact_locations))
-
-# ╔═╡ 71210589-9dc8-41ac-8ed5-17d2c2f79508
-begin
-    observed = pp.ensure_observed!(pipeline, selected_spec; force = false)
-    first_resample_path = only(resample_raw_manifest.path[
-        (resample_raw_manifest.stage .== :resample) .& (resample_raw_manifest.b .== 1)
-    ])
-    first_resample_artifact = pp.load_stage_artifact(first_resample_path)
-    first_resample_indices = Vector{Int}(first_resample_artifact.indices)
-    first_resampled_scores = observed.scores[first_resample_indices, :]
-end
-
-# ╔═╡ c4ec6268-a850-4aaa-8e35-54943d2bd7c5
-resample_diagnostics = DataFrame(
-    item = [
-        "observed rows",
-        "resampled rows",
-        "unique observed rows drawn",
-        "observed rows not drawn",
-        "largest row multiplicity",
-        "resample seed",
-    ],
-    value = [
-        string(nrow(observed.scores)),
-        string(length(first_resample_indices)),
-        string(length(unique(first_resample_indices))),
-        string(count(==(0), Vector{Int}(first_resample_artifact.multiplicities))),
-        string(maximum(Vector{Int}(first_resample_artifact.multiplicities))),
-        string(first_resample_artifact.seed),
-    ],
-)
-
-# ╔═╡ 605c4198-1900-47e3-8fc6-3b01af87fa4c
-small_table(resample_diagnostics; n = nrow(resample_diagnostics))
+small_table(resample_artifact_locations; n = pp.nrow(resample_artifact_locations))
 
 # ╔═╡ 20fb42f3-6cfa-4b14-8a46-b26e5e98acea
 md"""
@@ -231,7 +210,7 @@ begin
 end
 
 # ╔═╡ 11b68308-c611-468b-8315-72ed8786ac4e
-imputation_manifest_compact = select(
+imputation_manifest_compact = pp.select(
     imputation_manifest,
     intersect(
         [:stage, :b, :r, :k, :seed, :artifact_kind, :path, :wave_id, :scenario_name, :m, :B, :R, :imputer_backend],
@@ -240,57 +219,12 @@ imputation_manifest_compact = select(
 )
 
 # ╔═╡ e9d2176a-264d-4702-b9e2-1082c8764ac0
-small_table(imputation_manifest_compact; n = nrow(imputation_manifest_compact))
-
-# ╔═╡ b42c3a64-7b56-49e6-a88c-49885dc68373
-begin
-    first_imputed_path = only(imputation_raw_manifest.path[
-        (imputation_raw_manifest.stage .== :imputed) .&
-        (imputation_raw_manifest.b .== 1) .&
-        (imputation_raw_manifest.r .== 1)
-    ])
-    first_imputed_artifact = pp.load_stage_artifact(first_imputed_path)
-    first_imputed_table = DataFrame(first_imputed_artifact.table)
-end
+small_table(imputation_manifest_compact; n = pp.nrow(imputation_manifest_compact))
 
 # ╔═╡ 02d3bf03-b094-4c2d-a06e-b5836eb9df10
 function score_missing_count(df, cols)
     return sum(col -> count(x -> pp.is_eseb_missing_score(x), df[!, col]), cols)
 end
-
-# ╔═╡ ad1c2021-d1b4-42f9-85e6-0115ae11d10a
-begin
-    score_cols = selected_spec.active_candidates
-    imputation_diagnostics = DataFrame(
-        item = [
-            "imputed artifact",
-            "backend",
-            "bootstrap branch b",
-            "imputation branch r",
-            "rows before imputation",
-            "rows after imputation",
-            "score columns inspected",
-            "missing score cells before",
-            "missing score cells after",
-            "imputation seed",
-        ],
-        value = [
-            first_imputed_path,
-            String(first_imputed_artifact.backend),
-            string(1),
-            string(1),
-            string(nrow(first_resampled_scores)),
-            string(nrow(first_imputed_table)),
-            join(score_cols, ", "),
-            string(score_missing_count(first_resampled_scores, score_cols)),
-            string(score_missing_count(first_imputed_table, score_cols)),
-            string(first_imputed_artifact.seed),
-        ],
-    )
-end
-
-# ╔═╡ b0c8296b-de01-4ca6-b911-7d0caf90c5fd
-small_table(imputation_diagnostics; n = nrow(imputation_diagnostics))
 
 # ╔═╡ 619c7969-6255-4d4b-88a7-b72efad68175
 begin
@@ -323,6 +257,123 @@ notebook cache root. The following compact CSV summaries are notebook-local
 inspection tables, not production manifests.
 """
 
+# ╔═╡ 8f393058-eeb3-4426-bd07-e4d5ce7e9a27
+begin
+    resample_artifacts_exist = all(isfile, resample_raw_manifest.path[resample_raw_manifest.stage .== :resample])
+    imputation_artifacts_exist = all(isfile, imputation_raw_manifest.path[imputation_raw_manifest.stage .== :imputed])
+    production_manifest_touched = isfile(joinpath(NOTEBOOK_PUBLICATION_OUTPUT, "manifests", "bootstrap_manifest.csv")) ||
+                                  isfile(joinpath(NOTEBOOK_PUBLICATION_OUTPUT, "manifests", "imputation_manifest.csv"))
+    validation_table = pp.DataFrame(
+        check = [
+            "resample artifacts exist",
+            "imputation artifacts exist",
+            "notebook output root",
+            "publication manifests present",
+        ],
+        value = [
+            string(resample_artifacts_exist),
+            string(imputation_artifacts_exist),
+            settings.output_root,
+            string(production_manifest_touched),
+        ],
+    )
+end
+
+# ╔═╡ 30f6a4d3-2e6f-4470-bb74-99abe98905dc
+small_table(validation_table; n = pp.nrow(validation_table))
+
+# ╔═╡ be46be93-76d2-474b-9d7b-407a193059ad
+TableOfContents()
+
+# ╔═╡ 00fb774b-0539-4870-9ea1-12f2bde481bb
+begin
+    @bind selected_b Select(1:selected_spec.B)
+end
+
+# ╔═╡ 71210589-9dc8-41ac-8ed5-17d2c2f79508
+begin
+    observed = pp.ensure_observed!(pipeline, selected_spec; force = false)
+    first_resample_path = only(resample_raw_manifest.path[
+        (resample_raw_manifest.stage .== :resample) .& (resample_raw_manifest.b .== selected_b)
+    ])
+    first_resample_artifact = pp.load_stage_artifact(first_resample_path)
+    first_resample_indices = Vector{Int}(first_resample_artifact.indices)
+    first_resampled_scores = observed.scores[first_resample_indices, :]
+end
+
+# ╔═╡ c4ec6268-a850-4aaa-8e35-54943d2bd7c5
+resample_diagnostics = pp.DataFrame(
+    item = [
+        "observed rows",
+        "resampled rows",
+        "unique observed rows drawn",
+        "observed rows not drawn",
+        "largest row multiplicity",
+        "resample seed",
+    ],
+    value = [
+        string(pp.nrow(observed.scores)),
+        string(length(first_resample_indices)),
+        string(length(unique(first_resample_indices))),
+        string(count(==(0), Vector{Int}(first_resample_artifact.multiplicities))),
+        string(maximum(Vector{Int}(first_resample_artifact.multiplicities))),
+        string(first_resample_artifact.seed),
+    ],
+)
+
+# ╔═╡ 605c4198-1900-47e3-8fc6-3b01af87fa4c
+small_table(resample_diagnostics; n = pp.nrow(resample_diagnostics))
+
+# ╔═╡ d4996692-0ee4-468a-85a9-cf429b6f357e
+begin
+    @bind selected_r Select(1:selected_spec.R)
+end
+
+# ╔═╡ b42c3a64-7b56-49e6-a88c-49885dc68373
+begin
+    first_imputed_path = only(imputation_raw_manifest.path[
+        (imputation_raw_manifest.stage .== :imputed) .&
+        (imputation_raw_manifest.b .== selected_b) .&
+        (imputation_raw_manifest.r .== selected_r)
+    ])
+    first_imputed_artifact = pp.load_stage_artifact(first_imputed_path)
+    first_imputed_table = pp.DataFrame(first_imputed_artifact.table)
+end
+
+# ╔═╡ ad1c2021-d1b4-42f9-85e6-0115ae11d10a
+begin
+    score_cols = selected_spec.active_candidates
+    imputation_diagnostics = pp.DataFrame(
+        item = [
+            "imputed artifact",
+            "backend",
+            "bootstrap branch b",
+            "imputation branch r",
+            "rows before imputation",
+            "rows after imputation",
+            "score columns inspected",
+            "missing score cells before",
+            "missing score cells after",
+            "imputation seed",
+        ],
+        value = [
+            first_imputed_path,
+            String(first_imputed_artifact.backend),
+            string(selected_b),
+            string(selected_r),
+            string(pp.nrow(first_resampled_scores)),
+            string(pp.nrow(first_imputed_table)),
+            join(score_cols, ", "),
+            string(score_missing_count(first_resampled_scores, score_cols)),
+            string(score_missing_count(first_imputed_table, score_cols)),
+            string(first_imputed_artifact.seed),
+        ],
+    )
+end
+
+# ╔═╡ b0c8296b-de01-4ca6-b911-7d0caf90c5fd
+small_table(imputation_diagnostics; n = pp.nrow(imputation_diagnostics))
+
 # ╔═╡ d9451515-7216-4131-89fd-9710151616e5
 begin
     notebook_table_dir = joinpath(settings.output_root, "notebook_tables")
@@ -345,7 +396,7 @@ begin
 end
 
 # ╔═╡ 14da4a04-ef2c-4a73-b122-9a085d04318f
-notebook_csv_table = DataFrame(
+notebook_csv_table = pp.DataFrame(
     artifact = [
         "bootstrap manifest summary",
         "imputation manifest summary",
@@ -361,32 +412,55 @@ notebook_csv_table = DataFrame(
 )
 
 # ╔═╡ 0b052b23-e2b5-4090-8d87-4db780c47aa8
-small_table(notebook_csv_table; n = nrow(notebook_csv_table))
+small_table(notebook_csv_table; n = pp.nrow(notebook_csv_table))
 
-# ╔═╡ 8f393058-eeb3-4426-bd07-e4d5ce7e9a27
+# ╔═╡ 106274a2-73a9-4475-9e2a-06e00086ecef
+observed_score_rows = candidate_score_preview(
+    observed.scores,
+    selected_spec.active_candidates;
+    n = 10,
+)
+
+# ╔═╡ dbb733eb-9ec9-4e79-97c8-3a396b177bc2
+small_table(observed_score_rows; n = pp.nrow(observed_score_rows))
+
+# ╔═╡ 8260b68e-f14c-4175-8f8b-3ab165fb5933
+observed_missingness = candidate_missingness_table(observed.scores, selected_spec.active_candidates)
+
+# ╔═╡ 0d68961c-0b3e-4c7f-b89a-deca0dc61530
+small_table(observed_missingness; n = pp.nrow(observed_missingness))
+
+# ╔═╡ a46918b9-dee9-4028-9e7a-280105b7375c
+bootstrap_multiplicities = resample_multiplicity_table(first_resample_artifact; n = 20)
+
+# ╔═╡ 06d5cf73-9ccb-4209-8678-85c7cc839942
+small_table(bootstrap_multiplicities; n = pp.nrow(bootstrap_multiplicities))
+
+# ╔═╡ 5062b9d6-19e3-4a17-9887-da2111d09133
 begin
-    resample_artifacts_exist = all(isfile, resample_raw_manifest.path[resample_raw_manifest.stage .== :resample])
-    imputation_artifacts_exist = all(isfile, imputation_raw_manifest.path[imputation_raw_manifest.stage .== :imputed])
-    production_manifest_touched = isfile(joinpath(NOTEBOOK_PUBLICATION_OUTPUT, "manifests", "bootstrap_manifest.csv")) ||
-                                  isfile(joinpath(NOTEBOOK_PUBLICATION_OUTPUT, "manifests", "imputation_manifest.csv"))
-    validation_table = DataFrame(
-        check = [
-            "resample artifacts exist",
-            "imputation artifacts exist",
-            "notebook output root",
-            "publication manifests present",
-        ],
-        value = [
-            string(resample_artifacts_exist),
-            string(imputation_artifacts_exist),
-            settings.output_root,
-            string(production_manifest_touched),
-        ],
-    )
+    @bind selected_row Select(1:min(pp.nrow(first_imputed_table), 20))
 end
 
-# ╔═╡ 30f6a4d3-2e6f-4470-bb74-99abe98905dc
-small_table(validation_table; n = nrow(validation_table))
+# ╔═╡ cef385d0-e0a9-46fe-94f9-32b991f9ab6f
+imputation_row_comparison = before_after_score_rows(
+    first_resampled_scores,
+    first_imputed_table,
+    selected_spec.active_candidates,
+    [selected_row],
+)
+
+# ╔═╡ 49d0f8a4-25df-439f-8e65-a99a297ba7be
+small_table(imputation_row_comparison; n = pp.nrow(imputation_row_comparison))
+
+# ╔═╡ 07a65c34-94aa-452f-8527-0b8204b8b87b
+imputation_missingness_by_candidate = vcat(
+    transform(candidate_missingness_table(first_resampled_scores, selected_spec.active_candidates), [] => (() -> "before") => :stage),
+    transform(candidate_missingness_table(first_imputed_table, selected_spec.active_candidates), [] => (() -> "after") => :stage);
+    cols = :union,
+)
+
+# ╔═╡ 2963efd9-152b-4238-9e81-f524e50dead4
+small_table(imputation_missingness_by_candidate; n = pp.nrow(imputation_missingness_by_candidate))
 
 # ╔═╡ Cell order:
 # ╠═4c9c0dc8-1f16-4fcf-b31e-bf348a5c71f1
@@ -426,3 +500,17 @@ small_table(validation_table; n = nrow(validation_table))
 # ╠═0b052b23-e2b5-4090-8d87-4db780c47aa8
 # ╠═8f393058-eeb3-4426-bd07-e4d5ce7e9a27
 # ╠═30f6a4d3-2e6f-4470-bb74-99abe98905dc
+# ╠═be46be93-76d2-474b-9d7b-407a193059ad
+# ╠═00fb774b-0539-4870-9ea1-12f2bde481bb
+# ╠═d4996692-0ee4-468a-85a9-cf429b6f357e
+# ╠═106274a2-73a9-4475-9e2a-06e00086ecef
+# ╠═dbb733eb-9ec9-4e79-97c8-3a396b177bc2
+# ╠═8260b68e-f14c-4175-8f8b-3ab165fb5933
+# ╠═0d68961c-0b3e-4c7f-b89a-deca0dc61530
+# ╠═a46918b9-dee9-4028-9e7a-280105b7375c
+# ╠═06d5cf73-9ccb-4209-8678-85c7cc839942
+# ╠═5062b9d6-19e3-4a17-9887-da2111d09133
+# ╠═cef385d0-e0a9-46fe-94f9-32b991f9ab6f
+# ╠═49d0f8a4-25df-439f-8e65-a99a297ba7be
+# ╠═07a65c34-94aa-452f-8527-0b8204b8b87b
+# ╠═2963efd9-152b-4238-9e81-f524e50dead4

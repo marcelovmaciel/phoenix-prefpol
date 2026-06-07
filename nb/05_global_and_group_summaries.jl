@@ -4,6 +4,18 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    return quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
+
 # ╔═╡ 1b48c92a-5d58-4db7-9f55-f92c1a52a1f2
 begin
     import Pkg
@@ -86,7 +98,7 @@ notebook_batch_table = pp.DataFrame(
 )
 
 # ╔═╡ 29ba8b54-a01b-4a90-8646-5feb394a2f82
-small_table(notebook_batch_table; n = nrow(notebook_batch_table))
+small_table(notebook_batch_table; n = pp.nrow(notebook_batch_table))
 
 # ╔═╡ 60a66ff2-c61b-4949-80f3-b4065b25cad3
 md"""
@@ -121,12 +133,12 @@ end
 pipeline_result_table = pp.DataFrame(
     batch_index = collect(eachindex(batch_results.results)),
     cache_dir = [result.cache_dir for result in batch_results.results],
-    measure_cube_rows = [nrow(result.measure_cube) for result in batch_results.results],
-    pooled_summary_rows = [nrow(result.pooled_summaries) for result in batch_results.results],
+    measure_cube_rows = [pp.nrow(result.measure_cube) for result in batch_results.results],
+    pooled_summary_rows = [pp.nrow(result.pooled_summaries) for result in batch_results.results],
 )
 
 # ╔═╡ a5e6d5ac-a579-44dc-9036-3d28ac354936
-small_table(pipeline_result_table; n = nrow(pipeline_result_table))
+small_table(pipeline_result_table; n = pp.nrow(pipeline_result_table))
 
 # ╔═╡ a25da9b6-96ff-4b63-bd54-4a9f91428a11
 md"""
@@ -156,7 +168,7 @@ begin
 end
 
 # ╔═╡ a0265370-9bd1-48e1-8a16-7d35632c4aa3
-global_summary_table = sorted_table(select(
+global_summary_table = sorted_table(pp.select(
     global_panel_rows,
     :year,
     :wave_id,
@@ -175,7 +187,7 @@ global_summary_table = sorted_table(select(
 ))
 
 # ╔═╡ 11656802-f99b-466d-8d72-2a338e58d76a
-small_table(global_summary_table; n = nrow(global_summary_table))
+small_table(global_summary_table; n = pp.nrow(global_summary_table))
 
 # ╔═╡ 5f01469a-3f1d-4567-ab8e-796c7043de25
 begin
@@ -199,7 +211,7 @@ m_sweep_note
 # ╔═╡ af12e60d-cee1-4b4b-9e07-72501d72473d
 begin
     scenario_plot_data_tables = pp.DataFrame[]
-    for row in eachrow(unique(select(
+    for row in eachrow(unique(pp.select(
         global_summary_table,
         [:wave_id, :scenario, :imputer_backend, :linearizer_policy],
     )))
@@ -227,7 +239,7 @@ begin
             imputer_backend = Symbol(row.imputer_backend),
             measures = notebook_global_measures,
         )
-        push!(scenario_plot_data_tables, sorted_table(select(
+        push!(scenario_plot_data_tables, sorted_table(pp.select(
             plot_data.rows,
             intersect([
                 :year,
@@ -259,7 +271,7 @@ global plot-data constructor used before the stage draws the paper figure.
 """
 
 # ╔═╡ 2fddc636-dba3-4994-a233-3621d25140d5
-small_table(scenario_plot_data_table; n = min(20, nrow(scenario_plot_data_table)))
+small_table(scenario_plot_data_table; n = min(20, pp.nrow(scenario_plot_data_table)))
 
 # ╔═╡ 80c5f12d-7c5e-438d-852c-ac5c08f152ea
 md"""
@@ -280,20 +292,20 @@ begin
         include_grouped = true,
     )
 
-    groupings_by_wave = combine(
-        groupby(group_panel_rows, [:year, :wave_id]),
+    groupings_by_wave = pp.combine(
+        pp.groupby(group_panel_rows, [:year, :wave_id]),
         :grouping => (xs -> join(sort(unique(String.(skipmissing(xs)))), ", ")) => :groupings,
     )
     groupings_by_wave = sort(groupings_by_wave, [:year, :wave_id])
 end
 
 # ╔═╡ be5320e0-a27f-4511-a812-f790f5fc4b71
-small_table(groupings_by_wave; n = nrow(groupings_by_wave))
+small_table(groupings_by_wave; n = pp.nrow(groupings_by_wave))
 
 # ╔═╡ 4127132e-6657-4d1b-bcad-9fbc3206196b
 begin
     heatmap_ready_tables = pp.DataFrame[]
-    for row in eachrow(unique(select(
+    for row in eachrow(unique(pp.select(
         group_panel_rows,
         [:year, :wave_id, :scenario_name, :imputer_backend, :linearizer_policy],
     )))
@@ -329,7 +341,7 @@ begin
             statistic = :median,
         )
 
-        compact = select(
+        compact = pp.select(
             heatmap_data.rows,
             :year,
             :wave_id,
@@ -369,7 +381,7 @@ used by the heatmap-oriented plot-data constructor.
 """
 
 # ╔═╡ c81db0c1-8bcb-4f84-9b41-a555bcd4cc1a
-small_table(group_summary_table; n = min(30, nrow(group_summary_table)))
+small_table(group_summary_table; n = min(30, pp.nrow(group_summary_table)))
 
 # ╔═╡ 3e0246fe-58e7-4c55-94ff-85e3474c818d
 md"""
@@ -402,7 +414,7 @@ function try_write_notebook_plots(global_df::pp.DataFrame, group_df::pp.DataFram
             path = joinpath(plot_dir, "global_summary_by_m.png")
             fig = CairoMakie.Figure(size = (760, 420))
             ax = CairoMakie.Axis(fig[1, 1]; xlabel = "m", ylabel = "q50", title = "Global summaries")
-            for subdf in groupby(sort(global_df, [:measure, :m]), :measure)
+            for subdf in pp.groupby(sort(global_df, [:measure, :m]), :measure)
                 CairoMakie.lines!(ax, subdf.m, subdf.q50; label = String(subdf[1, :measure]))
                 CairoMakie.scatter!(ax, subdf.m, subdf.q50)
             end
@@ -413,13 +425,13 @@ function try_write_notebook_plots(global_df::pp.DataFrame, group_df::pp.DataFram
 
         if !isempty(group_df)
             path = joinpath(plot_dir, "group_summary_by_m.png")
-            summary = combine(
-                groupby(group_df, [:m, :measure]),
+            summary = pp.combine(
+                pp.groupby(group_df, [:m, :measure]),
                 :q50 => mean => :mean_q50,
             )
             fig = CairoMakie.Figure(size = (760, 420))
             ax = CairoMakie.Axis(fig[1, 1]; xlabel = "m", ylabel = "mean q50 across groupings", title = "Grouped summaries")
-            for subdf in groupby(sort(summary, [:measure, :m]), :measure)
+            for subdf in pp.groupby(sort(summary, [:measure, :m]), :measure)
                 CairoMakie.lines!(ax, subdf.m, subdf.mean_q50; label = String(subdf[1, :measure]))
                 CairoMakie.scatter!(ax, subdf.m, subdf.mean_q50)
             end
@@ -451,7 +463,7 @@ plot_status_table = try_write_notebook_plots(
 )
 
 # ╔═╡ 2507eee6-961f-4e9d-be81-79bba975f9a8
-small_table(plot_status_table; n = nrow(plot_status_table))
+small_table(plot_status_table; n = pp.nrow(plot_status_table))
 
 # ╔═╡ 34b3996c-bf8b-433a-87b3-46fd5137ac8c
 md"""
@@ -479,11 +491,26 @@ end
 local_output_paths = pp.DataFrame(
     table = ["global summary", "group summary"],
     path = [global_summary_csv_path, group_summary_csv_path],
-    rows = [nrow(global_summary_table), nrow(group_summary_table)],
+    rows = [pp.nrow(global_summary_table), pp.nrow(group_summary_table)],
 )
 
 # ╔═╡ d54b144d-63e5-4fa2-bf46-5b9a22fdf29a
-small_table(local_output_paths; n = nrow(local_output_paths))
+small_table(local_output_paths; n = pp.nrow(local_output_paths))
+
+# ╔═╡ 1c70a594-baad-4d53-ad5b-8ed5e2af6cf9
+TableOfContents()
+
+# ╔═╡ 6f4888f6-8ddf-448f-84f1-713a36cd1d10
+begin
+    summary_grouping_options = sort(unique(String.(skipmissing(group_summary_table.grouping))))
+    @bind selected_grouping Select(summary_grouping_options)
+end
+
+# ╔═╡ 8a40fc31-79d9-4e24-b07a-39f462c03558
+selected_group_summary_table = group_summary_table[String.(group_summary_table.grouping) .== selected_grouping, :]
+
+# ╔═╡ 29f205ce-4c3a-45d9-a8bf-036b6761ee3c
+small_table(selected_group_summary_table; n = min(20, pp.nrow(selected_group_summary_table)))
 
 # ╔═╡ Cell order:
 # ╠═1b48c92a-5d58-4db7-9f55-f92c1a52a1f2
@@ -523,3 +550,7 @@ small_table(local_output_paths; n = nrow(local_output_paths))
 # ╠═e8bc70d6-0ba6-4836-9fc2-b8dc7ad09b3e
 # ╠═4996dd6d-2b2f-41ba-a7f0-89ad330574dd
 # ╠═d54b144d-63e5-4fa2-bf46-5b9a22fdf29a
+# ╠═1c70a594-baad-4d53-ad5b-8ed5e2af6cf9
+# ╠═6f4888f6-8ddf-448f-84f1-713a36cd1d10
+# ╠═8a40fc31-79d9-4e24-b07a-39f462c03558
+# ╠═29f205ce-4c3a-45d9-a8bf-036b6761ee3c

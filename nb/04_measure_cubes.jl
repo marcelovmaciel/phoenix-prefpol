@@ -4,6 +4,18 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    return quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
+
 # ╔═╡ 7c3d90a4-f6bd-4a55-96c5-7d7a2c32d43f
 begin
     import Pkg
@@ -199,7 +211,7 @@ small_table(result_fields; n = pp.nrow(result_fields))
 
 # ╔═╡ 83f864ef-04c8-43b5-9bdb-eaa18950b8a4
 begin
-    measure_cube_sample = sorted_table(select(
+    measure_cube_sample = sorted_table(pp.select(
         result.measure_cube,
         intersect(
             [:b, :r, :k, :measure, :grouping, :value, :value_lo, :value_hi],
@@ -234,7 +246,7 @@ small_table(grouped_measure_rows; n = min(20, pp.nrow(grouped_measure_rows)))
 
 # ╔═╡ decc0ce4-7e72-44fc-82ff-7243ad2d32c2
 begin
-    panel_table = sorted_table(select(
+    panel_table = sorted_table(pp.select(
         pp.pipeline_panel_table(result, selected_item.metadata),
         intersect(
             [
@@ -342,6 +354,55 @@ local_output_paths = pp.DataFrame(
 # ╔═╡ b9ec8997-34e7-44d8-8eba-3cb596f30d0b
 small_table(local_output_paths; n = pp.nrow(local_output_paths))
 
+# ╔═╡ b213efae-df39-4179-86d4-fb23dcd50b9b
+TableOfContents()
+
+# ╔═╡ e2be1a6d-2373-40ed-9823-35bc62f19a66
+begin
+    @bind selected_b Select(1:selected_spec.B)
+end
+
+# ╔═╡ b19f0ae8-d45e-4884-a35a-946617469462
+begin
+    @bind selected_r Select(1:selected_spec.R)
+end
+
+# ╔═╡ 5c9fa1f3-8cb7-443c-8779-e478d4dac8a3
+begin
+    @bind selected_k Select(1:selected_spec.K)
+end
+
+# ╔═╡ 9db41ddf-5eab-403f-bacc-7b980f16f898
+begin
+    grouping_options = String.(selected_spec.groupings)
+    @bind selected_grouping Select(grouping_options)
+end
+
+# ╔═╡ 49a6064d-c932-41b4-8af6-019ef75dcf2c
+selected_leaf_measure_rows = measure_cube_sample[
+    (measure_cube_sample.b .== selected_b) .&
+    (measure_cube_sample.r .== selected_r) .&
+    (measure_cube_sample.k .== selected_k) .&
+    (ismissing.(measure_cube_sample.grouping) .| (String.(measure_cube_sample.grouping) .== selected_grouping)),
+    :,
+]
+
+# ╔═╡ 0b6c1710-e27c-48ef-87d5-cf8c8ef7eb7c
+small_table(selected_leaf_measure_rows; n = min(20, pp.nrow(selected_leaf_measure_rows)))
+
+# ╔═╡ da5a043d-ee6d-44d0-bf7e-76af128db5c3
+measure_distribution_summary = pp.combine(
+    pp.groupby(result.measure_cube, [:measure, :grouping]),
+    :value => mean => :mean,
+    :value => median => :median,
+    :value => minimum => :minimum,
+    :value => maximum => :maximum,
+    pp.nrow => :draws,
+)
+
+# ╔═╡ 23e9e01c-7cba-45b0-a4ae-08574fa320aa
+small_table(measure_distribution_summary; n = min(30, pp.nrow(measure_distribution_summary)))
+
 # ╔═╡ Cell order:
 # ╠═7c3d90a4-f6bd-4a55-96c5-7d7a2c32d43f
 # ╟─7fe45a66-0cae-4b1f-a6a8-08c1db4e75cf
@@ -375,3 +436,12 @@ small_table(local_output_paths; n = pp.nrow(local_output_paths))
 # ╠═5735a929-e44d-42ce-b3e4-9601b6f53487
 # ╠═b85fb599-00d9-4ec2-aef0-88ef1da87d9e
 # ╠═b9ec8997-34e7-44d8-8eba-3cb596f30d0b
+# ╠═b213efae-df39-4179-86d4-fb23dcd50b9b
+# ╠═e2be1a6d-2373-40ed-9823-35bc62f19a66
+# ╠═b19f0ae8-d45e-4884-a35a-946617469462
+# ╠═5c9fa1f3-8cb7-443c-8779-e478d4dac8a3
+# ╠═9db41ddf-5eab-403f-bacc-7b980f16f898
+# ╠═49a6064d-c932-41b4-8af6-019ef75dcf2c
+# ╠═0b6c1710-e27c-48ef-87d5-cf8c8ef7eb7c
+# ╠═da5a043d-ee6d-44d0-bf7e-76af128db5c3
+# ╠═23e9e01c-7cba-45b0-a4ae-08574fa320aa

@@ -2,7 +2,7 @@
 
 julia_version = "1.11.9"
 manifest_format = "2.0"
-project_hash = "ad99b34084a4d6bb87d9f1c4d350def038114a7c"
+project_hash = "9119d6e54281386d2524da55e631ac358eec736d"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -14,6 +14,11 @@ weakdeps = ["ChainRulesCore", "Test"]
     [deps.AbstractFFTs.extensions]
     AbstractFFTsChainRulesCoreExt = "ChainRulesCore"
     AbstractFFTsTestExt = "Test"
+
+[[deps.AbstractPlutoDingetjes]]
+git-tree-sha1 = "6c3913f4e9bdf6ba3c08041a446fb1332716cbc2"
+uuid = "6e696c72-6542-2067-7265-42206c756150"
+version = "1.4.0"
 
 [[deps.AbstractTrees]]
 git-tree-sha1 = "2d9c9a55f9c93e8887ad391fbae72f8ef55e1177"
@@ -174,12 +179,6 @@ weakdeps = ["SparseArrays"]
     [deps.ChainRulesCore.extensions]
     ChainRulesCoreSparseArraysExt = "SparseArrays"
 
-[[deps.CodeTracking]]
-deps = ["InteractiveUtils", "REPL", "UUIDs"]
-git-tree-sha1 = "cfb7a2e89e245a9d5016b70323db412b3a7438d5"
-uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "3.0.2"
-
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
 git-tree-sha1 = "962834c22b66e32aa10f7611c08c8ca4e20749a9"
@@ -244,11 +243,6 @@ weakdeps = ["Dates", "LinearAlgebra"]
 
     [deps.Compat.extensions]
     CompatLinearAlgebraExt = "LinearAlgebra"
-
-[[deps.Compiler]]
-git-tree-sha1 = "382d79bfe72a406294faca39ef0c3cef6e6ce1f1"
-uuid = "807dbc54-b67e-4c79-8afb-eafe4df6f2e1"
-version = "0.1.1"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -615,10 +609,22 @@ git-tree-sha1 = "68c173f4f449de5b438ee67ed0c9c748dc31a2ec"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.28"
 
+[[deps.Hyperscript]]
+deps = ["Test"]
+git-tree-sha1 = "179267cfa5e712760cd43dcae385d7ea90cc25a4"
+uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
+version = "0.0.5"
+
 [[deps.HypertextLiteral]]
 deps = ["Tricks"]
 git-tree-sha1 = "d1a86724f81bcd184a38fd284ce183ec067d71a0"
 uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+version = "1.0.0"
+
+[[deps.IOCapture]]
+deps = ["Logging", "Random"]
+git-tree-sha1 = "0ee181ec08df7d7c911901ea38baf16f755114dc"
+uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "1.0.0"
 
 [[deps.ImageAxes]]
@@ -822,12 +828,6 @@ git-tree-sha1 = "c0c9b76f3520863909825cbecdef58cd63de705a"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "3.1.5+0"
 
-[[deps.JuliaInterpreter]]
-deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "58927c485919bf17ea308d9d82156de1adf4b006"
-uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.10.12"
-
 [[deps.KernelDensity]]
 deps = ["Distributions", "DocStringExtensions", "FFTA", "Interpolations", "StatsBase"]
 git-tree-sha1 = "9eda8292dd3268b3b7ec9df21bbfac24e177ec52"
@@ -971,12 +971,6 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "f00544d95982ea270145636c181ceda21c4e2575"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.2.0"
-
-[[deps.LoweredCodeUtils]]
-deps = ["CodeTracking", "Compiler", "JuliaInterpreter"]
-git-tree-sha1 = "a2d6be586f4bb29b5b1400ea32c62c60d32f255e"
-uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
-version = "3.5.3"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "c64d943587f7187e751162b3b84445bbbd79f691"
@@ -1262,6 +1256,12 @@ git-tree-sha1 = "c3e5073a977b1c58b2d55c1ec187c3737e64e6af"
 uuid = "72656b73-756c-7461-726b-72656b6b696b"
 version = "1.2.2"
 
+[[deps.PlutoUI]]
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Downloads", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
+git-tree-sha1 = "e189d0623e7ce9c37389bac17e80aac3b0302e75"
+uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+version = "0.7.83"
+
 [[deps.PolygonOps]]
 git-tree-sha1 = "77b3d3605fc1cd0b42d95eba87dfcd2bf67d5ff6"
 uuid = "647866c9-e3ac-4575-94e7-e3d426903924"
@@ -1303,7 +1303,6 @@ weakdeps = ["CairoMakie"]
     JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
     Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
     OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-    Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
     PooledArrays = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
     Preferences = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
     PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
@@ -1311,7 +1310,6 @@ weakdeps = ["CairoMakie"]
     ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
     RCall = "6f49c342-dc21-5d91-9882-a32aef131414"
     Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-    Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
     SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
     StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
     Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -1329,7 +1327,7 @@ git-tree-sha1 = "8b770b60760d4451834fe79dd483e318eee709c4"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.5.2"
 [[deps.Preferences]]
-deps = ["Combinatorics", "Crayons", "DataFrames", "OrderedCollections", "PooledArrays", "PrettyTables", "Printf", "Random", "Revise", "SHA", "StaticArrays", "Statistics", "StatsBase"]
+deps = ["Combinatorics", "Crayons", "DataFrames", "OrderedCollections", "PooledArrays", "PrettyTables", "Printf", "Random", "SHA", "StaticArrays", "Statistics", "StatsBase"]
 path = "../Preferences"
 uuid = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
 version = "0.1.0"
@@ -1455,27 +1453,6 @@ deps = ["UUIDs"]
 git-tree-sha1 = "62389eeff14780bfe55195b7204c0d8738436d64"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.1"
-
-[[deps.Revise]]
-git-tree-sha1 = "2f722c6581f297014be42c95d36f862e9bc2d668"
-uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "3.14.5"
-weakdeps = ["Distributed"]
-
-    [deps.Revise.deps]
-    CodeTracking = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-    FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
-    InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
-    JuliaInterpreter = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-    LibGit2 = "76f85450-5226-5b5a-8eaa-529ad045b433"
-    LoweredCodeUtils = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
-    OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-    Preferences = "21216c6a-2e73-6563-6e65-726566657250"
-    REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
-    UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
-
-    [deps.Revise.extensions]
-    DistributedExt = "Distributed"
 
 [[deps.Rmath]]
 deps = ["Random", "Rmath_jll"]

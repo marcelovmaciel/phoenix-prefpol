@@ -1,7 +1,8 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v1.0.1
 
 using Markdown
+using InteractiveUtils
 
 # ╔═╡ 4f9392f4-6ccb-4b08-9ebb-caf4b9970b7b
 begin
@@ -9,9 +10,15 @@ begin
     Pkg.activate(@__DIR__)
 end
 
+# ╔═╡ a7719e62-0aa3-4435-b9e9-140e45cedaaa
+begin
+    # Load shared notebook helpers and the local PrefPol package.
+    include(joinpath(@__DIR__, "notebook_common.jl"))
+end
+
 # ╔═╡ 3360df3d-99d3-4b61-8475-883ac08d8a9a
 md"""
-# Paper Artifact Map
+# Paper Artifact Map Debug / Provenance
 
 This notebook explains the paper artifact collection layer. It corresponds
 conceptually to the production artifact-collection pass, but it does not include
@@ -22,12 +29,6 @@ owned by their source stages, while `PrefPol/config/paper_artifacts.toml`
 declares which generated files should be exposed under paper-facing filenames.
 This notebook inspects that mapping only. It does not copy artifacts by default.
 """
-
-# ╔═╡ a7719e62-0aa3-4435-b9e9-140e45cedaaa
-begin
-    # Load shared notebook helpers and the local PrefPol package.
-    include(joinpath(@__DIR__, "notebook_common.jl"))
-end
 
 # ╔═╡ b912af95-d82e-4b12-b979-92e8b04c7aa7
 begin
@@ -97,7 +98,7 @@ begin
 end
 
 # ╔═╡ d92263ca-0847-4c14-8e85-32f32f39ab44
-collection_summary = DataFrame(
+collection_summary = pp.DataFrame(
     item = [
         "artifact config",
         "notebook config",
@@ -125,7 +126,7 @@ collection_summary = DataFrame(
 )
 
 # ╔═╡ 92944e84-f7ed-4a05-9759-502d85cbdd4f
-small_table(collection_summary; n = nrow(collection_summary))
+small_table(collection_summary; n = pp.nrow(collection_summary))
 
 # ╔═╡ 6af57865-5965-448c-950c-ab43cf573893
 md"""
@@ -146,14 +147,14 @@ source_manifests = Dict(
 )
 
 # ╔═╡ d829a85b-c76b-4ea5-a620-a1f0c854e756
-source_manifest_table = DataFrame(
+source_manifest_table = pp.DataFrame(
     source_stage = collect(keys(source_manifests)),
     source_manifest = portable_path.(collect(values(source_manifests))),
     exists_now = isfile.(collect(values(source_manifests))),
 )
 
 # ╔═╡ 8f27f4ac-c7e1-41c6-a7a2-2eedc2d83711
-small_table(sort(source_manifest_table, :source_stage); n = nrow(source_manifest_table))
+small_table(sort(source_manifest_table, :source_stage); n = pp.nrow(source_manifest_table))
 
 # ╔═╡ b3cb084a-b4dd-4dc9-8fea-e3cf62b33bd8
 md"""
@@ -218,7 +219,7 @@ end
 # ╔═╡ 8c655e77-6a6a-4197-a3ad-b5c66b5e97b7
 begin
     artifact_specs = get(artifact_cfg, "artifacts", Any[])
-    artifact_map = DataFrame(
+    artifact_map = pp.DataFrame(
         artifact_id = [String(config_value(spec, "id", "")) for spec in artifact_specs],
         source_stage = [String(config_value(spec, "source_stage", "")) for spec in artifact_specs],
         destination_filename = [String(config_value(spec, "destination_filename", "")) for spec in artifact_specs],
@@ -233,7 +234,7 @@ begin
         ],
     )
     artifact_map[!, Symbol("source_artifact_id/source_path")] = inferred_source_reference.(artifact_specs)
-    artifact_map = select(
+    artifact_map = pp.select(
         artifact_map,
         [
             :artifact_id,
@@ -248,10 +249,10 @@ begin
 end
 
 # ╔═╡ 55d6b07e-31bc-49db-bfcd-f9d98ba6178d
-small_table(artifact_map; n = nrow(artifact_map))
+small_table(artifact_map; n = pp.nrow(artifact_map))
 
 # ╔═╡ 4978ed7b-abf4-48e0-8d6f-447d1f974278
-compact_artifact_table = select(
+compact_artifact_table = pp.select(
     artifact_map,
     [
         :artifact_id,
@@ -262,7 +263,7 @@ compact_artifact_table = select(
 )
 
 # ╔═╡ 19d2ec31-078e-420d-92c6-e02f7e874e0c
-small_table(compact_artifact_table; n = nrow(compact_artifact_table))
+small_table(compact_artifact_table; n = pp.nrow(compact_artifact_table))
 
 # ╔═╡ c58f149c-6c78-4fec-a5d2-3436ec63057c
 md"""
@@ -274,14 +275,14 @@ orchestration config explicitly enables `[lambda_table]`.
 """
 
 # ╔═╡ 8908a391-6046-4e4c-80ca-61f84d1a0812
-artifact_family_summary = combine(
-    groupby(artifact_map, [:stage_family, :source_stage, :included_by_publication_config]),
+artifact_family_summary = pp.combine(
+    pp.groupby(artifact_map, [:stage_family, :source_stage, :included_by_publication_config]),
     :artifact_id => (ids -> join(ids, ", ")) => :artifact_ids,
     nrow => :artifact_count,
 )
 
 # ╔═╡ 9728f19e-5753-4464-8997-95f36c27a9dd
-small_table(sort(artifact_family_summary, [:stage_family, :source_stage]); n = nrow(artifact_family_summary))
+small_table(sort(artifact_family_summary, [:stage_family, :source_stage]); n = pp.nrow(artifact_family_summary))
 
 # ╔═╡ 438df8a1-f7ed-4478-8ded-a0e86a8dfe35
 md"""
@@ -295,18 +296,18 @@ directories.
 """
 
 # ╔═╡ 7083fe47-cbd1-450e-827f-4e0cf0484116
-destination_table = DataFrame(
+destination_table = pp.DataFrame(
     artifact_id = artifact_map.artifact_id,
     stage_family = artifact_map.stage_family,
     destination_path = [
         portable_path(joinpath(destination_root, filename))
         for filename in artifact_map.destination_filename
     ],
-    would_update_writing_imgs = fill(Bool(config_value(collection_cfg, "update_writing_imgs", false)), nrow(artifact_map)),
+    would_update_writing_imgs = fill(Bool(config_value(collection_cfg, "update_writing_imgs", false)), pp.nrow(artifact_map)),
 )
 
 # ╔═╡ b845a040-1a32-4619-9455-a4309205a047
-small_table(destination_table; n = nrow(destination_table))
+small_table(destination_table; n = pp.nrow(destination_table))
 
 # ╔═╡ 77c49217-a491-4981-a5cc-734d217b06a4
 md"""
@@ -323,7 +324,7 @@ action is disabled and leaves collection to the CLI stage.
 DO_COPY_ARTIFACTS = false
 
 # ╔═╡ c6cfcc55-9d86-4c0b-b0e1-7ba6bfaa306e
-copy_guard_table = DataFrame(
+copy_guard_table = pp.DataFrame(
     setting = ["DO_COPY_ARTIFACTS", "notebook behavior"],
     value = [
         string(DO_COPY_ARTIFACTS),
@@ -334,7 +335,7 @@ copy_guard_table = DataFrame(
 )
 
 # ╔═╡ 4e180592-e235-4dff-81ea-0fdf0ebef91f
-small_table(copy_guard_table; n = nrow(copy_guard_table))
+small_table(copy_guard_table; n = pp.nrow(copy_guard_table))
 
 # ╔═╡ 37e9dc7f-8357-4bf0-8818-c716fce7dccd
 begin
@@ -354,7 +355,7 @@ begin
 end
 
 # ╔═╡ 52c8327b-d744-47a4-95df-8366f834bda9
-local_outputs = DataFrame(
+local_outputs = pp.DataFrame(
     artifact = [
         "artifact map",
         "source manifests",
@@ -366,14 +367,14 @@ local_outputs = DataFrame(
         family_summary_csv,
     ],
     rows = [
-        nrow(artifact_map),
-        nrow(source_manifest_table),
-        nrow(artifact_family_summary),
+        pp.nrow(artifact_map),
+        pp.nrow(source_manifest_table),
+        pp.nrow(artifact_family_summary),
     ],
 )
 
 # ╔═╡ 60f0e1c6-4e8c-4614-9748-76c21497786b
-small_table(local_outputs; n = nrow(local_outputs))
+small_table(local_outputs; n = pp.nrow(local_outputs))
 
 # ╔═╡ 46813a9f-6632-4b07-9fcf-661283e6e3d9
 function is_under_directory(child_path::AbstractString, parent_path::AbstractString)
@@ -382,7 +383,7 @@ function is_under_directory(child_path::AbstractString, parent_path::AbstractStr
 end
 
 # ╔═╡ 0fc1c04a-a3d2-408b-9c31-a24095ed75ad
-validation_table = DataFrame(
+validation_table = pp.DataFrame(
     check = [
         "local outputs under notebook output root",
         "copy action disabled",
@@ -391,12 +392,15 @@ validation_table = DataFrame(
     value = [
         string(all(path -> is_under_directory(path, settings.output_root), local_outputs.path)),
         string(!DO_COPY_ARTIFACTS),
-        string(nrow(artifact_map) == length(artifact_specs)),
+        string(pp.nrow(artifact_map) == length(artifact_specs)),
     ],
 )
 
 # ╔═╡ e8ff853a-0c0a-4499-b860-78729e599bdd
-small_table(validation_table; n = nrow(validation_table))
+small_table(validation_table; n = pp.nrow(validation_table))
+
+# ╔═╡ 6b312f81-c114-4285-8a7b-032921217353
+TableOfContents()
 
 # ╔═╡ Cell order:
 # ╠═4f9392f4-6ccb-4b08-9ebb-caf4b9970b7b
@@ -439,3 +443,4 @@ small_table(validation_table; n = nrow(validation_table))
 # ╠═46813a9f-6632-4b07-9fcf-661283e6e3d9
 # ╠═0fc1c04a-a3d2-408b-9c31-a24095ed75ad
 # ╠═e8ff853a-0c0a-4499-b860-78729e599bdd
+# ╠═6b312f81-c114-4285-8a7b-032921217353

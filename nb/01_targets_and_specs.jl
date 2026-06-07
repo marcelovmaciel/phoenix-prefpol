@@ -4,6 +4,18 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    return quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
+
 # ╔═╡ 1793d860-770c-4b7c-9c1e-7f3f5d4e7b0e
 begin
     import Pkg
@@ -58,7 +70,7 @@ begin
 end
 
 # ╔═╡ 61f42098-fb5d-4e32-bf77-d0db82db0f65
-batch_table = DataFrame([
+batch_table = pp.DataFrame([
     (
         batch_index = idx,
         wave_id = item.spec.wave_id,
@@ -77,7 +89,7 @@ batch_table = DataFrame([
 ])
 
 # ╔═╡ a706c5e5-e0c4-4cae-a3fc-20e6b8eeb4b7
-small_table(batch_table; n = nrow(batch_table))
+small_table(batch_table; n = pp.nrow(batch_table))
 
 # ╔═╡ e046fd51-4206-4219-8d0a-491673291e37
 md"""
@@ -96,7 +108,7 @@ begin
 end
 
 # ╔═╡ 95fd3210-a0b6-4a37-bd2c-7f3fb1d0c328
-example_wave_table = DataFrame(
+example_wave_table = pp.DataFrame(
     item = [
         "wave_id",
         "year",
@@ -116,16 +128,16 @@ example_wave_table = DataFrame(
 )
 
 # ╔═╡ 4a1d27e6-2ab0-4c6a-aa48-b9979a7149cb
-small_table(example_wave_table; n = nrow(example_wave_table))
+small_table(example_wave_table; n = pp.nrow(example_wave_table))
 
 # ╔═╡ fce6c1cd-f0ad-4214-8e2d-b2aa5e8ecbb2
-active_candidate_table = DataFrame(
+active_candidate_table = pp.DataFrame(
     position = collect(eachindex(example_spec.active_candidates)),
     candidate = example_spec.active_candidates,
 )
 
 # ╔═╡ 78859088-0a85-4715-b0e9-cdfec77947f2
-small_table(active_candidate_table; n = nrow(active_candidate_table))
+small_table(active_candidate_table; n = pp.nrow(active_candidate_table))
 
 # ╔═╡ 3df38422-8c5b-4235-86e7-e289d15ad444
 begin
@@ -140,7 +152,7 @@ begin
 end
 
 # ╔═╡ 3bb847f1-b350-4836-af55-e6f6a87e4b21
-spec_metadata_table = DataFrame(
+spec_metadata_table = pp.DataFrame(
     item = ["cache directory", "seed namespace", "spec hash"],
     value = [
         planned_cache_dir,
@@ -150,13 +162,51 @@ spec_metadata_table = DataFrame(
 )
 
 # ╔═╡ d5a88f3b-514e-4d12-b8ec-0e30c5a31213
-small_table(spec_metadata_table; n = nrow(spec_metadata_table))
+small_table(spec_metadata_table; n = pp.nrow(spec_metadata_table))
 
 # ╔═╡ e907ed8a-8c65-43d8-9d5c-89fa813e3436
 md"""
 This completes the notebook-scale planning pass corresponding to the early
 target and `PipelineSpec` construction used by CLI stages 01-04.
 """
+
+# ╔═╡ 08975389-d777-4d86-9440-86755be20a2f
+TableOfContents()
+
+# ╔═╡ a0f211ce-7d3b-4974-9f2e-c96faa8b8c67
+begin
+    target_options = notebook_target_labels(cfg)
+    backend_options = String.(settings.imputer_backends)
+    linearizer_options = String.(settings.linearizer_policies)
+    @bind selected_target_label Select(target_options)
+end
+
+# ╔═╡ cc8e8118-2723-4bc6-a4b2-285c9972986f
+begin
+    @bind selected_backend Select(backend_options)
+end
+
+# ╔═╡ a4c8a56c-1f85-47e3-bfb6-46db01d10184
+begin
+    @bind selected_linearizer Select(linearizer_options)
+end
+
+# ╔═╡ 15da6c97-42c3-4c15-90c2-3330b9eba68a
+begin
+    selected_target = selected_target_row(cfg, selected_target_label)
+    selected_batch_index, selected_batch_item = select_batch_item(
+        batch;
+        wave_id = selected_target.wave_id,
+        scenario_name = selected_target.scenario_name,
+        m = selected_target.m,
+        backend = selected_backend,
+        linearizer = selected_linearizer,
+    )
+    selected_spec_rows = batch_table[batch_table.batch_index .== selected_batch_index, :]
+end
+
+# ╔═╡ 0597ad10-8be7-4a62-a004-67ef82475c6d
+small_table(selected_spec_rows; n = pp.nrow(selected_spec_rows))
 
 # ╔═╡ Cell order:
 # ╠═1793d860-770c-4b7c-9c1e-7f3f5d4e7b0e
@@ -178,3 +228,9 @@ target and `PipelineSpec` construction used by CLI stages 01-04.
 # ╠═3bb847f1-b350-4836-af55-e6f6a87e4b21
 # ╠═d5a88f3b-514e-4d12-b8ec-0e30c5a31213
 # ╟─e907ed8a-8c65-43d8-9d5c-89fa813e3436
+# ╠═08975389-d777-4d86-9440-86755be20a2f
+# ╠═a0f211ce-7d3b-4974-9f2e-c96faa8b8c67
+# ╠═cc8e8118-2723-4bc6-a4b2-285c9972986f
+# ╠═a4c8a56c-1f85-47e3-bfb6-46db01d10184
+# ╠═15da6c97-42c3-4c15-90c2-3330b9eba68a
+# ╠═0597ad10-8be7-4a62-a004-67ef82475c6d

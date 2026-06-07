@@ -6,7 +6,9 @@ const _NB_REPO_ROOT = normpath(joinpath(@__DIR__, ".."))
 using CSV
 using DataFrames
 using Markdown
+using Statistics
 using PrettyTables
+using PlutoUI
 using TOML
 
 include(joinpath(@__DIR__, "..", "PrefPol", "composable_running", "stage_common.jl"))
@@ -115,4 +117,136 @@ function write_notebook_csv(path, df)
     mkpath(dirname(resolved))
     CSV.write(resolved, df)
     return resolved
+end
+
+
+function notebook_target_table(cfg)
+    rows = NamedTuple[]
+    for target in notebook_targets(cfg)
+        for m in target.m_values
+            push!(rows, (
+                label = "$(target.wave_id) / $(target.scenario_name) / m=$(m)",
+                wave_id = target.wave_id,
+                scenario_name = target.scenario_name,
+                m = m,
+            ))
+        end
+    end
+    return DataFrame(rows)
+end
+
+function notebook_target_labels(cfg)
+    table = notebook_target_table(cfg)
+    return String.(table.label)
+end
+
+function selected_target_row(cfg, label::AbstractString)
+    rows = notebook_target_table(cfg)
+    matches = rows[String.(rows.label) .== String(label), :]
+    nrow(matches) == 1 || error("Expected one target row for $(label), found $(nrow(matches)).")
+    return matches[1, :]
+end
+
+function batch_item_table(batch::pp.StudyBatchSpec)
+    return DataFrame([
+        (
+            batch_index = idx,
+            year = item.metadata.year,
+            wave_id = item.spec.wave_id,
+            scenario_name = item.metadata.scenario_name,
+            m = item.metadata.m,
+            imputer_backend = String(item.spec.imputer_backend),
+            linearizer_policy = String(item.spec.linearizer_policy),
+            active_candidates = join(item.spec.active_candidates, ", "),
+            groupings = join(String.(item.spec.groupings), ", "),
+            measures = join(String.(item.spec.measures), ", "),
+            B = item.spec.B,
+            R = item.spec.R,
+            K = item.spec.K,
+        )
+        for (idx, item) in enumerate(batch.items)
+    ])
+end
+
+function select_batch_item(batch::pp.StudyBatchSpec;
+                           wave_id,
+                           scenario_name,
+                           m,
+                           backend = nothing,
+                           linearizer = nothing)
+    for (idx, item) in enumerate(batch.items)
+        item.spec.wave_id == String(wave_id) || continue
+        String(item.metadata.scenario_name) == String(scenario_name) || continue
+        Int(item.metadata.m) == Int(m) || continue
+        backend === nothing || String(item.spec.imputer_backend) == String(backend) || continue
+        linearizer === nothing || String(item.spec.linearizer_policy) == String(linearizer) || continue
+        return idx, item
+    end
+    error("No notebook batch item matches wave=$(wave_id), scenario=$(scenario_name), m=$(m), backend=$(backend), linearizer=$(linearizer).")
+end
+
+function candidate_score_preview(df, candidate_cols; n = 8)
+    cols = intersect([:respondent_id, :id, :weight, Symbol.(candidate_cols)...], propertynames(df))
+    isempty(cols) && (cols = Symbol.(candidate_cols))
+    return first(DataFrame(df[:, cols]), min(n, nrow(df)))
+end
+
+function candidate_missingness_table(df, candidate_cols)
+    rows = NamedTuple[]
+    total_rows = nrow(df)
+    for candidate in candidate_cols
+        miss = count(value -> pp.is_eseb_missing_score(value), df[!, candidate])
+        push!(rows, (
+            candidate = String(candidate),
+            missing_cells = miss,
+            total_rows = total_rows,
+            missing_share = total_rows == 0 ? missing : miss / total_rows,
+        ))
+    end
+    return DataFrame(rows)
+end
+
+function resample_multiplicity_table(artifact; n = 20)
+    multiplicities = Vector{Int}(artifact.multiplicities)
+    rows = DataFrame(
+        observed_row = collect(eachindex(multiplicities)),
+        multiplicity = multiplicities,
+    )
+    sort!(rows, [:multiplicity, :observed_row]; rev = [true, false])
+    return first(rows, min(n, nrow(rows)))
+end
+
+function before_after_score_rows(before_df, after_df, candidate_cols, row_indices)
+    rows = NamedTuple[]
+    for row_index in row_indices
+        row_index <= nrow(before_df) || continue
+        row_index <= nrow(after_df) || continue
+        for candidate in candidate_cols
+            push!(rows, (
+                row = row_index,
+                candidate = String(candidate),
+                before = before_df[row_index, candidate],
+                after = after_df[row_index, candidate],
+                changed = !isequal(before_df[row_index, candidate], after_df[row_index, candidate]),
+            ))
+        end
+    end
+    return DataFrame(rows)
+end
+
+function is_under_directory(child_path::AbstractString, parent_path::AbstractString)
+    relative_path = relpath(normpath(child_path), normpath(parent_path))
+    return relative_path == "." || (!startswith(relative_path, "..") && !isabspath(relative_path))
+end
+
+function notebook_provenance_table(settings; extra = NamedTuple())
+    base = (
+        output_root = settings.output_root,
+        cache_root = settings.cache_root,
+        B = settings.B,
+        R = settings.R,
+        K = settings.K,
+    )
+    pairs = collect(pairs(merge(base, extra)))
+    return DataFrame(item = String.(first.(pairs)), value = string.(last.(pairs)))
 end

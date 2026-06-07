@@ -4,6 +4,18 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    return quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
+
 # ╔═╡ 2f2ef4ec-51dd-4a42-9d98-0c9f3acfc2f0
 begin
     import Pkg
@@ -231,83 +243,12 @@ linearization_manifest_compact = pp.select(
 # ╔═╡ b1c24da9-95b7-4541-94ee-406e91160c28
 small_table(linearization_manifest_compact; n = pp.nrow(linearization_manifest_compact))
 
-# ╔═╡ 1f98af1f-14da-47c0-9700-3785cb45095e
-begin
-    first_linearized_path = only(linearization_manifest_raw.path[
-        (linearization_manifest_raw.stage .== :linearized) .&
-        (linearization_manifest_raw.b .== 1) .&
-        (linearization_manifest_raw.r .== 1) .&
-        (linearization_manifest_raw.k .== 1)
-    ])
-    first_linearized_artifact_table = pp.DataFrame(pp.load_stage_artifact(first_linearized_path))
-    first_linearized_bundle = Preferences.dataframe_to_annotated_profile(
-        first_linearized_artifact_table;
-        ballot_kind = :strict,
-    )
-    first_linearized_rankings = Preferences.profile_to_ranking_dicts(first_linearized_bundle)
-end
-
-# ╔═╡ ad6dc95f-28a2-4710-8fb2-93eb6e811124
-first_linearized_artifact_summary = pp.DataFrame(
-    item = [
-        "artifact path",
-        "artifact rows",
-        "profile ballots",
-        "candidate tuple",
-        "policy",
-        "seed",
-    ],
-    value = [
-        first_linearized_path,
-        string(pp.nrow(first_linearized_artifact_table)),
-        string(Preferences.nballots(first_linearized_bundle.profile)),
-        join(String.(Preferences.candidates(first_linearized_bundle.profile.pool)), ", "),
-        String(selected_pipeline_spec.linearizer_policy),
-        string(only(linearization_manifest_raw.seed[
-            (linearization_manifest_raw.stage .== :linearized) .&
-            (linearization_manifest_raw.b .== 1) .&
-            (linearization_manifest_raw.r .== 1) .&
-            (linearization_manifest_raw.k .== 1)
-        ])),
-    ],
-)
-
-# ╔═╡ bb3c0e65-db64-4ba9-9124-d29d1da233df
-small_table(first_linearized_artifact_summary; n = pp.nrow(first_linearized_artifact_summary))
-
 # ╔═╡ 8a69364d-bd8a-4670-a16a-3cbf68b892e3
 function ranking_signature_text(ranking::AbstractDict)
     ranking_pairs = collect(ranking)
     sort!(ranking_pairs; by = ranking_pair -> (Int(last(ranking_pair)), string(first(ranking_pair))))
     return join(String.(first.(ranking_pairs)), " > ")
 end
-
-# ╔═╡ 9bfa7f28-c725-4e44-b6fb-1a05895c70bf
-begin
-    ranking_preview_count = min(8, length(first_linearized_rankings))
-    strict_ranking_preview_table = pp.DataFrame(
-        row = collect(1:ranking_preview_count),
-        strict_ranking = ranking_signature_text.(first_linearized_rankings[1:ranking_preview_count]),
-    )
-end
-
-# ╔═╡ 35d7d2d1-091d-4619-8613-9e6f18fb9dc9
-small_table(strict_ranking_preview_table; n = pp.nrow(strict_ranking_preview_table))
-
-# ╔═╡ 98a37fe5-5dfb-48f1-b3fe-c4722d9e43a7
-begin
-    strict_signature_frame = pp.DataFrame(
-        strict_ranking = ranking_signature_text.(first_linearized_rankings),
-    )
-    unique_ranking_counts = pp.combine(
-        pp.groupby(strict_signature_frame, :strict_ranking),
-        pp.nrow => :count,
-    )
-    sort!(unique_ranking_counts, [:count, :strict_ranking]; rev = [true, false])
-end
-
-# ╔═╡ c501c712-ec84-4cd5-8382-6892541d49e3
-small_table(unique_ranking_counts; n = min(10, pp.nrow(unique_ranking_counts)))
 
 # ╔═╡ 0447c27e-437a-4e30-979e-974cb22d1ce4
 function score_pattern_text(score_row, candidate_cols::Vector{String})
@@ -336,48 +277,6 @@ function first_row_with_tied_scores(score_table, candidate_cols::Vector{String})
     end
     return 1
 end
-
-# ╔═╡ 4dcb581b-75e3-4fe2-ae1e-1640d13a9939
-begin
-    first_imputed_path = only(upstream_imputation_manifest_raw.path[
-        (upstream_imputation_manifest_raw.stage .== :imputed) .&
-        (upstream_imputation_manifest_raw.b .== 1) .&
-        (upstream_imputation_manifest_raw.r .== 1)
-    ])
-    first_imputed_artifact = pp.load_stage_artifact(first_imputed_path)
-    first_imputed_table = pp.DataFrame(first_imputed_artifact.table)
-    inspection_row_index = first_row_with_tied_scores(
-        first_imputed_table,
-        selected_pipeline_spec.active_candidates,
-    )
-end
-
-# ╔═╡ b3833be7-1f78-4528-ab0f-34f8399d3c14
-weak_to_strict_example = pp.DataFrame(
-    item = [
-        "imputed artifact",
-        "row",
-        "candidate scores",
-        "weak/evaluative pattern",
-        "linearized strict order",
-    ],
-    value = [
-        first_imputed_path,
-        string(inspection_row_index),
-        join([
-            candidate_name * "=" * string(first_imputed_table[inspection_row_index, candidate_name])
-            for candidate_name in selected_pipeline_spec.active_candidates
-        ], ", "),
-        score_pattern_text(
-            first_imputed_table[inspection_row_index, :],
-            selected_pipeline_spec.active_candidates,
-        ),
-        ranking_signature_text(first_linearized_rankings[inspection_row_index]),
-    ],
-)
-
-# ╔═╡ 0b64c137-ff31-44d1-a22c-fc6c01d93585
-small_table(weak_to_strict_example; n = pp.nrow(weak_to_strict_example))
 
 # ╔═╡ 6f8380c3-a8d5-4c8f-9657-7ef743807f01
 md"""
@@ -459,6 +358,116 @@ replicates for stable summaries of the tie-breaking uncertainty inside each
 `(b, r)` branch.
 """
 
+# ╔═╡ c923c6bf-e0d6-4db3-a2e5-a804e7d74de6
+function is_under_directory(child_path::AbstractString, parent_path::AbstractString)
+    relative_path = relpath(normpath(child_path), normpath(parent_path))
+    return relative_path == "." || (!startswith(relative_path, "..") && !isabspath(relative_path))
+end
+
+# ╔═╡ 053c6f35-99a6-4461-aec4-07f7b15470dc
+TableOfContents()
+
+# ╔═╡ cbec8f1b-e3a5-4ccf-8cb9-8c80c29c1365
+begin
+    @bind selected_b Select(1:selected_pipeline_spec.B)
+end
+
+# ╔═╡ 1865efb2-89d2-4975-bd8b-931fae8b987b
+begin
+    @bind selected_r Select(1:selected_pipeline_spec.R)
+end
+
+# ╔═╡ 4dcb581b-75e3-4fe2-ae1e-1640d13a9939
+begin
+    first_imputed_path = only(upstream_imputation_manifest_raw.path[
+        (upstream_imputation_manifest_raw.stage .== :imputed) .&
+        (upstream_imputation_manifest_raw.b .== selected_b) .&
+        (upstream_imputation_manifest_raw.r .== selected_r)
+    ])
+    first_imputed_artifact = pp.load_stage_artifact(first_imputed_path)
+    first_imputed_table = pp.DataFrame(first_imputed_artifact.table)
+    inspection_row_index = first_row_with_tied_scores(
+        first_imputed_table,
+        selected_pipeline_spec.active_candidates,
+    )
+end
+
+# ╔═╡ bf632f2f-73aa-4631-b9b8-cecba9db208a
+begin
+    @bind selected_k Select(1:selected_pipeline_spec.K)
+end
+
+# ╔═╡ 1f98af1f-14da-47c0-9700-3785cb45095e
+begin
+    first_linearized_path = only(linearization_manifest_raw.path[
+        (linearization_manifest_raw.stage .== :linearized) .&
+        (linearization_manifest_raw.b .== selected_b) .&
+        (linearization_manifest_raw.r .== selected_r) .&
+        (linearization_manifest_raw.k .== selected_k)
+    ])
+    first_linearized_artifact_table = pp.DataFrame(pp.load_stage_artifact(first_linearized_path))
+    first_linearized_bundle = Preferences.dataframe_to_annotated_profile(
+        first_linearized_artifact_table;
+        ballot_kind = :strict,
+    )
+    first_linearized_rankings = Preferences.profile_to_ranking_dicts(first_linearized_bundle)
+end
+
+# ╔═╡ ad6dc95f-28a2-4710-8fb2-93eb6e811124
+first_linearized_artifact_summary = pp.DataFrame(
+    item = [
+        "artifact path",
+        "artifact rows",
+        "profile ballots",
+        "candidate tuple",
+        "policy",
+        "seed",
+    ],
+    value = [
+        first_linearized_path,
+        string(pp.nrow(first_linearized_artifact_table)),
+        string(Preferences.nballots(first_linearized_bundle.profile)),
+        join(String.(Preferences.candidates(first_linearized_bundle.profile.pool)), ", "),
+        String(selected_pipeline_spec.linearizer_policy),
+        string(only(linearization_manifest_raw.seed[
+            (linearization_manifest_raw.stage .== :linearized) .&
+            (linearization_manifest_raw.b .== 1) .&
+            (linearization_manifest_raw.r .== 1) .&
+            (linearization_manifest_raw.k .== 1)
+        ])),
+    ],
+)
+
+# ╔═╡ bb3c0e65-db64-4ba9-9124-d29d1da233df
+small_table(first_linearized_artifact_summary; n = pp.nrow(first_linearized_artifact_summary))
+
+# ╔═╡ 9bfa7f28-c725-4e44-b6fb-1a05895c70bf
+begin
+    ranking_preview_count = min(8, length(first_linearized_rankings))
+    strict_ranking_preview_table = pp.DataFrame(
+        row = collect(1:ranking_preview_count),
+        strict_ranking = ranking_signature_text.(first_linearized_rankings[1:ranking_preview_count]),
+    )
+end
+
+# ╔═╡ 35d7d2d1-091d-4619-8613-9e6f18fb9dc9
+small_table(strict_ranking_preview_table; n = pp.nrow(strict_ranking_preview_table))
+
+# ╔═╡ 98a37fe5-5dfb-48f1-b3fe-c4722d9e43a7
+begin
+    strict_signature_frame = pp.DataFrame(
+        strict_ranking = ranking_signature_text.(first_linearized_rankings),
+    )
+    unique_ranking_counts = pp.combine(
+        pp.groupby(strict_signature_frame, :strict_ranking),
+        pp.nrow => :count,
+    )
+    sort!(unique_ranking_counts, [:count, :strict_ranking]; rev = [true, false])
+end
+
+# ╔═╡ c501c712-ec84-4cd5-8382-6892541d49e3
+small_table(unique_ranking_counts; n = min(10, pp.nrow(unique_ranking_counts)))
+
 # ╔═╡ e5d4e324-46c6-4b6e-83c5-92f0f7fc595d
 begin
     notebook_table_dir = joinpath(notebook_run_settings.output_root, "notebook_tables")
@@ -486,12 +495,6 @@ notebook_csv_table = pp.DataFrame(
 
 # ╔═╡ 26f1025a-e581-4f6f-95cf-984d6e0651db
 small_table(notebook_csv_table; n = pp.nrow(notebook_csv_table))
-
-# ╔═╡ c923c6bf-e0d6-4db3-a2e5-a804e7d74de6
-function is_under_directory(child_path::AbstractString, parent_path::AbstractString)
-    relative_path = relpath(normpath(child_path), normpath(parent_path))
-    return relative_path == "." || (!startswith(relative_path, "..") && !isabspath(relative_path))
-end
 
 # ╔═╡ aaf4b986-fdf9-48a2-b257-799f6631de42
 begin
@@ -522,6 +525,51 @@ end
 
 # ╔═╡ 090cc7df-6707-49c3-903e-abdbbe688c24
 small_table(validation_table; n = pp.nrow(validation_table))
+
+# ╔═╡ b3833be7-1f78-4528-ab0f-34f8399d3c14
+weak_to_strict_example = pp.DataFrame(
+    item = [
+        "imputed artifact",
+        "row",
+        "candidate scores",
+        "weak/evaluative pattern",
+        "linearized strict order",
+    ],
+    value = [
+        first_imputed_path,
+        string(inspection_row_index),
+        join([
+            candidate_name * "=" * string(first_imputed_table[inspection_row_index, candidate_name])
+            for candidate_name in selected_pipeline_spec.active_candidates
+        ], ", "),
+        score_pattern_text(
+            first_imputed_table[inspection_row_index, :],
+            selected_pipeline_spec.active_candidates,
+        ),
+        ranking_signature_text(first_linearized_rankings[inspection_row_index]),
+    ],
+)
+
+# ╔═╡ 0b64c137-ff31-44d1-a22c-fc6c01d93585
+small_table(weak_to_strict_example; n = pp.nrow(weak_to_strict_example))
+
+# ╔═╡ 3c5dc7bc-0f83-4108-85cb-180ca963c908
+begin
+    @bind selected_row Select(1:min(pp.nrow(first_imputed_table), 20))
+end
+
+# ╔═╡ 4d91c1c4-49e9-481d-8a20-658b1fe9a6b9
+selected_row_weak_to_strict = pp.DataFrame(
+    item = ["row", "weak/evaluative pattern", "strict ranking"],
+    value = [
+        string(selected_row),
+        score_pattern_text(first_imputed_table[selected_row, :], selected_pipeline_spec.active_candidates),
+        ranking_signature_text(first_linearized_rankings[selected_row]),
+    ],
+)
+
+# ╔═╡ 40796c4f-65bd-4566-a19d-a3cfcf557548
+small_table(selected_row_weak_to_strict; n = pp.nrow(selected_row_weak_to_strict))
 
 # ╔═╡ Cell order:
 # ╠═2f2ef4ec-51dd-4a42-9d98-0c9f3acfc2f0
@@ -571,3 +619,10 @@ small_table(validation_table; n = pp.nrow(validation_table))
 # ╠═c923c6bf-e0d6-4db3-a2e5-a804e7d74de6
 # ╠═aaf4b986-fdf9-48a2-b257-799f6631de42
 # ╠═090cc7df-6707-49c3-903e-abdbbe688c24
+# ╠═053c6f35-99a6-4461-aec4-07f7b15470dc
+# ╠═cbec8f1b-e3a5-4ccf-8cb9-8c80c29c1365
+# ╠═1865efb2-89d2-4975-bd8b-931fae8b987b
+# ╠═bf632f2f-73aa-4631-b9b8-cecba9db208a
+# ╠═3c5dc7bc-0f83-4108-85cb-180ca963c908
+# ╠═4d91c1c4-49e9-481d-8a20-658b1fe9a6b9
+# ╠═40796c4f-65bd-4566-a19d-a3cfcf557548
