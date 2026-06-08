@@ -25,6 +25,7 @@ replication_package_reboot.zip
 intermediate_data/
 PrefPol/intermediate_data/
 PrefPol/old_+group/
+nb/
 nb/output/
 
 # Publication pipeline outputs: keep only directory scaffolding
