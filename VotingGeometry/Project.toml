@@ -1,0 +1,24 @@
+name = "VotingGeometry"
+uuid = "f032bc9d-12d6-4777-8b8d-910da1b9e9f6"
+version = "0.1.0"
+authors = ["Mvm <marcelovmaciel@gmail.com>"]
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Preferences = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
+PythonPlot = "274fc56d-3b97-40fa-a1cd-1b4a50311bf9"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[sources]
+Preferences = {path = "../Preferences"}
+
+[compat]
+PythonPlot = "1"
+StaticArrays = "1"
+julia = "1.11"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

@@ -8,6 +8,7 @@ Brazil/ESEB preference-polarization replication.
 | `Preferences/` | Reusable formal preference and social-choice package. |
 | `PrefPol/` | Applied Brazil/ESEB replication package built on `Preferences`. |
 | `PreferencePlots/` | Plotting companion package. |
+| `VotingGeometry/` | Saari-style voting geometry, decomposition, scoring, and plotting package. |
 | `writing/` | Manuscript-related material and generated paper assets. |
 
 For the publication-facing replication workflow, start with

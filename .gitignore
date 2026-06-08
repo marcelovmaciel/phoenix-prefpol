@@ -9,6 +9,7 @@ Thumbs.db
 # Local package environments
 PrefPol/.CondaPkg/
 PreferencePlots/.CondaPkg/
+VotingGeometry/.CondaPkg/
 PrefPol/running/plotting_env/.CondaPkg/
 Preferences/.julia_depot/
 Preferences/.juliaup/
