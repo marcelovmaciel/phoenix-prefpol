@@ -1,5 +1,9 @@
 # VotingGeometry.jl
 
+WIP note: the four-candidate Saari geometry and decomposition notes in this
+package are still being tested. 
+
+
 `VotingGeometry.jl` is a Saari-style voting geometry package for the
 `phoenix-prefpol` monorepo. It uses `Preferences.jl` for formal candidate
 pools, rankings, profiles, weighted profiles, and profile linearization. It
@@ -162,7 +166,3 @@ check_fig = plot_decomposition_reconstruction_check(dec)
 Decomposition components can be signed, so use
 `plot_signed_profile_tetrahedron` or the decomposition plot helpers for them.
 `plot_profile_tetrahedron_freqs` remains for nonnegative profile frequencies.
-
-See `docs/saari_implementation_notes.md` for the source audit and page/section
-references used for this implementation pass. A compact script version is
-available at `examples/procedure_hull_and_decomposition.jl`.
