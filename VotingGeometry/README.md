@@ -149,16 +149,19 @@ unordered pairwise weak comparison in the supplied label order: `label_i >=
 label_j` for `i < j`. For labels `[:A, :B, :C, :D]`, the default comparisons are
 `A >= B`, `A >= C`, `A >= D`, `B >= C`, `B >= D`, and `C >= D`.
 
+`plot_positional_comparison_regions` draws exact half-plane-clipped
+polygons by default, and `positional_comparison_region_exact_table` reports
+exact proportions from polygon area over the Saari parameter triangle
+`0 <= s2 <= s1 <= 1`. The old finite-grid visualization remains available as
+`plot_positional_comparison_regions_grid`, while
 `positional_comparison_region_table` reports approximate diagnostic grid
-proportions. Use `positional_comparison_region_exact_table` or
-`plot_positional_comparison_regions_exact` for exact proportions from polygon
-area over the Saari parameter triangle `0 <= s2 <= s1 <= 1`.
+proportions.
 
 Pass explicit comparisons for paper-specific claims. The EJPE Bolsonaro 2018
 examples remain available under an explicit helper:
 
 ```julia
-plot_positional_comparison_regions_exact(
+plot_positional_comparison_regions(
     p4,
     [:Alckmin, :Bolsonaro, :Ciro, :Haddad];
     comparisons = ejpe_bolsonaro_comparison_specs(),
