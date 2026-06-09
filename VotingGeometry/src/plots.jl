@@ -165,6 +165,246 @@ function plot_profile_tetrahedron_freqs(p4; ax = nothing, coerce_to_int = true, 
     return ax
 end
 
+const _COMPONENT_GROUP_ORDER = (
+    :departure_differentials,
+    :subset_departures,
+    :basic_profile_differentials,
+    :condorcet,
+    :kernel,
+    :double_reversals,
+)
+
+function _component_summary_row(label_or_group, coefficient, component; norm = :l2)
+    l1_norm = sum(abs, component)
+    l2_norm = LinearAlgebra.norm(component)
+    max_abs = maximum(abs, component)
+    norm_value = norm == :l1 ? l1_norm : norm == :l2 ? l2_norm : max_abs
+    return (
+        label_or_group = label_or_group,
+        coefficient = coefficient,
+        l1_norm = l1_norm,
+        l2_norm = l2_norm,
+        max_abs = max_abs,
+        norm_value = norm_value,
+        sum_component = sum(component),
+    )
+end
+
+"""
+    component_summary(dec::Decomposition; by=:label, norm=:l2)
+
+Return vector-of-NamedTuple summaries for each decomposition label or aggregate
+group. Group rows use `coefficient = nothing` because group components combine
+multiple basis coefficients. `norm_value` stores the selected norm requested by
+`norm`.
+"""
+function component_summary(dec::Decomposition; by = :label, norm = :l2)
+    norm in (:l1, :l2, :max_abs) ||
+        throw(ArgumentError("norm must be :l1, :l2, or :max_abs"))
+
+    if by == :label
+        return [
+            _component_summary_row(COMPONENT_LABELS[i], dec.coefficients[i], dec.components[:, i]; norm = norm)
+            for i in eachindex(COMPONENT_LABELS)
+        ]
+    elseif by == :group
+        return [
+            _component_summary_row(group, nothing, group_component(dec, group); norm = norm)
+            for group in _COMPONENT_GROUP_ORDER
+        ]
+    end
+
+    throw(ArgumentError("by must be :label or :group"))
+end
+
+"""
+    plot_decomposition_coefficients(dec::Decomposition; by=:label, ax=nothing,
+        title="Saari decomposition coefficients")
+
+Plot basis coefficients by label, or aggregate group L2 norms when `by=:group`.
+Returns the PythonPlot axis.
+"""
+function plot_decomposition_coefficients(
+    dec::Decomposition;
+    by = :label,
+    ax = nothing,
+    title = "Saari decomposition coefficients",
+)
+    ax = _axis2d(ax)
+    rows = component_summary(dec; by = by)
+    names = [string(row.label_or_group) for row in rows]
+    xs = collect(1:length(rows))
+
+    if by == :label
+        values = [Float64(row.coefficient) for row in rows]
+        ylabel = "coefficient"
+        colors = [value >= 0 ? "tab:blue" : "tab:red" for value in values]
+    elseif by == :group
+        values = [row.l2_norm for row in rows]
+        ylabel = "group L2 norm"
+        colors = fill("tab:blue", length(values))
+    else
+        throw(ArgumentError("by must be :label or :group"))
+    end
+
+    ax.bar(xs, values; color = colors, alpha = 0.82)
+    ax.axhline(0.0; color = "black", linewidth = 0.8)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(names; rotation = 60, ha = "right")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    return ax
+end
+
+function _signed_profile_text_value(x)
+    xf = Float64(x)
+    isapprox(xf, 0.0; atol = 1e-12) && return "0"
+    rounded = round(xf; digits = 3)
+    return xf > 0 ? string("+", rounded) : string(rounded)
+end
+
+"""
+    plot_signed_profile_tetrahedron(p4; ax=nothing, labels=("A", "B", "C", "D"),
+        symmetric_scale=true, annotate=true, title="")
+
+Plot a signed length-24 component on the opened tetrahedron layout. Positive and
+negative entries use different colors and marker magnitudes; this helper is for
+signed decomposition components, not profile frequencies.
+"""
+function plot_signed_profile_tetrahedron(
+    p4;
+    ax = nothing,
+    labels = ("A", "B", "C", "D"),
+    symmetric_scale = true,
+    annotate = true,
+    title = "",
+)
+    v = validate_profile_vector(p4, 24)
+    ax = draw_opened_tetrahedron(ax; labels = labels)
+    max_abs = maximum(abs, v)
+    scale = max_abs == 0.0 ? 1.0 : max_abs
+    symmetric_scale || (scale = maximum(abs, v) == 0.0 ? 1.0 : maximum(abs, v))
+
+    for i in 1:24
+        pos = TETRAHEDRON_TEXT_POSITIONS[i]
+        value = v[i]
+        color = value > 1e-12 ? "tab:blue" : value < -1e-12 ? "tab:red" : "0.65"
+        marker_size = 18.0 + 260.0 * abs(value) / scale
+        ax.scatter(
+            [pos[1]],
+            [pos[2]];
+            s = marker_size,
+            color = color,
+            alpha = 0.25,
+            edgecolors = "none",
+        )
+        if annotate
+            ax.text(
+                pos[1],
+                pos[2],
+                _signed_profile_text_value(value),
+                ha = "center",
+                va = "center",
+                fontsize = 8,
+                color = color,
+            )
+        end
+    end
+
+    !isempty(title) && ax.set_title(title)
+    return ax
+end
+
+function _subplot_layout(n)
+    ncols = min(3, n)
+    nrows = cld(n, ncols)
+    return nrows, ncols
+end
+
+function _created_subplot_axes(n; ax_or_fig = nothing)
+    nrows, ncols = _subplot_layout(n)
+    if ax_or_fig === nothing
+        fig = PythonPlot.figure(figsize = (4.0 * ncols, 3.4 * nrows))
+        axes = [fig.add_subplot(nrows, ncols, i) for i in 1:(nrows * ncols)]
+        for i in (n + 1):length(axes)
+            axes[i].axis("off")
+        end
+        return fig, axes[1:n]
+    end
+
+    if ax_or_fig isa AbstractArray
+        axes = vec(collect(ax_or_fig))
+        length(axes) >= n || throw(ArgumentError("not enough axes provided"))
+        return nothing, axes[1:n]
+    end
+
+    try
+        axes = [ax_or_fig.add_subplot(nrows, ncols, i) for i in 1:n]
+        return ax_or_fig, axes
+    catch
+        n == 1 || throw(ArgumentError("single axis provided for a multi-panel plot"))
+        return nothing, [ax_or_fig]
+    end
+end
+
+function _prefixed_title(prefix, title)
+    return isempty(prefix) ? title : string(prefix, title)
+end
+
+"""
+    plot_decomposition_component_tetrahedra(dec::Decomposition;
+        groups=keys(COMPONENT_GROUPS), labels=("A", "B", "C", "D"), ax_or_fig=nothing,
+        title_prefix="")
+
+Show the original profile and selected reconstructed group components on opened
+tetrahedra. Components are plotted with `plot_signed_profile_tetrahedron` because
+they can contain negative entries.
+"""
+function plot_decomposition_component_tetrahedra(
+    dec::Decomposition;
+    groups = keys(COMPONENT_GROUPS),
+    labels = ("A", "B", "C", "D"),
+    ax_or_fig = nothing,
+    title_prefix = "",
+)
+    group_vec = collect(groups)
+    nplots = 1 + length(group_vec)
+    fig, axes = _created_subplot_axes(nplots; ax_or_fig = ax_or_fig)
+
+    plot_signed_profile_tetrahedron(
+        dec.profile;
+        ax = axes[1],
+        labels = labels,
+        title = _prefixed_title(title_prefix, "original"),
+    )
+    for (i, group) in pairs(group_vec)
+        plot_signed_profile_tetrahedron(
+            group_component(dec, Symbol(group));
+            ax = axes[i + 1],
+            labels = labels,
+            title = _prefixed_title(title_prefix, string(group)),
+        )
+    end
+
+    return fig === nothing ? axes : fig
+end
+
+"""
+    plot_decomposition_reconstruction_check(dec::Decomposition; labels=("A", "B", "C", "D"))
+
+Plot original, reconstructed, and residual signed tetrahedra. The residual should
+be numerically zero when the decomposition basis identity holds.
+"""
+function plot_decomposition_reconstruction_check(dec::Decomposition; labels = ("A", "B", "C", "D"))
+    fig, axes = _created_subplot_axes(3)
+    reconstructed = reconstruct(dec)
+    residual = dec.profile .- reconstructed
+    plot_signed_profile_tetrahedron(dec.profile; ax = axes[1], labels = labels, title = "original")
+    plot_signed_profile_tetrahedron(reconstructed; ax = axes[2], labels = labels, title = "reconstructed")
+    plot_signed_profile_tetrahedron(residual; ax = axes[3], labels = labels, title = "residual")
+    return fig
+end
+
 const _DEFAULT_POSITIONAL_COMPARISONS = (
     ("Bolsonaro", Symbol(">="), "Ciro"),
     ("Ciro", Symbol(">="), "Haddad"),
@@ -292,6 +532,35 @@ function positional_comparison_region_masks(p4, labels; comparisons = nothing, r
     return (s1 = s1_values, s2 = s2_values, comparisons = comparison_specs, masks = masks)
 end
 
+"""
+    positional_comparison_region_table(p4, labels; comparisons=nothing, resolution=101)
+
+Summarize `positional_comparison_region_masks` as parameter-space grid
+proportions over `0 <= s2 <= s1 <= 1`. These proportions are not procedure-hull
+area measures.
+"""
+function positional_comparison_region_table(p4, labels; comparisons = nothing, resolution::Integer = 101)
+    region_data = positional_comparison_region_masks(
+        p4,
+        labels;
+        comparisons = comparisons,
+        resolution = resolution,
+    )
+    grid_count = length(region_data.s1)
+    return [
+        (
+            comparison = spec.label,
+            left = spec.left,
+            op = spec.op,
+            right = spec.right,
+            true_count = count(region_data.masks[i]),
+            grid_count = grid_count,
+            parameter_space_proportion = count(region_data.masks[i]) / grid_count,
+        )
+        for (i, spec) in pairs(region_data.comparisons)
+    ]
+end
+
 function _comparison_region_colors(n, colors)
     colors === nothing && return [_POSITIONAL_COMPARISON_COLORS[mod1(i, length(_POSITIONAL_COMPARISON_COLORS))] for i in 1:n]
     color_vec = collect(colors)
@@ -344,7 +613,7 @@ function plot_positional_comparison_regions(
     return _set_equal_2d(ax)
 end
 
-function plot_saari_tetrahedron3d(; labels = ("A", "B", "C", "D"), ax = nothing)
+function plot_candidate_tally_tetrahedron(; labels = ("A", "B", "C", "D"), ax = nothing)
     ax = _axis3d(ax)
     vertices = TETRAHEDRON_VERTICES
     for i in 1:3
@@ -371,4 +640,129 @@ function plot_saari_tetrahedron3d(; labels = ("A", "B", "C", "D"), ax = nothing)
     catch
     end
     return ax
+end
+
+plot_saari_tetrahedron3d(; labels = ("A", "B", "C", "D"), ax = nothing) =
+    plot_candidate_tally_tetrahedron(; labels = labels, ax = ax)
+
+plot_opened_representation_tetrahedron(ax = nothing; labels = ("A", "B", "C", "D")) =
+    draw_opened_tetrahedron(ax; labels = labels)
+
+plot_profile_on_opened_tetrahedron(p4; kwargs...) = plot_profile_tetrahedron_freqs(p4; kwargs...)
+
+function _closed_coordinate(points, dim)
+    values = [Float64(point[dim]) for point in points]
+    push!(values, Float64(points[1][dim]))
+    return values
+end
+
+"""
+    plot_procedure_hull_4c(p4; labels=("A", "B", "C", "D"), ax=nothing,
+        convention=:saari, show_borda=true, show_vertices=true, annotate=true,
+        title="4-candidate procedure hull")
+
+Draw the four-candidate procedure hull inside the candidate-tally tetrahedron.
+The embedding uses candidate-share normalized endpoint locations because the
+closed tetrahedron is `x_A+x_B+x_C+x_D=1`. The `convention` keyword controls
+the barycentric coordinates reported by `procedure_hull_4c`; Saari's score-vector
+convention puts Borda at `(1/3, 1/3, 1/3)`, while the embedded q-normalized
+triangle puts it at `(1/6, 1/3, 1/2)`.
+"""
+function plot_procedure_hull_4c(
+    p4;
+    labels = ("A", "B", "C", "D"),
+    ax = nothing,
+    convention = :saari,
+    show_borda = true,
+    show_vertices = true,
+    annotate = true,
+    title = "4-candidate procedure hull",
+)
+    hull = procedure_hull_4c(p4; labels = labels, convention = convention)
+    ax = plot_candidate_tally_tetrahedron(; labels = labels, ax = ax)
+    points = [
+        hull.vertices_cartesian.vote_for_one,
+        hull.vertices_cartesian.vote_for_two,
+        hull.vertices_cartesian.vote_for_three,
+    ]
+    xs = [point[1] for point in points]
+    ys = [point[2] for point in points]
+    zs = [point[3] for point in points]
+
+    try
+        ax.plot_trisurf(xs, ys, zs; color = "tab:cyan", alpha = 0.22, linewidth = 0.5, edgecolor = "0.45")
+    catch
+        # Degenerate profiles can collapse the hull triangle; the outline and
+        # markers still communicate the endpoint locations.
+    end
+    ax.plot(
+        _closed_coordinate(points, 1),
+        _closed_coordinate(points, 2),
+        _closed_coordinate(points, 3);
+        color = "tab:cyan",
+        linewidth = 1.6,
+    )
+
+    if show_vertices
+        vertex_specs = (
+            (points[1], "vote-for-one", "tab:blue"),
+            (points[2], "vote-for-two", "tab:orange"),
+            (points[3], "vote-for-three", "tab:green"),
+        )
+        for (point, label, color) in vertex_specs
+            ax.scatter([point[1]], [point[2]], [point[3]]; color = color, s = 38, label = label)
+            annotate && ax.text(point[1], point[2], point[3], label)
+        end
+    end
+
+    if show_borda
+        point = hull.borda_cartesian
+        ax.scatter([point[1]], [point[2]], [point[3]]; color = "black", s = 46, marker = "x", label = "Borda")
+        annotate && ax.text(point[1], point[2], point[3], "Borda")
+    end
+
+    !isempty(title) && ax.set_title(title)
+    try
+        ax.legend(loc = "upper left", bbox_to_anchor = (1.02, 1.0))
+    catch
+    end
+    return ax
+end
+
+"""
+    plot_procedure_hull_parameter_triangle(; ax=nothing, show_borda=true)
+
+Draw the admissible score-parameter triangle `0 <= s2 <= s1 <= 1`. This is a
+parameter-space plot, not a uniform-area plot of the procedure hull in q-space.
+"""
+function plot_procedure_hull_parameter_triangle(; ax = nothing, show_borda = true)
+    ax = _axis2d(ax)
+    points = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)]
+    xs = _closed_coordinate(points, 1)
+    ys = _closed_coordinate(points, 2)
+    ax.fill(xs, ys; color = "0.85", alpha = 0.35)
+    ax.plot(xs, ys; color = "black", linewidth = 1.1)
+
+    endpoint_specs = (
+        ((0.0, 0.0), "plurality"),
+        ((1.0, 0.0), "vote-for-two"),
+        ((1.0, 1.0), "antiplurality"),
+    )
+    for (point, label) in endpoint_specs
+        ax.scatter([point[1]], [point[2]]; color = "tab:blue", s = 28)
+        ax.text(point[1], point[2], label; ha = "left", va = "bottom")
+    end
+
+    if show_borda
+        borda = (2 / 3, 1 / 3)
+        ax.scatter([borda[1]], [borda[2]]; color = "black", marker = "x", s = 42, label = "Borda")
+        ax.text(borda[1], borda[2], "Borda"; ha = "left", va = "bottom")
+    end
+
+    ax.set_xlabel("s1: second-place score")
+    ax.set_ylabel("s2: third-place score")
+    ax.set_xlim(-0.04, 1.08)
+    ax.set_ylim(-0.04, 1.08)
+    ax.set_title("4-candidate positional parameter space")
+    return _set_equal_2d(ax)
 end
