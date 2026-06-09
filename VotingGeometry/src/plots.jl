@@ -578,10 +578,14 @@ end
 """
     positional_comparison_region_masks(p4, labels; comparisons=nothing, resolution=101)
 
-Sample diagnostic grid masks over `0 <= s2 <= s1 <= 1` for four-candidate
-positional comparisons. When `comparisons === nothing`, all unordered pairwise
-weak comparisons are used in label order: `label_i >= label_j` for `i < j`.
-Pass explicit comparisons for paper-specific claims, for example
+Return sampled diagnostic grid masks over `0 <= s2 <= s1 <= 1` for
+four-candidate positional comparisons. These masks are approximations whose
+counts depend on `resolution`; use `positional_comparison_region_exact_table`
+for exact polygon areas and parameter-space proportions.
+
+When `comparisons === nothing`, all unordered pairwise weak comparisons are
+used in label order: `label_i >= label_j` for `i < j`. Pass explicit
+comparisons for paper-specific claims, for example
 `comparisons=ejpe_bolsonaro_comparison_specs()`.
 """
 function positional_comparison_region_masks(p4, labels; comparisons = nothing, resolution::Integer = 101)
@@ -655,15 +659,66 @@ function _comparison_region_colors(n, colors)
     return color_vec
 end
 
-"""
-    plot_positional_comparison_regions(p4, labels; comparisons=nothing, resolution=101, ax=nothing, ...)
+const _POSITIONAL_EXACT_RESOLUTION_WARNING =
+    "resolution is ignored; positional comparison regions are computed exactly as half-plane intersections."
 
-Plot diagnostic grid comparison regions over `0 <= s2 <= s1 <= 1`. When
+"""
+    plot_positional_comparison_regions(p4, labels; comparisons=nothing, ax=nothing, ...)
+
+Plot exact half-plane-clipped polygon regions over Saari's four-candidate
+positional score triangle `0 <= s2 <= s1 <= 1`.
+
+The deprecated `resolution` keyword is accepted for backward compatibility but
+ignored with a warning because the default plot is no longer grid sampled. When
 `comparisons === nothing`, all unordered pairwise weak comparisons are used in
 label order. Pass explicit comparisons, such as
 `ejpe_bolsonaro_comparison_specs()`, for paper-specific plots.
 """
 function plot_positional_comparison_regions(
+    p4,
+    labels;
+    comparisons = nothing,
+    resolution::Union{Nothing,Integer} = nothing,
+    ax = nothing,
+    alpha = 0.35,
+    colors = nothing,
+    linewidth = 1.4,
+    title = "Exact half-plane clipped regions over Saari parameter space",
+    atol = 1e-12,
+    markersize = nothing,
+)
+    if resolution !== nothing
+        @warn _POSITIONAL_EXACT_RESOLUTION_WARNING
+    end
+    if markersize !== nothing
+        @warn "markersize is ignored; positional comparison regions are now drawn as exact polygons."
+    end
+    return plot_positional_comparison_regions_exact(
+        p4,
+        labels;
+        comparisons = comparisons,
+        ax = ax,
+        alpha = alpha,
+        colors = colors,
+        linewidth = linewidth,
+        title = title,
+        atol = atol,
+    )
+end
+
+"""
+    plot_positional_comparison_regions_grid(p4, labels; comparisons=nothing, resolution=101, ax=nothing, ...)
+
+Plot a sampled diagnostic grid approximation to positional comparison regions
+over `0 <= s2 <= s1 <= 1`. Grid counts and visible square markers depend on
+`resolution`; use `plot_positional_comparison_regions` for exact polygon
+regions and `positional_comparison_region_exact_table` for exact areas.
+
+When `comparisons === nothing`, all unordered pairwise weak comparisons are
+used in label order. Pass explicit comparisons, such as
+`ejpe_bolsonaro_comparison_specs()`, for paper-specific plots.
+"""
+function plot_positional_comparison_regions_grid(
     p4,
     labels;
     comparisons = nothing,

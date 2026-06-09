@@ -272,11 +272,14 @@ end
     plot_positional_comparison_regions_exact(p4, labels; comparisons=nothing, ax=nothing, ...)
 
 Plot exact half-plane-clipped polygons for positional comparison regions over
-Saari's parameter triangle `0 <= s2 <= s1 <= 1`. Zero-area equality boundaries are drawn as line segments
-when present; positive-area regions are filled. When `comparisons === nothing`,
-all unordered pairwise weak comparisons are used in label order. Pass explicit
-comparisons, such as `ejpe_bolsonaro_comparison_specs()`, for paper-specific
-plots.
+Saari's parameter triangle `0 <= s2 <= s1 <= 1`. This is the lower-level exact
+implementation retained for compatibility; `plot_positional_comparison_regions`
+now calls it by default.
+
+Zero-area equality boundaries are drawn as line segments when present;
+positive-area regions are filled. When `comparisons === nothing`, all unordered
+pairwise weak comparisons are used in label order. Pass explicit comparisons,
+such as `ejpe_bolsonaro_comparison_specs()`, for paper-specific plots.
 """
 function plot_positional_comparison_regions_exact(
     p4,

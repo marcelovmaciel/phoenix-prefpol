@@ -108,6 +108,7 @@ export
     positional_comparison_region_masks,
     positional_comparison_region_table,
     plot_positional_comparison_regions,
+    plot_positional_comparison_regions_grid,
     plot_candidate_tally_tetrahedron,
     plot_saari_tetrahedron3d,
     plot_procedure_hull_q_image_4c,

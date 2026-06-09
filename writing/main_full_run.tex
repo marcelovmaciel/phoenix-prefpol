@@ -46,11 +46,25 @@
 
 
 \begin{abstract}
-Polarization is usually measured by mapping citizens onto a one-dimensional ideological scale and summarizing the resulting distribution. This paper instead treats dissent as a property of ranked-preference profiles. In multiparty settings, citizens rank several alternatives, and political conflict may appear not only as ideological distance, but as organization in the space of rankings.
+Polarization is usually measured by mapping citizens onto a one-dimensional ideological scale and summarizing the resulting distribution. This paper instead treats dissent as a property of ranked-preference profiles. In multiparty settings, citizens rank several alternatives, and political conflict may appear not only as location on an attitudinal scale, but as organization in the space of rankings.
 
 I develop a structure-sensitive measurement strategy that separates global reversal patterns, effective support, and group-level structuration. Globally, \(\Psi\), \(R\), \(\kappa\), and \(RHHI\) distinguish pairwise antagonism, reversal mass, and reversal concentration. Effective-number diagnostics track whether dissent is diffuse across many rankings or compressed into fewer effective configurations. At the group level, \(C\) and \(D\) distinguish internal coherence from between-group divergence. I apply these diagnostics to ranked candidate preferences constructed from Brazilian CSES survey data from 2006, 2018, and 2022 using a nested resampling, imputation, and linearization pipeline.
 
-The results show that Brazil's ranking profile becomes more conflictual and more organized between 2006 and 2022, but not as a collapse into two internally homogeneous camps. In 2006, dissent is present but relatively diffuse, with weak PT-centered structuration. In 2018, the profile becomes more conflictual and is organized most strongly by respondents' position toward Lula. By 2022, conflict is both higher and more compressed: pairwise antagonism and reversal mass rise, effective ranking and reversal-pair diversity fall, and ideology overtakes PT as the dominant structuring variable. The resulting pattern is compressed ideological structuration in a multiparty ranking space, not a simple binary division of the electorate. The results motivate a general point for comparative research: structure-aware metrics can register rising conflict without forcing electorates into binary representations, providing a portable template for dissent measurement in multiparty systems.
+The results show that Brazil's ranking profile becomes more conflictual and more
+organized between 2006 and 2022, but not as a collapse into two internally
+homogeneous camps. In 2006, dissent is present but relatively diffuse, with weak
+PT-centered structuration. In 2018, the profile becomes more conflictual and is
+organized most strongly by respondents' position toward Lula. By 2022, conflict
+is both higher and more compressed: pairwise antagonism and reversal mass rise,
+effective ranking and reversal-pair diversity fall, and ideology becomes the
+strongest joint structuring partition. PT remains externally relevant, but
+ideology more clearly combines within-group coherence with out-group divergence.
+The resulting pattern is compressed ideological structuration in a multiparty
+ranking space, not a simple binary division of the electorate. The results
+motivate a general point for comparative research: structure-aware metrics can
+register rising conflict without forcing electorates into binary
+representations, providing a portable template for dissent measurement in
+multiparty systems.
 \end{abstract}
 
 
@@ -111,7 +125,7 @@ Brazil offers a useful vantage point for this problem. It is frequently describe
 
  Dissent in multiparty electorates is not exhausted by attitudes, ideal points, or first choices. It also has a profile structure: a pattern in how citizens rank, reverse, cluster around, and separate among multiple alternatives. The contribution of the article is to develop diagnostics that make this structure observable and comparable. I develop diagnostics that describe how rankings are organized globally and across exogenous respondent partitions. Globally, \(\Psi\), \(R\), \(\kappa\), \(RHHI\), and effective-support summaries distinguish pairwise antagonism, reversal mass, reversal concentration, and the effective number of opposed rankings. At the group level, \(C\) and \(D\) distinguish internal coherence from between-group divergence.
 
-I then apply these diagnostics to ranked candidate preferences constructed from Brazilian CSES survey data from 2006, 2018, and 2022. The application shows why the distinction matters. Dissent increases and the ranking space becomes more compressed, but the resulting structure is not reducible to a binary split. In 2018, Lula support is the strongest structuring partition; in 2022, ideology overtakes PT. The analysis therefore describes not only whether conflict rises, but what form that conflict takes in profile space. I also separate variability induced by resampling, imputation, and stochastic linearization to assess the robustness of these descriptive patterns.
+I then apply these diagnostics to ranked candidate preferences constructed from Brazilian CSES survey data from 2006, 2018, and 2022. The application shows why the distinction matters. Dissent increases and the ranking space becomes more compressed, but the resulting structure is not reducible to a binary split. In 2018, Lula support is the strongest structuring partition; in 2022, ideology overtakes PT. The analysis therefore describes not only whether conflict rises, but what form that conflict takes in profile space\footnote{I also separate variability induced by resampling, imputation, and stochastic linearization to assess the robustness of these descriptive patterns.}.
 
 The scope of the paper is descriptive and measurement-oriented. It provides a portable measurement strategy for comparative research on multiparty electorates, where conflict may increase without becoming binary, and where group structuration may occur without complete within-group consolidation. In \textcite{gerring12_mere_descr}'s terms, the core contribution is a set of indicators: measurement claims that map observed rankings to scales in order to describe specific dimensions of an object, while clarifying what later explanatory or causal analyses would need to account for. 
 
@@ -229,9 +243,13 @@ Accordingly, there is a need for alternative measures that more faithfully captu
 
 \section{Global and Group Structure in Preference Profiles.}
 
-We now turn to the development of measures that can capture the internal structure of preference profiles. The challenge lies in designing indices that are sensitive not only to the distribution of first choices, the traditional focus of polarization research,but also to the patterns of agreement and disagreement that emerge across the full ranking of alternatives.
+We now turn to the development of measures that can capture the internal
+structure of preference profiles. The challenge lies in designing indices that
+are sensitive not only to the distribution of first choices, the traditional
+focus of polarization research, but also to the patterns of agreement and
+disagreement that emerge across the full ranking of alternatives.
 
-\textcite{can2015measuring} propose a measure of polarization that can be applied to profiles of linear orders\footnote{A \emph{strict linear order} on a non-empty set \(X\) is a binary relation \(<\) that is (i) {irreflexive}: \(\lnot(x<x)\) for all \(x\in X\); (ii) {transitive}: \(x<y\land y<z\!\implies\! x<z\); and (iii) {trichotomous}: for any distinct \(x,y\in X\), exactly one of \(x<y\) or \(y<x\) holds.  }, but it has not yet been empirically mobilized. Let \( \mathcal{L} \) be the set of linear orders on a finite set of alternatives \( A \). Given a profile \( p \in \mathcal{L}^N \) two distinct alternatives \( a, b \in A \), we define \( n_{ab}(p) = \# \{ i \in N : (a, b) \in p(i) \} \), the number of individuals who prefer \( a \) over \( b \); and  \( d_{ab}(p) = |n_{ab}(p) - n_{ba}(p)| \), the absolute difference in relative support between \( a \succ b \) and \( b \succ a \) in the population. If \( n \) is the number of agents,  \( m \) is the number of alternatives, and \(\bar{A}\) is the set of all subsets of \(A\) of size 2,  then the measure is given by: \(\Psi(p) = \sum_{\{a,b\} \in \bar{A}} \frac{n - d_{ab}(p)}{n \cdot \binom{m}{2}}\).
+\textcite{can2015measuring} propose a measure of polarization that can be applied to profiles of linear orders\footnote{A \emph{strict linear order} on a non-empty set \(X\) is a binary relation \(<\) that is (i) {irreflexive}: \(\lnot(x<x)\) for all \(x\in X\); (ii) {transitive}: \(x<y\land y<z\!\implies\! x<z\); and (iii) {trichotomous}: for any distinct \(x,y\in X\), exactly one of \(x<y\) or \(y<x\) holds.  }, but it has not yet been empirically mobilized. Recall that  \( \mathcal{L} \) is the set of linear orders on a finite set of alternatives \( A \). Given a profile \( p \in \mathcal{L}^N \) two distinct alternatives \( a, b \in A \), we define \( n_{ab}(p) = \# \{ i \in N : (a, b) \in p(i) \} \), the number of individuals who prefer \( a \) over \( b \); and  \( d_{ab}(p) = |n_{ab}(p) - n_{ba}(p)| \), the absolute difference in relative support between \( a \succ b \) and \( b \succ a \) in the population. If \( n \) is the number of agents,  \( m \) is the number of alternatives, and \(\bar{A}\) is the set of all subsets of \(A\) of size 2,  then the measure is given by: \(\Psi(p) = \sum_{\{a,b\} \in \bar{A}} \frac{n - d_{ab}(p)}{n \cdot \binom{m}{2}}\).
 
 Despite its elegance, the measure \(\Psi\) has relevant limitations. It considers
 only global margins between pairs of alternatives—that is, the aggregate
@@ -380,25 +398,25 @@ its relative size. The value of \(D\) increases when members of one group
 are far from the consensus rankings of other groups. It equals zero when
 all respondents share the same ranking.
 
-The statistic \(D\) is useful as a measure of external divergence, but it
-is not a pure distance between group consensus rankings. Because it
-compares individual rankings to other groups' consensus sets, internal
-dispersion also contributes to \(D\). A group whose members are already
-far from their own consensus will also tend to be far from other groups'
-consensuses. Appendix~\ref{app:c-d-relationship} shows that
-\(D
-\geq
-1-C^{\star}
-=
-\frac{1-C}{2}.\)
-
+The statistic \(D\) is useful as a measure of external divergence, but it is not
+a pure distance between group consensus rankings. Because it compares individual
+rankings to other groups' consensus sets, internal dispersion also contributes
+to \(D\). Appendix~\ref{app:c-d-relationship} shows that
+\(D \geq 1-C^{\star} = \frac{1-C}{2}.\) More precisely, \(D\) admits the
+decomposition \( D = \frac{1-C}{2} + D_{\mathrm{excess}}\), where
+\( D_{\mathrm{excess}} = \frac{1}{k-1} \sum_{g=1}^{k} \sum_{h\neq g} \frac{n_g}{n} \left( \bar d_{gh}-\bar d_{gg} \right) \geq 0. \)
+The first term, \((1-C)/2\), is the lack-of-coherence component: it is the
+amount of \(D\) induced by within-group dispersion around each group's own
+consensus. The second term, \(D_{\mathrm{excess}}\), is the remaining distance
+to other groups' consensuses after subtracting that within-group component.
+Thus, a high value of \(D\) should not be read immediately as compact
+between-group separation. It may reflect low within-group coherence, excess
+divergence between group consensuses, or both.
 
 For this reason, I do not combine the group diagnostics into a single
 polarization score. A composite measure would obscure the distinction between
 internal coherence and external divergence. Instead, I treat \(C\) and \(D\) as
-a diagnostic pair. The goal is not to assign each partition one scalar value of
-polarization, but to describe how, and in what sense, an exogenous grouping
-structures the preference profile. In this sense, the paper extends the
+a diagnostic pair.  In this sense, the paper extends the
 disambiguation strategy of \textcite{bramson2017understanding, bramson16_disam_social_polar_concep_measur} from one-dimensional attitude
 distributions to ranked-preference profiles: rather than asking whether an
 electorate is polarized in general, the analysis asks which structural features
@@ -436,24 +454,29 @@ formal behavior of the measures on these reference profiles.
 
 
 
-We now turn to the empirical application, drawing on data from the Estudo Eleitoral Brasileiro (ESEB) - which is associated with the Comparative Study of Electoral Systems for the years 2006 (n = 1000), 2018 (n = 2506), and 2022 (n = 2001). Brazil’s multiparty presidential system has been invoked as a paradigmatic case of  polarization, with its combination high electoral fragmentation, weak programmatic structuring, and the salience of a single polarizing party, the Workers’ Party (PT), as a stable focal point of partisan affect \parencite{samuels2018partisans, nunes2023biografia}. The selected years correspond to qualitatively different political contexts as described in existing accounts of Brazilian competition and alignment.
+We now turn to the empirical application, drawing on data from the Estudo
+Eleitoral Brasileiro (ESEB), which is associated with the Comparative Study of
+Electoral Systems, for the years 2006 (n = 1000), 2018 (n = 2506), and 2022 (n =
+2001). Brazil’s multiparty presidential system has been invoked as a
+paradigmatic case of polarization, with its combination high electoral
+fragmentation, weak programmatic structuring, and the salience of a single
+polarizing party, the Workers’ Party (PT), as a stable focal point of partisan
+affect \parencite{samuels2018partisans, nunes2023biografia}. The selected years correspond to qualitatively different
+political contexts as described in existing accounts of Brazilian competition
+and alignment.
 
 The 2006 election took place during a period generally interpreted as one of relatively low mass polarization, despite growing elite antagonism following the mensalão corruption scandal. This contrasts sharply with 2018, widely recognized as a watershed moment of intense partisan and ideological polarization, marked by Jair Bolsonaro’s rise and the consolidation of a strongly anti-PT bloc \parencite{samuels23_partis_stereot_polar_brazil}. The 2022 contest supposedly further entrenched this bipolar dynamic, producing the most competitive and contentious presidential race since redemocratization, with polarization manifesting both in elite rhetoric and in voter behavior \parencite{nunes2023biografia}. Comparing these three waves allows a descriptive assessment of how preference-profile structure differs across periods commonly discussed in polarization narratives.
 
-The analysis is based mainly on the ESEB feeling-thermometer question, which asks
-respondents to rate political leaders on a scale from \(0\) to \(10\), where
-\(0\) means that the respondent does not like the figure at all and \(10\)
+The analysis is based mainly on the ESEB feeling-thermometer question, which
+asks respondents to rate political leaders on a scale from \(0\) to \(10\),
+where \(0\) means that the respondent does not like the figure at all and \(10\)
 means that they like the figure a lot. Responses indicating that the respondent
-does not know the politician, does not know how to answer, or did not answer
-are treated as missing values.
-
-This question is a thermometer scale and can therefore be interpreted as a weak
-order\parencite{regenwetter2006behavioral}\footnote{A complete, reflexive, and transitive relation.}. The list of political figures includes both declared
-presidential candidates and individuals publicly floated as potential contenders
-for the office. Although there are minor coding variations between the datasets for the three years, the procedure is analogous.
-
-
-
+does not know the politician, does not know how to answer, or did not answer are
+treated as missing values. This question is a thermometer scale and can
+therefore be interpreted as a weak order \parencite{regenwetter2006behavioral}\footnote{A complete, reflexive, and transitive relation.}. The list of political
+figures includes both declared presidential candidates and individuals publicly
+floated as potential contenders for the office. Although there are minor coding
+variations between the datasets for the three years, the procedure is analogous.
 
 
 The starting point for the analysis is the construction of weighted
@@ -469,7 +492,7 @@ The design has three stochastic layers: weighted bootstrap resampling,
 imputation of missing candidate evaluations, and stochastic linearization of
 weak orders into complete rankings. The canonical specification uses MICE for
 imputation and pattern-conditional linearization for ties. The latter estimates
-regularized empirical tie-breaking distributions within comparable weak-order
+regularized empirical tie-breaking distributions within comparable weak order
 patterns, using a one-half pseudo-count to shrink sparse strata toward uniform
 tie-breaking. Zero imputation and uniformly random tie-breaking are retained as
 robustness specifications.
@@ -485,47 +508,33 @@ the less informative specifications, and that the dominant source of simulation
 variability is resampling rather than imputation or linearization.
 
 Constructing the preference profiles requires fixing an ordered set of evaluated
-political figures for each election year. This is a substantive measurement
-decision, not only a missing-data problem. Response availability matters, but
-selecting alternatives solely by the lowest share of missing evaluations would
-confound electoral relevance with public notoriety. I therefore use a
-substantively defined candidate sequence for each year.\footnote{The
-  candidate-selection procedure is discussed in
-  Appendix~\ref{app:candidate-set-selection}.} For each year, profiles with smaller
-\(m\) are obtained by taking the first \(m\) alternatives from that sequence.
-The main analysis is reported for \(m \leq 5\). This cap is substantively and
-statistically motivated: since the number of possible rankings grows as \(m!\),
-moving to \(m=6\) or \(m=7\) creates sparsity in the ranking data.
+political figures for each election year. This is a substantive decision.
+Response availability matters, but selecting alternatives solely by the lowest
+share of missing evaluations would confound survey notoriety with electoral
+relevance. I therefore use a substantively defined candidate sequence for each
+year\footnote{The candidate-selection procedure is discussed in Appendix~\ref{app:candidate-set-selection}.}.
+For each year, profiles with smaller \(m\) are obtained by taking the first
+\(m\) alternatives from that sequence. The main analysis is reported for
+\(m \leq 5\). This cap is substantively and statistically motivated: since the
+number of possible rankings grows as \(m!\), moving to \(m=6\) or \(m=7\)
+creates sparsity in the ranking data.
 
-For each linearized pseudo-profile, I compute the global measures \(\Psi\),
-\(R\), \(\kappa\), and \(RHHI\). I then compute the group-level measures \(C\)
-and \(D\) after partitioning respondents by sex, race, religion, age,
+For each imputed and linearized pseudo-profile, I compute the global measures
+\(\Psi\), \(R\), \(\kappa\), and \(RHHI\). I then compute the group-level measures
+\(C\) and \(D\) after partitioning respondents by sex, race, religion, age,
 education, income, position regarding the Workers' Party (\textit{Partido dos
-Trabalhadores}, PT), ideology, and opinion on abortion. Group consensuses are
-computed by minimizing average Kendall distance over the relevant catalog of
-linear orders, with consensus ties handled by averaging across tied minimizers.
-Measures are computed separately for each realized pseudo-profile generated by
-the nested design. The reported summaries are then computed from the
-distribution of replicate-level estimates, while the replicate indices are
-retained for the variance decomposition reported in the appendix. The
-recodings, candidate sequences, and scripts are available in the replication
-repository.
-
-
-I partition respondents separately by standard socio\-demographics
-(sex, race, religion, age, education, income), ideology, position on abortion,
-and PT orientation.\footnote{Partitions are evaluated one at a time; I do not
-use intersectional groupings.} These variables are not treated as causal
-explanations of preference structure. They are theoretically plausible
-observable partitions along which profile structuration might appear.
-Socio\-demographic groups may capture shared social positions and information
-environments; ideology may aggregate programmatic sorting even when individual
-left--right self-placement is noisy; abortion probes a possible moral-cultural
-cleavage; and PT orientation captures the party-centered axis of
-petismo/antipetismo in a party system often characterized by weak partisan
-attachments and low ideological coherence \parencite{borba24_polar_ideol}. The purpose is therefore diagnostic: if any observable
-partition generates high \(C\), high \(D\), or both, these are the most
-theoretically plausible candidates in the Brazilian context.
+  Trabalhadores}, PT), ideology, and opinion on abortion\footnote{Partitions are evaluated one at a time; I do not use intersectional groupings.}. These
+variables are not treated as causal explanations of preference structure. They
+are theoretically plausible observable partitions along which profile
+structuration might appear. Socio\-demographic groups may capture shared social
+positions and information environments; ideology may aggregate programmatic
+sorting even when individual left--right self-placement is noisy; abortion
+probes a possible moral-cultural cleavage; and PT orientation captures the
+party-centered axis of petismo/antipetismo in a party system often characterized
+by weak partisan attachments and low ideological coherence \parencite{borba24_polar_ideol}. The purpose
+is therefore diagnostic: if any observable partition generates high \(C\), high
+\(D\), or both, these are the most theoretically plausible candidates in the
+Brazilian context.
 
 
 
@@ -581,24 +590,8 @@ theoretically plausible candidates in the Brazilian context.
 
 \subsection{Results}
 
-% Figure~\ref{fig:globals-evolution} presents the median values\footnote{All global measure plots show median values with quartile bands, while the group measure plots show medians.} of the global measures for the candidate sets analyzed in 2006, 2018, and 2022, varying the number of alternatives \(m\). The candidates appear in the order in which they were included in each scenario. The first mechanical pattern is that \(\kappa=1\) whenever \(m=2\). With only two alternatives, there is only one possible reversal field, \(A \succ B\) versus \(B \succ A\). Hence all reversal mass is necessarily concentrated in that field. For the same reason, \(\Psi\) and \(R\) coincide when \(m=2\), as shown in Appendix~\ref{sec:appendixB}. Since \(RHHI=\sqrt{R\cdot \kappa}\), it follows that \(RHHI=\sqrt{R}\) in the binary case and therefore exceeds \(\Psi=R\) whenever \(0<R<1\). Once \(m\geq 3\), however, the measures separate because reversal can be distributed across multiple opposed ranking pairs.
 
-% The first substantive pattern is the temporal increase in pairwise antagonism. In 2006, \(\Psi\) is already moderate to high, beginning around \(0.64\) for the Lula--Alckmin comparison, falling slightly when Heloísa Helena is added, and then rising to approximately \(0.68\) or \(0.69\) when José Serra and Cristovam Buarque enter the candidate set. In 2018, \(\Psi\) is higher at every comparable value of \(m\): it begins around \(0.74\) for Haddad and Bolsonaro and rises to approximately \(0.81\) for \(m=4\) and \(m=5\). In 2022, \(\Psi\) is higher still. It is around \(0.92\) from \(m=2\) through \(m=4\), declining only slightly to about \(0.89\) at \(m=5\). Thus, according to \(\Psi\), pairwise antagonism increases sharply across the three waves, and by 2022 it remains high even after moving beyond the binary Lula--Bolsonaro comparison.
-
-% However, \(\Psi\) alone does not describe the structure of the profile. It summarizes average pairwise opposition, but it does not say whether the underlying ranking profile is organized around a small number of mutually reversed rankings or dispersed across many ranking configurations. This is why \(R\), \(\kappa\), and \(RHHI\) have to be read together. The measure \(R\) captures the fraction of the profile involved in exact reversal pairs; \(\kappa\) captures how concentrated that reversal mass is across reversal fields; and \(RHHI\) combines the two. A profile can therefore have high \(\Psi\) but lower \(RHHI\) if pairwise antagonism is distributed across many rankings rather than concentrated in a few opposed rankings.
-
-% In 2006, this distinction is especially visible. Exact reversal mass \(R\) is about \(0.64\) at \(m=2\), falls to about \(0.48\) at \(m=3\), remains near \(0.48\) at \(m=4\), and then declines to roughly \(0.36\) at \(m=5\). The concentration component falls even more sharply: \(HHI\) drops from \(1\) at \(m=2\) to about \(0.52\) at \(m=3\), about \(0.18\) at \(m=4\), and about \(0.05\) at \(m=5\). As a result, \(RHHI\) declines from about \(0.80\) in the binary comparison to about \(0.49\), \(0.29\), and \(0.14\) as the candidate set expands. The interpretation is not that conflict disappears in 2006. Rather, as the profile is represented over a richer ranking space, exact reversal mass becomes increasingly diffuse.
-
-% The 2018 profile is more conflictual than the 2006 profile. \(R\) is about \(0.74\) at \(m=2\), remains around \(0.75\) at \(m=3\), and then declines to approximately \(0.64\) and \(0.54\) at \(m=4\) and \(m=5\). These values are consistently above the 2006 values at comparable candidate-set sizes. The concentration component again falls with \(m\), from \(1\) at \(m=2\) to roughly \(0.47\), \(0.25\), and \(0.08\). Consequently, \(RHHI\) falls from about \(0.86\) to \(0.59\), \(0.39\), and \(0.20\). The important point is that the decline in \(RHHI\) with \(m\) is compatible with a more conflictual profile. Compared with 2006, 2018 has higher pairwise antagonism, higher exact reversal mass, and higher reversal-concentration composites, but the opposition is still distributed over multiple reversal fields once more than two candidates are considered.
-
-% The 2022 profile displays the strongest global pattern. Exact reversal mass is about \(0.92\) at \(m=2\), remains near \(0.90\) at \(m=3\), is still around \(0.84\) at \(m=4\), and only then declines to approximately \(0.65\) at \(m=5\). This is a major difference from the earlier waves: reversal mass remains high even after the candidate set moves beyond the two leading candidates. \(\kappa\) still declines mechanically as the ranking space expands, from \(1\) at \(m=2\) to about \(0.67\), \(0.33\), and \(0.14\). But because \(R\) remains high, the composite \(RHHI\) also remains much higher than in the previous years: approximately \(0.96\), \(0.78\), \(0.53\), and \(0.30\) from \(m=2\) to \(m=5\). In profile-space terms, 2022 combines very high pairwise antagonism with substantial exact reversal mass and comparatively stronger concentration of that reversal mass.
-
-% The effective number of reversal pairs, \(1/\kappa\), makes the same point in more interpretable terms. With three alternatives, the theoretical maximum number of reversal pairs is \(3\). The effective number is about \(1.9\) in 2006, \(2.1\) in 2018, and \(1.5\) in 2022. Thus, at \(m=3\), 2022 has the largest reversal mass but the smallest effective number of reversal fields. Its opposition is therefore both stronger and more concentrated. With four alternatives, the theoretical maximum is \(12\), while the effective numbers are approximately \(5.6\), \(4.0\), and \(3.0\) in 2006, 2018, and 2022. With five alternatives, the theoretical maximum is \(60\), while the effective numbers are roughly \(18\), \(13\), and \(7\). The expansion of the candidate set necessarily opens many possible reversal fields, but the 2022 profile uses fewer of them effectively.
-
-% This decomposition clarifies why \(\Psi\) and \(RHHI\) should not be interpreted as competing measures of the same object. \(\Psi\) captures the intensity of pairwise antagonism. \(RHHI\) captures reversal mass weighted by its concentration across exact opposite rankings. The fact that \(\Psi\) remains high while \(RHHI\) declines with \(m\) means that pairwise antagonism can be intense even when exact reversal is distributed across a large ranking space. Conversely, the fact that 2022 has higher \(RHHI\) than 2006 and 2018 at comparable values of \(m\) means that its antagonism is not merely a marginal pairwise phenomenon. It is also more organized in the profile space.
-
-
-Figure~\ref{fig:globals-evolution} presents the median values\footnote{All
+Figures~\ref{fig:globals-evolution}  and \ref{fig:g22}presents the median values\footnote{All
 global measure plots show median values with quartile bands, while the group
 measure plots show medians.} of the global measures for the candidate sets
 analyzed in 2006, 2018, and 2022, varying the number of alternatives \(m\). The
@@ -628,28 +621,24 @@ comparison.
     {
     \includegraphics[width=.8\linewidth]{imgs/2022_global_main.png}
   }
-
+  \label{fig:g22}
+\caption{Global measures for 2022}
 \end{figure}
 
-However, \(\Psi\) does not describe the structure of that dissent. It summarizes
-average pairwise opposition, but it does not show whether the profile is
-organized around a small number of opposed rankings or dispersed across many
-ranking configurations. This is why \(R\), \(\kappa\), and \(RHHI\) have to be
-read together. \(R\) measures how much of the profile lies in exact reversal
-pairs; \(\kappa\) measures how concentrated that reversal mass is across
-reversal fields; and \(RHHI\) combines reversal mass with its concentration.
-
-This decomposition changes the interpretation of the temporal pattern. In
-2006, exact reversal mass falls as the candidate set expands, and the
-concentration component falls even more sharply. \(RHHI\) therefore declines
-from about \(0.80\) in the binary comparison to about \(0.14\) at \(m=5\). This
-does not mean that conflict disappears, but that, once the profile is
-represented in a richer ranking space, exact opposition becomes diffuse. The
-2018 profile is more conflictual: \(R\) remains above the 2006 values at
-comparable candidate-set sizes, and \(RHHI\) is also higher. But the same
-structural pattern remains: as \(m\) grows, opposition is distributed across
-multiple reversal fields rather than concentrated in a single opposed pair of
-rankings.
+\(\Psi\) summarizes average pairwise opposition, but it does not show whether the
+profile is organized around a small number of opposed rankings or dispersed
+across many ranking configurations. This is why \(R\), \(\kappa\), and \(RHHI\) have
+to be read together. Their combination changes the interpretation of the
+temporal pattern. In 2006, exact reversal mass falls as the candidate set
+expands, and the concentration component falls even more sharply. \(RHHI\)
+therefore declines from about \(0.80\) in the binary comparison to about
+\(0.14\) at \(m=5\). This does not mean that conflict disappears, but that, once
+the profile is represented in a richer ranking space, exact opposition becomes
+diffuse. The 2018 profile is more conflictual: \(R\) remains above the 2006
+values at comparable candidate-set sizes, and \(RHHI\) is also higher. But the
+same structural pattern remains: as \(m\) grows, opposition is distributed
+across multiple reversal fields rather than concentrated in a single opposed
+pair of rankings.
 
 The 2022 profile is different in degree and structure. Exact reversal mass
 remains high even after additional candidates enter the ranking set: \(R\) is
@@ -688,31 +677,33 @@ The reversal-pair diagnostic sharpens this contrast. By \(m=5\), 2006 has \(18.6
 
 Taken together, the global indices and the effective-support diagnostics suggest that the observed process is not simply a movement from pluralism to two-bloc polarization. Later waves show greater organization of disagreement, especially in 2022, where the ranking space is more compressed and reversal mass is more concentrated. Yet this concentration does not amount to dominance by a single antagonistic reversal pair.
 
-When the choice set is binary (\(m=2\)), the global measures partially
-collapse to the normalized pair margin. In this case, a close race, understood
-as a small aggregate margin between the two alternatives, is equivalent to high
-\(\Psi\) and high \(R\). But the same binary restriction also forces
-\(\kappa=1\) and \(ENRP=1\). Hence, any further structure is unidentifiable:
-all opposition is concentrated in a single reversal field by construction.
-For this reason, reading a narrow electoral margin as ``high polarization,''
-as in \textcite[pp.~17--18]{nunes2023biografia}, is misleading. It confuses
-a binary margin with the structure of the preference profile.
+When the choice set is binary (\(m=2\)), the global measures partially collapse
+to the normalized pair margin. In this case, a close race, understood as a small
+aggregate margin between the two alternatives, is equivalent to high \(\Psi\) and
+high \(R\). But the same binary restriction also forces \(\kappa=1\) and \(ENRP=1\).
+Hence, any further structure is unidentifiable: all opposition is concentrated
+in a single reversal field by construction. For this reason, reading a narrow
+electoral margin as direct evidence of polarization, as in
+\textcite[pp.~17--18]{nunes2023biografia}, is misleading. A close runoff margin
+shows that the electorate was nearly evenly divided on one binary comparison. It
+does not show that citizens' preferences formed two internally coherent and
+mutually opposed blocs. When \(m=2\), the measurement frame itself forces all
+disagreement into a single opposition: \(\Psi=R\), \(\kappa=1\), and \(ENRP=1\).
+Treating this mechanical compression as evidence of an extensive social cleavage
+confuses a measurement artifact with the structure of the preference profile.
 
-The point becomes visible as soon as \(m\geq 3\). Once additional alternatives
-are admitted, reversal mass can be distributed across multiple opposed
-rankings. \(RHHI\) therefore falls relative to the binary case, and
-\(ENRP>1\) shows that antagonism does not collapse onto a single divide.
-At the same time, the updated results show that this dispersion is not random
-fragmentation. In 2022, pairwise antagonism and reversal mass remain high even
-for larger candidate sets, while the effective number of reversal fields is
-smaller than in the earlier waves. The substantive conclusion is therefore
-more precise: binary margins overstate what can be inferred about
-polarization, but the multiparty profile reveals a real increase in structured
-opposition, especially in 2022.
+The point becomes visible as soon as \(m\geq 3\). Once additional alternatives are
+admitted, reversal mass can be distributed across multiple opposed rankings.
+\(RHHI\) therefore falls relative to the binary case, and \(ENRP>1\) shows that
+antagonism does not collapse onto a single divide. At the same time, the updated
+results show that this dispersion is not random fragmentation. In 2022, pairwise
+antagonism and reversal mass remain high even for larger candidate sets, while
+the effective number of reversal fields is smaller than in the earlier waves.
+The substantive conclusion is therefore more precise: binary margins overstate
+what can be inferred about dissent, but the multiparty profile reveals a real
+increase in structured opposition, especially in 2022.
+
  
-
-
-
 
 % ---------- 2006 ----------
 \begin{figure}[htbp]
@@ -720,6 +711,7 @@ opposition, especially in 2022.
   \caption{Group diagnostics in 2006: within-group coherence \(C\) and between-group divergence \(D\).}
   \label{fig:group-2006}
 \end{figure}
+
 
 Figure~\ref{fig:group-2006} reports the group-based diagnostics for 2006:
 within-group coherence \(C\) and between-group divergence \(D\). The main
@@ -788,11 +780,19 @@ preference blocs.
 Abortion, religion, and PT evaluation are more informative than the purely
 demographic partitions. Religion has relatively high divergence, but its
 coherence remains below the main political variables. PT evaluation is
-stronger: its \(D\) remains high across candidate-set sizes, indicating that
-PT-defined groups have distinct fitted consensuses. However, its within-group
-coherence is only moderate to low. Thus, PT evaluation still distinguishes
-group consensuses, but its within-group coherence is not high enough for it to
-be the most informative partition in 2022.
+stronger: its raw \(D\) remains high across candidate-set sizes, indicating
+that PT-defined groups still point toward distinct regions of the ranking
+space. However, this high divergence must be read together with PT's lower
+coherence. Since
+\[
+D=\frac{1-C}{2}+D_{\mathrm{excess}},
+\]
+part of \(D\) is mechanically induced by lack of within-group coherence. In
+the plotted medians, PT's \(C\) is only about \(0.24\) at \(m=2\) and about
+\(0.21\) at \(m=5\), while its \(D\) remains high, at about \(0.54\) and
+\(0.50\), respectively. Thus, PT evaluation still distinguishes group
+consensuses, but a substantial part of its raw divergence reflects internal
+dispersion within PT-defined categories rather than excess divergence alone.
 
 This marks a change from 2006. In 2006, PT evaluation was the main political
 grouping, especially in the binary comparison. By 2022, PT remains relevant,
@@ -804,24 +804,34 @@ internally coherent. In group-structuration terms, PT still differentiates
 groups externally, but it no longer produces the most internally organized
 subprofiles.
 
-Ideology is the clear outlier in 2022. It has the highest within-group
-coherence \(C\) and the highest or near-highest between-group divergence \(D\)
-across candidate-set sizes. Its values also decline as more alternatives are
-added, which is expected: larger candidate sets make rankings harder to
-compress into internally coherent group consensuses. But even after this
-decline, ideology remains above the other partitions on the relevant
-diagnostics. Unlike PT, ideology combines internal coherence with external
-divergence. The 2022 group analysis therefore identifies ideology as the most
-informative partition among those examined, followed by PT evaluation, while
-demographic partitions remain weak.
+Ideology is the strongest joint structuring partition in 2022. Its raw
+divergence \(D\) is only modestly higher than PT's, so the result should not
+be read as a simple disappearance of PT-centered conflict. The difference is in
+the composition of \(D\). Ideology has much higher within-group coherence:
+approximately \(C \approx 0.46\) at \(m=2\) and \(C \approx 0.35\) at
+\(m=5\), while its \(D\) remains about \(0.54\) and \(0.51\), respectively.
+Because ideology's lack-of-coherence component \((1-C)/2\) is smaller, more
+of its raw divergence is excess divergence. Ideology therefore combines
+internally organized subprofiles with externally separated consensuses more
+clearly than PT evaluation does.
+
+The 2022 group analysis therefore does not show that ideology simply replaces
+PT. PT remains externally relevant: PT-defined categories still have high raw
+divergence and distinct fitted consensuses. The sharper result is that
+ideology becomes the most informative partition in a joint sense, because it
+combines higher within-group coherence with high excess divergence. PT remains
+important, but its high \(D\) is more strongly affected by internal dispersion
+inside PT-defined groups. Demographic partitions, by contrast, remain weak.
 
 The aggregate contrast with 2006 is that the system becomes more externally
 divergent without becoming uniformly more internally cohesive. For most
 groupings, \(D\) is higher in 2022 than in 2006, while \(C\) is lower or only
 modestly positive. This means that group consensuses are farther apart, but
 group members are not necessarily more tightly clustered around those
-consensuses. Ideology in 2022 is the main exception: it is associated both with
-relatively high internal coherence and with distant group consensuses.
+consensuses. Ideology in 2022 is the main exception: it is associated both
+with relatively high internal coherence and with a larger excess-divergence
+component. This is why ideology, rather than PT evaluation, is the strongest
+observed group-level organizer in 2022.
 
 Taken together, the global and group-based measures support a more precise
 interpretation than a simple increase in polarization. The profile becomes
@@ -862,42 +872,12 @@ is the clearest grouping in that year: it is the only 2018 partition that
 combines high within-group coherence with high between-group divergence.
 Ideology is also informative, but it remains below Lula score.
 
-By 2022, the ranking of informative groupings changes again. PT evaluation
-remains informative, but it no longer produces the most internally coherent
-subprofiles. Its between-group divergence remains high, which means that
-PT-defined consensuses are still far apart, but its coherence is lower. In
-2022, ideology is the clear outlier. It has the highest coherence and the
-highest or near-highest divergence across candidate-set sizes. The resulting sequence is therefore not
-simply PT versus anti-PT throughout the period. Among the groupings examined,
-the most informative partition is PT evaluation in 2006, Lula score in 2018,
-and ideology in 2022.
+By 2022, the ranking of informative groupings changes again. PT evaluation remains informative, but it no longer produces the most internally coherent subprofiles. Its divergence remains high, which means that PT-defined consensuses are still separated in ranking space. However, because respondents within the same PT category are less coherent, part of this divergence reflects dispersion inside those categories rather than sharper separation between them. Ideology is different. It has the highest coherence and the highest or near-highest divergence across candidate-set sizes, combining internally organized groups with separated group consensuses more clearly than PT evaluation does. The resulting sequence is not simply PT versus anti-PT throughout the period: among the groupings examined, the most informative partition is PT evaluation in 2006, Lula score in 2018, and ideology in 2022.
 
-This matters for the interpretation of the usual ``two Brazils'' narrative.
-Binary electoral margins can invite the interpretation that a close race is
-itself evidence of polarization, because with \(m=2\) the measures collapse to
-the normalized pair margin and all reversal is forced into one field. But the
-multiparty profile shows something different. The observed preference profiles
-are not well described as two impermeable camps with internally unanimous
-preferences. The evidence points instead to structuration without bifurcation.
-Dissent becomes stronger, exact reversal mass becomes larger, and the occupied
-ranking space becomes more compressed, especially in 2022. Yet opposition
-remains distributed across multiple rankings and multiple reversal fields.
+This matters for the interpretation of the usual ``two Brazils'' narrative. Binary electoral margins can invite the interpretation that a close race is itself evidence of polarization, because with (m=2) the measures collapse to the normalized pair margin and all reversal is forced into one field. But the multiparty profile shows something different. The observed preference profiles are not well described as two impermeable camps with internally unanimous preferences. Dissent becomes stronger, exact reversal mass becomes larger, and the occupied ranking space becomes more compressed, especially in 2022. Yet opposition remains distributed across multiple rankings and multiple reversal fields.
 
-The most accurate summary is therefore not that Brazil simply became
-polarized, but that the observed preference profiles became more organized.
-This organization is visible globally as higher pairwise antagonism, higher
-reversal mass, and greater concentration of reversal fields. At the group
-level, PT evaluation and Lula score matter a great deal in the observed
-profiles: PT evaluation is the most informative grouping in 2006, and Lula
-score is the most informative grouping in 2018. The striking change is that,
-in 2022, ideology is the strongest group-level organizer among the partitions
-examined, surpassing PT evaluation across the main measures. This does not
-make PT or Lula irrelevant to the analysis. Rather, it shows that the strongest
-observed political grouping changes across waves: from PT evaluation, to Lula
-score, to ideological self-placement. The observed preference profiles are
-therefore neither random fragmentation nor pure binary polarization. They form
-a structured multiparty configuration of multiple oppositions, increasingly
-compressed around ideological distinctions in 2022.
+The most accurate summary is therefore not that Brazil simply became polarized, but that the observed preference profiles became more organized. This organization is visible globally as higher pairwise antagonism, higher reversal mass, and greater concentration of reversal fields. At the group level, PT evaluation and Lula score matter a great deal in the observed profiles, but the strongest observed political grouping shifts from PT evaluation, to Lula score, to ideological self-placement. This shift is best understood as a change in the form of group structuration rather than as the disappearance of PT-centered conflict. The observed preference profiles are therefore neither random fragmentation nor pure binary polarization. They form a structured multiparty configuration of multiple oppositions, increasingly compressed around ideological distinctions in 2022.
+
 
 \section*{Conclusion}
 

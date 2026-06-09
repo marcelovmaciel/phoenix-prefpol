@@ -23,6 +23,8 @@ function _legend_text_strings(ax)
 end
 
 _axis_title_string(ax) = string(ax.get_title())
+_axis_patch_count(ax) = length(collect(ax.patches))
+_axis_collection_count(ax) = length(collect(ax.collections))
 
 function _zeroish(x; atol = 1e-9)
     return all(abs(Float64(v)) <= atol for v in x)
@@ -696,8 +698,12 @@ end
     @test always_coeffs.c2 == 0.0
     always_region = positional_comparison_region_exact(always_a, labels; comparison = (:A, ">=", :B))
     never_region = positional_comparison_region_exact(always_a, labels; comparison = (:A, "<=", :B))
+    strict_never_region = positional_comparison_region_exact(always_a, labels; comparison = (:B, ">", :A))
+    @test isapprox(always_region.area, 0.5; atol = 1e-12)
     @test isapprox(always_region.parameter_space_proportion, 1.0; atol = 1e-12)
     @test isapprox(never_region.parameter_space_proportion, 0.0; atol = 1e-12)
+    @test isempty(strict_never_region.polygon) || isapprox(strict_never_region.area, 0.0; atol = 1e-12)
+    @test isapprox(strict_never_region.parameter_space_proportion, 0.0; atol = 1e-12)
 
     threshold_profile = _profile_with_rankings([
         ([2, 1, 3, 4], 1),
@@ -739,6 +745,40 @@ end
         "B >= D",
         "C >= D",
     ]
+    exact_default_table_repeat = positional_comparison_region_exact_table(threshold_profile, labels)
+    @test [row.area for row in exact_default_table_repeat] == [row.area for row in exact_default_table]
+    @test [row.parameter_space_proportion for row in exact_default_table_repeat] ==
+          [row.parameter_space_proportion for row in exact_default_table]
+
+    for row in exact_default_table
+        @test 0.0 <= row.area <= 0.5 + 1e-12
+        @test 0.0 <= row.parameter_space_proportion <= 1.0 + 1e-12
+        coeffs = row.inequality_coefficients
+        @test coeffs !== nothing
+        for point in row.polygon
+            s1, s2 = point
+            @test s1 >= -1e-12
+            @test s1 <= 1.0 + 1e-12
+            @test s2 >= -1e-12
+            @test s2 <= s1 + 1e-12
+            @test coeffs.c0 + coeffs.c1 * s1 + coeffs.c2 * s2 >= -1e-12
+        end
+    end
+
+    coarse_grid_table = positional_comparison_region_table(
+        threshold_profile,
+        labels;
+        comparisons = [(:A, ">=", :B)],
+        resolution = 11,
+    )
+    fine_grid_table = positional_comparison_region_table(
+        threshold_profile,
+        labels;
+        comparisons = [(:A, ">=", :B)],
+        resolution = 91,
+    )
+    @test coarse_grid_table[1].grid_count != fine_grid_table[1].grid_count
+    @test exact_table[1].area == threshold_region.area
 
     grid_table = positional_comparison_region_table(
         threshold_profile,
@@ -949,20 +989,40 @@ end
     @test ax5 !== nothing
     ax5b = plot_saari_tetrahedron3d()
     @test ax5b !== nothing
-    ax6 = plot_positional_comparison_regions(
-        ones(24),
-        [:Alckmin, :Bolsonaro, :Ciro, :Haddad];
-        resolution = 7,
-    )
+    ax6 = nothing
+    @test_warn r"resolution is ignored; positional comparison regions are computed exactly as half-plane intersections\." begin
+        ax6 = plot_positional_comparison_regions(
+            ones(24),
+            [:Alckmin, :Bolsonaro, :Ciro, :Haddad];
+            resolution = 11,
+        )
+    end
     @test ax6 !== nothing
-    @test _axis_title_string(ax6) == "Diagnostic grid comparison regions over Saari parameter space"
+    @test _axis_title_string(ax6) == "Exact half-plane clipped regions over Saari parameter space"
+    @test _axis_patch_count(ax6) > 0
+    ax6_resolution_91 = nothing
+    @test_warn r"resolution is ignored; positional comparison regions are computed exactly as half-plane intersections\." begin
+        ax6_resolution_91 = plot_positional_comparison_regions(
+            ones(24),
+            [:Alckmin, :Bolsonaro, :Ciro, :Haddad];
+            resolution = 91,
+        )
+    end
+    @test ax6_resolution_91 !== nothing
     ax6_ejpe = plot_positional_comparison_regions(
         ones(24),
         [:Alckmin, :Bolsonaro, :Ciro, :Haddad];
         comparisons = ejpe_bolsonaro_comparison_specs(),
-        resolution = 7,
     )
     @test ax6_ejpe !== nothing
+    ax6_grid = plot_positional_comparison_regions_grid(
+        ones(24),
+        [:Alckmin, :Bolsonaro, :Ciro, :Haddad];
+        resolution = 7,
+    )
+    @test ax6_grid !== nothing
+    @test _axis_title_string(ax6_grid) == "Diagnostic grid comparison regions over Saari parameter space"
+    @test _axis_collection_count(ax6_grid) > 0
     ax6b = plot_positional_comparison_regions_exact(
         ones(24),
         [:Alckmin, :Bolsonaro, :Ciro, :Haddad],
