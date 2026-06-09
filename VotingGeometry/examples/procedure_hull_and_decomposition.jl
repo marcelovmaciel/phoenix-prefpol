@@ -6,7 +6,7 @@ labels = ("A", "B", "C", "D")
 hull = procedure_hull_4c(p4; labels = labels)
 println("Borda Saari hull barycentric coordinates: ", hull.borda_barycentric)
 println("Borda raw score tally: ", hull.borda_point)
-println("Borda tally divided by total score per ballot: ", q_s_4candidates(p4, 2 / 3, 1 / 3))
+println("Borda candidate score shares: ", q_s_4candidates(p4, 2 / 3, 1 / 3))
 
 plot_candidate_tally_tetrahedron(; labels = labels)
 plot_procedure_hull_4c(p4; labels = labels)
@@ -18,7 +18,7 @@ comparison_rows = positional_comparison_region_table(
     comparisons = [(:A, ">=", :B), (:C, ">", :D)],
     resolution = 51,
 )
-println("Parameter-space comparison proportions:")
+println("Diagnostic grid comparison proportions:")
 foreach(println, comparison_rows)
 
 dec = decompose_profile(p4)

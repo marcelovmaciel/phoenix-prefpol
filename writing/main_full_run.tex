@@ -48,7 +48,7 @@
 \begin{abstract}
 Polarization is usually measured by mapping citizens onto a one-dimensional ideological scale and summarizing the resulting distribution. This paper instead treats dissent as a property of ranked-preference profiles. In multiparty settings, citizens rank several alternatives, and political conflict may appear not only as ideological distance, but as organization in the space of rankings.
 
-I develop a structure-sensitive measurement strategy that separates global reversal patterns, effective support, and group-level structuration. Globally, \(\Psi\), \(R\), \(HHI\), and \(RHHI\) distinguish pairwise antagonism, reversal mass, and reversal concentration. Effective-number diagnostics track whether dissent is diffuse across many rankings or compressed into fewer effective configurations. At the group level, \(C\) and \(D\) distinguish internal coherence from between-group divergence. I apply these diagnostics to ranked candidate preferences constructed from Brazilian CSES survey data from 2006, 2018, and 2022 using a nested resampling, imputation, and linearization pipeline.
+I develop a structure-sensitive measurement strategy that separates global reversal patterns, effective support, and group-level structuration. Globally, \(\Psi\), \(R\), \(\kappa\), and \(RHHI\) distinguish pairwise antagonism, reversal mass, and reversal concentration. Effective-number diagnostics track whether dissent is diffuse across many rankings or compressed into fewer effective configurations. At the group level, \(C\) and \(D\) distinguish internal coherence from between-group divergence. I apply these diagnostics to ranked candidate preferences constructed from Brazilian CSES survey data from 2006, 2018, and 2022 using a nested resampling, imputation, and linearization pipeline.
 
 The results show that Brazil's ranking profile becomes more conflictual and more organized between 2006 and 2022, but not as a collapse into two internally homogeneous camps. In 2006, dissent is present but relatively diffuse, with weak PT-centered structuration. In 2018, the profile becomes more conflictual and is organized most strongly by respondents' position toward Lula. By 2022, conflict is both higher and more compressed: pairwise antagonism and reversal mass rise, effective ranking and reversal-pair diversity fall, and ideology overtakes PT as the dominant structuring variable. The resulting pattern is compressed ideological structuration in a multiparty ranking space, not a simple binary division of the electorate. The results motivate a general point for comparative research: structure-aware metrics can register rising conflict without forcing electorates into binary representations, providing a portable template for dissent measurement in multiparty systems.
 \end{abstract}
@@ -231,12 +231,7 @@ Accordingly, there is a need for alternative measures that more faithfully captu
 
 We now turn to the development of measures that can capture the internal structure of preference profiles. The challenge lies in designing indices that are sensitive not only to the distribution of first choices, the traditional focus of polarization research,but also to the patterns of agreement and disagreement that emerge across the full ranking of alternatives.
 
-\textcite{can2015measuring} propose a measure of polarization that can be applied to profiles of linear orders\footnote{A \emph{strict linear order} on a non-empty set \(X\) is a binary relation \(<\) that is (i) {irreflexive}: \(\lnot(x<x)\) for all \(x\in X\); (ii) {transitive}: \(x<y\land y<z\!\implies\! x<z\); and (iii) {trichotomous}: for any distinct \(x,y\in X\), exactly one of \(x<y\) or \(y<x\) holds.  }, but it has not yet been empirically mobilized. Let \( \mathcal{L} \) be the set of linear orders on a finite set of alternatives \( A \). Given a profile \( p \in \mathcal{L}^N \) two distinct alternatives \( a, b \in A \), we define \( n_{ab}(p) = \# \{ i \in N : (a, b) \in p(i) \} \), the number of individuals who prefer \( a \) over \( b \); and  \( d_{ab}(p) = |n_{ab}(p) - n_{ba}(p)| \), the absolute difference in relative support between \( a \succ b \) and \( b \succ a \) in the population. If \( n \) is the number of agents,  \( m \) is the number of alternatives, and \(\bar{A}\) is the set of all subsets of \(A\) of size 2,  then the measure is given by:
-
-\[
-\Psi(p) = \sum_{\{a,b\} \in \bar{A}} \frac{n - d_{ab}(p)}{n \cdot \binom{m}{2}},
-\]
-
+\textcite{can2015measuring} propose a measure of polarization that can be applied to profiles of linear orders\footnote{A \emph{strict linear order} on a non-empty set \(X\) is a binary relation \(<\) that is (i) {irreflexive}: \(\lnot(x<x)\) for all \(x\in X\); (ii) {transitive}: \(x<y\land y<z\!\implies\! x<z\); and (iii) {trichotomous}: for any distinct \(x,y\in X\), exactly one of \(x<y\) or \(y<x\) holds.  }, but it has not yet been empirically mobilized. Let \( \mathcal{L} \) be the set of linear orders on a finite set of alternatives \( A \). Given a profile \( p \in \mathcal{L}^N \) two distinct alternatives \( a, b \in A \), we define \( n_{ab}(p) = \# \{ i \in N : (a, b) \in p(i) \} \), the number of individuals who prefer \( a \) over \( b \); and  \( d_{ab}(p) = |n_{ab}(p) - n_{ba}(p)| \), the absolute difference in relative support between \( a \succ b \) and \( b \succ a \) in the population. If \( n \) is the number of agents,  \( m \) is the number of alternatives, and \(\bar{A}\) is the set of all subsets of \(A\) of size 2,  then the measure is given by: \(\Psi(p) = \sum_{\{a,b\} \in \bar{A}} \frac{n - d_{ab}(p)}{n \cdot \binom{m}{2}}\).
 
 Despite its elegance, the measure \(\Psi\) has relevant limitations. It considers
 only global margins between pairs of alternatives—that is, the aggregate
@@ -246,10 +241,6 @@ profiles, such as the formation of clusters of preferences
 note that \(\Psi\) assigns the maximum value \(1\) both to: a uniform profile, in
 which all possible linear orders are equally probable (with probability \(1 \over {m!}\)), and to a profile
 composed of any two reversed preference orders with equal proportion of \(1 \over 2\).
-
-% \(\{ r_1 : \tfrac{1}{m!}, \ldots, r_{m!} : \tfrac{1}{m!} \}\)
-
-% : \(\{ r_\star : \tfrac{1}{2},\ -r_\star : \tfrac{1}{2} \}\)
 
 One can remain agnostic as to which of the two profiles should be regarded as
 ``more polarized.'' Analogous to what is argued in Section~2, the first profile
@@ -277,32 +268,25 @@ The first step to distinguish between preference profiles is to actually operate
 with the rankings rather than with the aggregated pairwise comparisons. Note
 that a natural idea of polarized preferences is the opposition between rankings
 and their reversals. From a micro perspective, reversed preferences are those
-that exhibit the maximum distance according to standard metrics
-\parencite{zwicker2016introduction};
-they therefore represent the case of maximum disagreement between two agents.
-Note also that, from a macro perspective, the more reversed preferences we add
-to a profile, the more we inflate the value of \(\Psi\). The fraction of the
-profile composed of directly opposing orderings capture features of the profile
-that foster global disagreement and are guaranteed to increase \(\Psi\). To
-calculate this fraction first define the degree of opposition, or balance,
-between an ordering \( r_i \) and its reversal \( -r_i \) as:
-\[
-\text{op}(r_i) = 2 \cdot \min(p(r_i), p(-r_i)),
-\]
-where \( p \) denotes the proportion of each ordering in the profile. The total opposition in the profile is then given by:
-\[
-R = \sum \text{op}(r_i),
-\]
-summing over the unique orderings \( r_i \), so as to avoid double counting of reversed pairs.
+that exhibit the maximum distance according to standard metrics \parencite{zwicker2016introduction}; they
+therefore represent the case of maximum disagreement between two agents. Note
+also that, from a macro perspective, the more reversed preferences we add to a
+profile, the more we inflate the value of \(\Psi\). The fraction of the profile
+composed of directly opposing orderings capture features of the profile that
+foster global disagreement and are guaranteed to increase \(\Psi\). The total
+reversal opposition is then \(R=\sum 2\min\{\mu(r),\mu(-r)\},\) where the sum
+runs over reversal pairs, not over all rankings, and \(\mu\) is the ranking mass
+in the profile.
 
-To incorporate the notion of concentration, the Herfindahl–Hirschman Index (HHI) is applied to the proportions of reversal. Thus, define \( q_{i} = {\text{op}(r_i) \over R} \), and we have
-\[
-\kappa = \sum_{i} q_{i}^{2}.
-\]
-The final measure, \( \mathrm{RHHI} \), is defined as the geometric mean between the degree of opposition and its concentration:
-\[
-\mathrm{RHHI} = \sqrt{R \times \mathrm{kappa}}.
-\]
+To measure whether this opposition is concentrated in a few reversal pairs or
+dispersed across many of them, define \(q_r=\frac{2\min\{\mu(r),\mu(-r)\}}{R}\)
+for each reversal pair with positive matched opposition. The concentration of
+reversal opposition is \(\kappa=\sum q_r^2.\) Thus, \(R\) measures how much
+exact reversal opposition exists in the profile, while \(\kappa\) measures how
+concentrated that opposition is\footnote{If \(R = 0\) let \(\kappa = 0\), else
+  it would be undefined.}. The final measure, \( \mathrm{RHHI} \), is defined as
+the geometric mean between the degree of opposition and its concentration:
+\(\mathrm{RHHI} = \sqrt{R \times \kappa}.\)
 
 Why a product, rather than, say, an arithmetic mean? Because the construct we
 want is explicitly \emph{conjunctive}: it should be large only when two features
@@ -316,72 +300,109 @@ compensate for the other, thereby assigning high scores to profiles that lack
 one of the defining ingredients. The geometric mean enforces the intended ``both
 at once'' logic: it increases only when both inputs increase, collapses toward
 zero when either component is near zero, and penalizes imbalance while remaining
-symmetric in $R$ and $\kappa$. An interesting measure that can be derived from \(\kappa\) is the  \emph{effective number of pairs of reversed preferences} (ENRP), by analogy with the effective number of parties \parencite{shugart2017votes} and is defined as \(ENRP = 1/\kappa\), which facilitates the interpretation of values of \(\kappa\). Given this connection between \(RHHI\) and the dispersion of the profile, I also consider the \emph{effective number of observed rankings} (EO) as a diagnostic in the analysis.
+symmetric in $R$ and $\kappa$. An interesting measure that can be derived from \(\kappa\)
+is the \emph{effective number of pairs of reversed preferences} (ENRP), by analogy with
+the effective number of parties \parencite{shugart2017votes} and is defined as \(ENRP = 1/\kappa\), which
+facilitates the interpretation of values of \(\kappa\). Given this connection between
+\(RHHI\) and the dispersion of the profile, I also consider the \emph{effective number of observed rankings}
+(EO) \({1 \over {\sum_{r \in \mathcal{L}(A)}\mu(r)^2}}\)  as a diagnostic in
+the analysis.
 
 
-% \footnote{Another possibility would be to apply maximum likelihood estimation (MLE) of mixtures of Mallows models over a sequence of integers to identify clusters of voters, penalizing for model complexity using an information criterion \parencite{mcelreath2020statistical}, in order to determine the optimal number of groups and their associated consensus rankings. The problem is that there are no packages that do this directly for preference data.}
+The simplest way to implement a group-based measure of profile
+structuration, while preserving the full information of orderings, is to
+evaluate exogenous groupings such as race, sex, religion, ideology, or
+candidate support. Let \(\mathcal{L}(A)\) be the set of all linear orders
+over the active candidate set \(A\), with \(|A|=m\). Let
+\(G_1,\ldots,G_k\) be a partition of the respondents, and let \(n_g\) be
+the size of group \(G_g\), with \(n=\sum_{g=1}^k n_g\). Each respondent
+\(i\) has an observed ranking \(r_i\in\mathcal{L}(A)\).
 
+For each group \(G_g\), I estimate a consensus ranking directly from the
+observed rankings, rather than assuming a parametric ranking model. For
+any candidate ranking \(r\in\mathcal{L}(A)\), define the total Kendall
+loss in group \(G_g\) as
+\(L_g(r) =\sum_{i\in G_g} d_{\tau}(r_i,r), \)
+where \(d_{\tau}\) is Kendall tau distance. The group consensus set is
+then \(M_g = \arg\min_{r\in\mathcal{L}(A)} L_g(r). \) Thus, \(M_g\) is the ranking, or set of rankings, that minimizes total
+distance to the observed preferences of members of group \(G_g\).
 
-The simplest way to implement a group-based measure of profile structuration, while preserving the full information of orderings, is to evaluate exogenous groupings such as race, sex, religion, ideology, or candidate support. For each group, I estimate a consensus ranking directly from the observed rankings rather than assuming a parametric ranking model. Let \(\mathcal{L}(A)\) be the set of all linear orders over the active candidate set \(A\). For a group \(g\), with members \(i \in g\) and observed rankings \(\rho_i \in \mathcal{L}(A)\), define the total Kendall loss of a candidate consensus ranking \(\rho \in \mathcal{L}(A)\) as
+When \(M_g\) contains more than one ranking, I do not impose an arbitrary
+tie-breaking rule. Instead, quantities that depend on a group consensus
+are averaged over all rankings in the relevant consensus set. This
+preserves the ambiguity generated by the profile itself.
+
+To simplify notation, define the average normalized distance from members
+of group \(G_g\) to the consensus set of group \(G_h\) as
 \[
-L_g(\rho) = \sum_{i \in g} d_{\tau}(\rho_i,\rho),
+\bar d_{gh}
+=
+\frac{1}{|M_h|}
+\sum_{\rho\in M_h}
+\left[
+\frac{1}{n_g}
+\sum_{i\in G_g}
+\frac{d_{\tau}(r_i,\rho)}{\binom{m}{2}}
+\right].
 \]
-where \(d_{\tau}\) is Kendall tau distance. The group consensus set is then
+The normalization by \(\binom{m}{2}\) places Kendall distance on the unit
+interval, since \(\binom{m}{2}\) is the maximum possible Kendall distance
+between two rankings. The within-group average distance for group \(G_g\) is therefore
+\(\text{AvgDist}_g = \bar d_{gg}.\) The raw coherence of group \(G_g\) is
+\( C_g^{\star} = 1-\text{AvgDist}_g.\) Thus, \(C_g^{\star}=1\) if all members of
+\(G_g\) share exactly the same ranking, and it decreases as members of the group
+become more dispersed around their own consensus set. I aggregate group
+coherences using group sizes:
+\(C^{\star} = \frac{1}{n} \sum_{g=1}^{k} n_g C_g^{\star}.\)
+
+Because the consensus set minimizes average Kendall loss, the worst possible
+consensus-relative average distance is \(1/2\), not \(1\). Equivalently,
+\(C_g^{\star}\geq 1/2\) for every group, and therefore \(C^{\star}\geq 1/2\).
+The proof uses the reversal symmetry of Kendall distance and is given in
+Appendix~\ref{app:c-d-relationship}. I therefore rescale coherence as
+\(C = 2C^{\star}-1. \) This places the lower-bound baseline at zero, so that \(C\in[0,1]\).
+Here \(C=0\) means that the partition exhibits no within-group coherence
+beyond the minimum guaranteed by selecting a best-fitting consensus
+ranking, while \(C=1\) means perfect within-group unanimity.
+
+The divergence statistic compares each group to the consensus sets of
+the other groups. It is defined as
 \[
-M_g = \arg\min_{\rho \in \mathcal{L}(A)} L_g(\rho).
-\]
-Thus, the consensus is  a ranking, or set of rankings, that minimizes the total distance to the group's observed preferences.
+D
+=
+\frac{1}{k-1}
+\sum_{g=1}^{k}
+\sum_{\substack{h=1\\ h\neq g}}^{k}
+\frac{n_g}{n}\,\bar d_{gh}.
+\] Thus, \(D\) averages the distance from members of each group to the
+consensus rankings of all other groups, weighting each source group by
+its relative size. The value of \(D\) increases when members of one group
+are far from the consensus rankings of other groups. It equals zero when
+all respondents share the same ranking.
 
-When \(M_g\) contains more than one ranking, I do not impose an arbitrary tie-breaking rule. Instead, group-level quantities that depend on the group consensus are averaged over all minimizing rankings in \(M_g\). This preserves the ambiguity generated by the profile itself. Once the consensus set of each group is obtained, it becomes possible to measure intragroup coherence and intergroup divergence.
-
-We start with the coherence of a group \(g\), defined in terms of the average Kendall tau distance between the group members' rankings and the group's consensus set. The Kendall distance, \(d_{\tau}\), quantifies the disagreement between two orderings by counting the number of pairs of alternatives ordered differently \parencite{zwicker2016introduction}. For a group \(g\) of size \(n_g\), the consensus-relative average distance is:
-
-\[
-\text{AvgDist}_g = \frac{1}{n_g}\sum_{x \in g} \frac{d_{\tau}(x, \rho_g)}{\binom{m}{2}}.
-\]
-The coherence of group \( g \) is then defined as:
-\[
-C_g^{\star} = 1 - \text{AvgDist}_g.
-\]
-Thus, \( C_g^{\star} = 1 \) if all members share exactly the ordering \( \rho_g \), and it decreases as internal divergence increases. We aggregate these coherences into a global score weighted by group size:
-\[
-C^{\star} = \frac{1}{n} \sum_{g=1}^{k} n_g\,C_g^{\star}, \quad\text{with } n = \sum_{g=1}^{k} n_g.
-\]
-A key correction is that \(C^{\star}\) is not bounded below by \(0\), but by \(1/2\). Intuitively, because \(\rho_g\) is chosen to minimize average Kendall distance, for each pair of alternatives one can orient \(\rho_g\) to agree with at least half of the group on that pair; hence the fraction of pairwise disagreements cannot exceed \(1/2\), so \(\text{AvgDist}_g \le 1/2\) and therefore \(C_g^{\star} \ge 1/2\) (and likewise \(C^{\star} \ge 1/2\)).
-
-Since \(1/2\) functions as a natural ``no-structure'' baseline, we rescale coherence to place this baseline at zero:
-\[
-C \;=\; 2C^{\star}-1,
-\]
-so that \(C \in [0,1]\), with \(C=0\) corresponding to coherence no better than the baseline and \(C=1\) corresponding to perfect within-group unanimity.
+The statistic \(D\) is useful as a measure of external divergence, but it
+is not a pure distance between group consensus rankings. Because it
+compares individual rankings to other groups' consensus sets, internal
+dispersion also contributes to \(D\). A group whose members are already
+far from their own consensus will also tend to be far from other groups'
+consensuses. Appendix~\ref{app:c-d-relationship} shows that
+\(D
+\geq
+1-C^{\star}
+=
+\frac{1-C}{2}.\)
 
 
-Let \( k \) be the number of identified groups and \( n_i \) the size of group \( G_i \). Let \( \rho_j \) denote the consensus ordering of group \( j \). We define the measure of divergence between groups \( D \) as:
-\[
-D = \frac{1}{(k-1)} \sum_{i \neq j} \frac{n_i}{n} \cdot \left(\frac{1}{n_i}\sum_{x \in G_i} \frac{d_{\tau}(x, \rho_j)}{\binom{m}{2}}\right).
-\]
-
-
-The expression can be understood as follows. The sum \(\sum_{i \neq j}\) runs
-through all ordered pairs of distinct groups, so we divide by \((k-1)\) to
-ensure normalization. Each group is weighted by its relative size using the
-factor \( n_i / n \). The distance term \( d_{\tau}(x, \rho_j) \) represents how
-far an individual in group \( G_i \) is, on average, from the consensus ordering
-of another group \( G_j \), normalized by the total number of pairwise
-comparisons. Finally, the inner mean,
-\( \frac{1}{n_i}\sum_{x \in G_i}(\cdots) \), captures this average distance
-across all members of \( G_i \) relative to the consensus ordering of \( G_j \).
-The value of \( D \) increases as the groups become more distinct from each
-other and equals zero if all preferences are essentially identical.
-
-
-The measure \(D\) captures how far the members of one group are from the consensus rankings of other groups. For this reason, it is useful as a measure of external divergence, but it is not a pure between-group statistic. If a group is internally dispersed, its members will already be far from their own consensus, and this dispersion carries over into their distances to other groups' consensuses. Thus, a high value of \(D\) can reflect either genuine distance between group consensuses or the fact that the group is internally spread out. This is why I keep \(C\) and \(D\) separate. The raw coherence \(C^{\star}\) implies a within-group dispersion term \(1-C^{\star}\), and Appendix~\ref{app:c-d-relationship} shows that
-\[
-D \geq 1-C^{\star} = \frac{1-C}{2}.
-\]
-Combining \(C\) and \(D\) into one scalar would therefore hide whether a partition structures the ranking profile through internal coherence, external divergence, or both.
-
-For this reason, I do not combine the group diagnostics into a single polarization score. A composite measure would obscure the distinction between internal coherence and external divergence. Instead, I treat \(C\) and \(D\) as a diagnostic pair. The goal is not to assign each partition one scalar value of polarization, but to describe how, and in what sense, an exogenous grouping structures the preference profile. In this sense, the paper extends the disambiguation strategy of \textcite{bramson2017understanding, bramson16_disam_social_polar_concep_measur} from one-dimensional attitude distributions to ranked-preference profiles: rather than asking whether an electorate is polarized in general, the analysis asks which structural features of dissent are present, and how they vary across time and partitions.
+For this reason, I do not combine the group diagnostics into a single
+polarization score. A composite measure would obscure the distinction between
+internal coherence and external divergence. Instead, I treat \(C\) and \(D\) as
+a diagnostic pair. The goal is not to assign each partition one scalar value of
+polarization, but to describe how, and in what sense, an exogenous grouping
+structures the preference profile. In this sense, the paper extends the
+disambiguation strategy of \textcite{bramson2017understanding, bramson16_disam_social_polar_concep_measur} from one-dimensional attitude
+distributions to ranked-preference profiles: rather than asking whether an
+electorate is polarized in general, the analysis asks which structural features
+of dissent are present, and how they vary across time and partitions.
 
 The diagnostics can be read against three benchmark profiles: unanimity,
 equiprobability, and pure inversion. In a unanimous profile, all respondents
@@ -470,14 +491,14 @@ selecting alternatives solely by the lowest share of missing evaluations would
 confound electoral relevance with public notoriety. I therefore use a
 substantively defined candidate sequence for each year.\footnote{The
   candidate-selection procedure is discussed in
-  Appendix~\ref{app:candidate-selection}.} For each year, profiles with smaller
+  Appendix~\ref{app:candidate-set-selection}.} For each year, profiles with smaller
 \(m\) are obtained by taking the first \(m\) alternatives from that sequence.
 The main analysis is reported for \(m \leq 5\). This cap is substantively and
 statistically motivated: since the number of possible rankings grows as \(m!\),
-moving to \(m=6\) or \(m=7\) creates sparsity in ranking space\footnote{\textcolor{red}{I should actually test that}}.
+moving to \(m=6\) or \(m=7\) creates sparsity in the ranking data.
 
 For each linearized pseudo-profile, I compute the global measures \(\Psi\),
-\(R\), \(HHI\), and \(RHHI\). I then compute the group-level measures \(C\)
+\(R\), \(\kappa\), and \(RHHI\). I then compute the group-level measures \(C\)
 and \(D\) after partitioning respondents by sex, race, religion, age,
 education, income, position regarding the Workers' Party (\textit{Partido dos
 Trabalhadores}, PT), ideology, and opinion on abortion. Group consensuses are
@@ -964,229 +985,93 @@ evaluations?
 
 \appendix
 
+
 \section{Mathematical Appendix}
-\subsection{Relationship Between \(C\) and \(D\)}
+
+\subsection{Lower bound for \(C^{\star}\) and its relationship to \(D\)}
 \label{app:c-d-relationship}
 
-This appendix states the relationship between within-group coherence \(C\) and
-the member-to-other-consensus divergence statistic \(D\). The key point is that
-\(D\) is not only a distance between group consensuses. Because it averages the
-distance from individual rankings in one group to the consensus rankings of
-other groups, it partly reflects the internal dispersion of the group being
-evaluated.
+Let \(P_m=\binom{m}{2}\), the maximum possible Kendall distance between two
+rankings over \(m\) alternatives. For each group \(G_g\), define the normalized
+average Kendall loss of an arbitrary ranking \(r\in\mathcal{L}(A)\) as
+\(\ell_g(r)=n_g^{-1}\sum_{i\in G_g}d_{\tau}(r_i,r)/P_m\). The consensus set
+\(M_g\) contains the rankings that minimize this loss. Since all rankings in
+\(M_g\) attain the same minimum, \(\bar d_{gg}=\min_{r\in\mathcal{L}(A)}
+\ell_g(r)\).
 
-Let \(A\) be the active candidate set, with \(|A|=m\), and let
-\(\mathcal{L}(A)\) denote the set of linear orders over \(A\). For each group
-\(G_g\) of size \(n_g\), define the normalized average Kendall loss of a
-candidate consensus ranking \(\rho \in \mathcal{L}(A)\) as
-\[
-\ell_g(\rho)
-=
-\frac{1}{n_g}
-\sum_{x \in G_g}
-\frac{d_\tau(x,\rho)}{\binom{m}{2}},
-\]
-where \(x\) is the observed ranking of an individual member of \(G_g\), and
-\(d_\tau\) is Kendall tau distance.
+First, \(C^{\star}\) is bounded below by \(1/2\). Fix any ranking
+\(r\in\mathcal{L}(A)\), and let \(-r\) denote its reversal. For any observed
+ranking \(r_i\), each pair of alternatives is ordered oppositely by \(r\) and
+\(-r\). Hence each pair contributes to exactly one of the two distances
+\(d_{\tau}(r_i,r)\) and \(d_{\tau}(r_i,-r)\), so
+\(d_{\tau}(r_i,r)+d_{\tau}(r_i,-r)=P_m\). Averaging over all \(i\in G_g\) and
+normalizing gives \(\ell_g(r)+\ell_g(-r)=1\). Thus, for every ranking \(r\), at
+least one of \(r\) and \(-r\) has normalized average loss no greater than
+\(1/2\). Since \(\bar d_{gg}\) is the minimum normalized average loss over all
+rankings, \(\bar d_{gg}\leq 1/2\). It follows that
+\(C_g^{\star}=1-\bar d_{gg}\geq 1/2\). Since \(C^{\star}\) is a group-size
+weighted average of the \(C_g^{\star}\)'s, \(C^{\star}\geq 1/2\).
 
-The consensus set of group \(g\) is the set of rankings that minimize this loss:
-\[
-M_g
-=
-\arg\min_{\rho \in \mathcal{L}(A)} \ell_g(\rho).
-\]
-When \(M_g\) is not a singleton, consensus-dependent quantities are averaged
-over the minimizing rankings. Let \(\bar{\ell}_g(M_h)\) denote the average loss
-of group \(g\)'s members relative to the consensus set of group \(h\):
-\[
-\bar{\ell}_g(M_h)
-=
-\frac{1}{|M_h|}
-\sum_{\rho \in M_h}
-\ell_g(\rho).
-\]
-
-Define the within-group dispersion of \(G_g\) around its own consensus set as
-\[
-W_g
-=
-\bar{\ell}_g(M_g)
-=
-\min_{\rho \in \mathcal{L}(A)} \ell_g(\rho).
-\]
-The raw coherence of group \(g\) is
-\[
-C_g^\star
-=
-1-W_g.
-\]
-Aggregating by group size gives
-\[
-C^\star
-=
-\sum_{g=1}^{k}
-\frac{n_g}{n}C_g^\star,
-\qquad
-n=\sum_{g=1}^{k}n_g.
-\]
-Therefore the aggregate within-group dispersion is
-\[
-W
-=
-\sum_{g=1}^{k}
-\frac{n_g}{n}W_g
-=
-1-C^\star.
-\]
-
-The raw coherence statistic \(C^\star\) is not bounded below by \(0\), but by
-\(1/2\). To see this, fix any ranking \(\rho \in \mathcal{L}(A)\), and let
-\(\rho^{\mathrm{rev}}\) be its reverse. For any individual ranking \(x\),
-\[
-d_\tau(x,\rho)
-+
-d_\tau(x,\rho^{\mathrm{rev}})
-=
-\binom{m}{2}.
-\]
-After normalizing and averaging over members of group \(g\), this implies
-\[
-\ell_g(\rho)
-+
-\ell_g(\rho^{\mathrm{rev}})
-=
-1.
-\]
-Hence at least one of \(\rho\) or \(\rho^{\mathrm{rev}}\) has average normalized
-loss no greater than \(1/2\). Since \(W_g\) is the minimum of \(\ell_g(\rho)\)
-over all rankings,
-\[
-W_g \le \frac{1}{2}.
-\]
-It follows that \(C_g^\star \ge 1/2\), and therefore \(C^\star \ge 1/2\). This
-motivates the rebased coherence statistic
-\[
-C
-=
-2C^\star-1,
-\]
-which places the no-structure baseline at zero.
-
-The group divergence statistic is defined as the average distance from members
-of one group to the consensus set of other groups:
+Second, \(D\) contains a within-group dispersion component. For any groups
+\(G_g\) and \(G_h\), the quantity \(\bar d_{gh}\) averages \(\ell_g(\rho)\)
+over rankings \(\rho\in M_h\). Since \(\bar d_{gg}\) is the minimum of
+\(\ell_g(r)\) over all rankings \(r\in\mathcal{L}(A)\), we have
+\(\bar d_{gh}\geq \bar d_{gg}\) for all \(h\neq g\). Therefore,
 \[
 D
 =
 \frac{1}{k-1}
 \sum_{g=1}^{k}
-\sum_{h\neq g}
-\frac{n_g}{n}
-\bar{\ell}_g(M_h).
-\]
-For each ordered pair of distinct groups \((g,h)\), add and subtract group
-\(g\)'s own internal dispersion \(W_g\):
-\[
-\bar{\ell}_g(M_h)
-=
-W_g
-+
-\left[
-\bar{\ell}_g(M_h)-W_g
-\right].
-\]
-Substituting into the definition of \(D\) yields
-\[
-D
-=
+\sum_{\substack{h=1\\ h\neq g}}^{k}
+\frac{n_g}{n}\,\bar d_{gh}
+\geq
 \frac{1}{k-1}
 \sum_{g=1}^{k}
-\sum_{h\neq g}
-\frac{n_g}{n}W_g
-+
-\frac{1}{k-1}
-\sum_{g=1}^{k}
-\sum_{h\neq g}
-\frac{n_g}{n}
-\left[
-\bar{\ell}_g(M_h)-W_g
-\right].
+\sum_{\substack{h=1\\ h\neq g}}^{k}
+\frac{n_g}{n}\,\bar d_{gg}.
 \]
-The first term simplifies because \(W_g\) depends only on \(g\), not on \(h\):
-\[
-\frac{1}{k-1}
-\sum_{g=1}^{k}
-\sum_{h\neq g}
-\frac{n_g}{n}W_g
-=
-\sum_{g=1}^{k}
-\frac{n_g}{n}W_g
-=
-W.
-\]
-The bracketed term is nonnegative because \(W_g\) is the minimum possible value
-of \(\ell_g(\rho)\) over rankings \(\rho\), and every member of \(M_h\) is a
-ranking in \(\mathcal{L}(A)\). Hence the second term is a nonnegative quantity,
-and
-\[
-D \geq W.
-\]
-Since \(W=1-C^\star\),
-\[
-D \geq 1-C^\star.
-\]
-Using the rebased statistic \(C=2C^\star-1\), this is equivalently
-\[
-D \geq \frac{1-C}{2}.
-\]
-This relationship is the reason \(C\) and \(D\) are reported separately in the
-main analysis. A high value of \(D\) can reflect external divergence between
-group consensuses, internal dispersion within the group being evaluated, or
-both.
+Since \(\bar d_{gg}\) does not depend on \(h\), this simplifies to
+\(D\geq \sum_{g=1}^{k}(n_g/n)\bar d_{gg}\). But
+\(C^{\star}=\sum_{g=1}^{k}(n_g/n)(1-\bar d_{gg})\), so
+\(\sum_{g=1}^{k}(n_g/n)\bar d_{gg}=1-C^{\star}\). Hence
+\(D\geq 1-C^{\star}\). Using the rescaled coherence \(C=2C^{\star}-1\), this
+can also be written as \(D\geq (1-C)/2\).
 
 \subsection{Reference Profiles and Diagnostic Behavior}
 \label{app:measures-action}
 
-
-This appendix reports the behavior of the diagnostics on a set of paradigmatic
+This appendix reports the behavior of the diagnostics on a set of benchmark
 profiles. The point of these cases is not empirical realism, but interpretation:
 they show why pairwise antagonism, exact reversal mass, reversal concentration,
 and group structuration are distinct objects.
 
 \subsubsection{Benchmark profiles}
 
-Let \(A\) be a finite set of \(m\) alternatives, and let \(L(A)\) be the set of
-linear orders over \(A\). For a ranking \(r \in L(A)\), let \(-r\) denote its
-reversal. Consider the following generating functions:
+Let \(A\) be a finite set of \(m\) alternatives, and let \(\mathcal{L}(A)\) be
+the set of linear orders over \(A\). For a ranking \(r\in\mathcal{L}(A)\), let
+\(-r\) denote its reversal. Consider three benchmark profiles:
 \begin{itemize}
-  \item \(u\): generates a profile in which all individuals share the same
+  \item \(u\): a unanimous profile, in which all individuals share the same
   ordering over \(m\) alternatives. It is represented by the proportion map
-  \[
-    \{r_{\star}:1\}.
-  \]
-  \footnote{\(u\) for \textbf{u}nanimity.}
+  \(\{r_{\star}:1\}\).
 
-  \item \(e\): generates a profile in which all \(m!\) orderings appear with
-  equal frequency. It is represented by
-  \[
-    \{r_1:\tfrac{1}{m!},\ldots,r_{m!}:\tfrac{1}{m!}\}.
-  \]
-  \footnote{\(e\) for \textbf{e}quiprobable.}
+  \item \(e\): an equiprobable profile, in which all \(m!\) orderings appear
+  with equal frequency. It is represented by
+  \(\{r_1:1/m!,\ldots,r_{m!}:1/m!\}\).
 
-  \item \(i\): generates a profile in which half the individuals have an
+  \item \(i\): an inversion profile, in which half the individuals have an
   ordering \(r_{\star}\) and the other half have its reversal \(-r_{\star}\).
   It is represented by
-  \[
-    \{r_{\star}:\tfrac{1}{2},-r_{\star}:\tfrac{1}{2}\}.
-  \]
-  \footnote{\(i\) for \textbf{i}nversion.}
+  \(\{r_{\star}:1/2,-r_{\star}:1/2\}\).
 \end{itemize}
 
-For any number of alternatives \(m \geq 2\), these profiles satisfy:
-\begin{align}
-  \Psi(i(m)) &= \Psi(e(m)) = R(i(m)) = R(e(m)) = RHHI(i(m)) = 1, \\
-  \Psi(u(m)) &= R(u(m)) = RHHI(u(m)) = 0.
-\end{align}
-
+For any \(m\geq 2\), these profiles satisfy
+\[
+\begin{aligned}
+\Psi(i(m)) &= \Psi(e(m)) = R(i(m)) = R(e(m)) = RHHI(i(m)) = 1,\\
+\Psi(u(m)) &= R(u(m)) = RHHI(u(m)) = 0.
+\end{aligned}
+\]
 The intuition is straightforward. In the unanimous profile \(u(m)\), every
 individual ranks every pair of alternatives in the same direction. Hence there
 is no pairwise antagonism and no exact reversal mass. In the inversion profile
@@ -1196,90 +1081,39 @@ and reversal concentration are all maximal.
 
 The equiprobable profile \(e(m)\) is different. It also maximizes pairwise
 antagonism and exact reversal mass, but the reversal mass is spread across all
-possible reversal fields. This is why \(RHHI\) depends on the number of
+possible reversal pairs. This is why \(RHHI\) depends on the number of
 alternatives in equiprobable profiles.
 
-For the profile \(e(m)\), each of the \(m!\) possible orderings occurs with
-frequency \(1/m!\). Consider a pair of reversal orderings \((r,-r)\). Since
-both have the same frequency, the local reversal component is
-\[
-  \operatorname{op}(r)
-  =
-  2\min\left\{\frac{1}{m!},\frac{1}{m!}\right\}
-  =
-  \frac{2}{m!}.
-\]
-There are \(m!/2\) such reversal pairs. Therefore,
-\[
-  R(e(m))
-  =
-  \frac{m!}{2}\cdot \frac{2}{m!}
-  =
-  1.
-\]
-Since \(R(e(m))=1\), each reversal field has normalized reversal share
-\[
-  q_i = \frac{2}{m!}.
-\]
-Applying the Herfindahl--Hirschman index to
-\(\mathbf q=(q_1,\ldots,q_{m!/2})\), we obtain
-\[
-  \kappa(q(e(m)))
-  =
-  \frac{m!}{2}
-  \left(\frac{2}{m!}\right)^2
-  =
-  \frac{2}{m!}.
-\]
-Finally, since \(RHHI\) is the geometric mean between reversal intensity \(R\)
-and reversal concentration \(\kappa\),
-\[
-  RHHI(e(m))
-  =
-  \sqrt{R(e(m))\kappa(q(e(m)))}
-  =
-  \sqrt{\frac{2}{m!}}.
-\]
+For \(e(m)\), each of the \(m!\) possible orderings occurs with frequency
+\(1/m!\). For any reversal pair \((r,-r)\), both rankings have the same
+frequency, so the local reversal component is
+\(\operatorname{op}(r)=2\min\{1/m!,1/m!\}=2/m!\). There are \(m!/2\) reversal
+pairs. Therefore \(R(e(m))=(m!/2)(2/m!)=1\). Since \(R(e(m))=1\), each reversal
+pair has normalized reversal share \(q_i=2/m!\). Applying the
+Herfindahl--Hirschman index to \(\mathbf q=(q_1,\ldots,q_{m!/2})\), we obtain
+\(\kappa(q(e(m)))=(m!/2)(2/m!)^2=2/m!\). Finally, since \(RHHI\) is the
+geometric mean between reversal intensity \(R\) and reversal concentration
+\(\kappa\), \(RHHI(e(m))=\sqrt{R(e(m))\kappa(q(e(m)))}=\sqrt{2/m!}\).
 
-For example:
-\begin{align}
-  R(e(3)) &= 1,
-  &
-  \kappa(q(e(3))) &= \frac{1}{3},
-  &
-  RHHI(e(3)) &\approx 0.577, \\
-  R(e(4)) &= 1,
-  &
-  \kappa(q(e(4))) &= \frac{1}{12},
-  &
-  RHHI(e(4)) &\approx 0.289.
-\end{align}
-More generally, as \(m\) grows,
-\[
-  RHHI(e(m)) = \sqrt{\frac{2}{m!}} \to 0.
-\]
-Thus, \(RHHI\) approaches zero in equiprobable profiles not because pairwise
-antagonism disappears, nor because exact reversal mass disappears, but because
-that reversal mass becomes maximally diffuse across the ranking space.
+For example, when \(m=3\), \(R(e(3))=1\), \(\kappa(q(e(3)))=1/3\), and
+\(RHHI(e(3))\approx 0.577\). When \(m=4\), \(R(e(4))=1\),
+\(\kappa(q(e(4)))=1/12\), and \(RHHI(e(4))\approx 0.289\). More generally,
+as \(m\) grows, \(RHHI(e(m))=\sqrt{2/m!}\to 0\). Thus, \(RHHI\) approaches zero
+in equiprobable profiles not because pairwise antagonism disappears, nor
+because exact reversal mass disappears, but because that reversal mass becomes
+maximally diffuse across the ranking space.
 
-By recalling that \(1/\kappa\) gives the effective number of reversal pairs,
-we have for \(e(m)\):
-\[
-  ENRP(e(m))
-  =
-  \frac{1}{\kappa(q(e(m)))}
-  =
-  \frac{m!}{2}.
-\]
-This is the maximum possible value. Thus, \(e(m)\) profiles correspond to
-maximal dispersion, or minimal concentration, in the reversal component.
+Since \(1/\kappa\) gives the effective number of reversal pairs, the
+equiprobable profile satisfies \(ENRP(e(m))=1/\kappa(q(e(m)))=m!/2\). This is
+the maximum possible value. Thus, \(e(m)\) profiles correspond to maximal
+dispersion, or minimal concentration, in the reversal component.
 
-In this way, \(RHHI\) distinguishes between the profiles \(i(m)\) and \(e(m)\).
-Both maximize \(\Psi\), and both maximize \(R\). However, \(i(m)\) concentrates
-all reversal mass in one reversal field, whereas \(e(m)\) distributes reversal
-mass across the maximum possible number of reversal fields. Equivalently,
-\(ENRP\) ranges from \(1\) in the pure inversion profile to \(m!/2\) in the
-equiprobable profile.
+In this way, \(RHHI\) distinguishes between \(i(m)\) and \(e(m)\). Both maximize
+\(\Psi\), and both maximize \(R\). However, \(i(m)\) concentrates all reversal
+mass in one reversal pair, whereas \(e(m)\) distributes reversal mass across
+the maximum possible number of reversal pairs. Equivalently, \(ENRP\) ranges
+from \(1\) in the pure inversion profile to \(m!/2\) in the equiprobable
+profile.
 
 \subsubsection{Group diagnostics}
 
@@ -1309,382 +1143,310 @@ reference cases show why the diagnostics should not be collapsed into a single
 score. \(C\) captures internal consolidation, while \(D\) captures distance to
 external consensuses.
 
+\subsection{Derivations for \(m=2\)}
+\label{app:m2-derivations}
 
+When \(m=2\), there are only two possible rankings, \(A\succ B\) and
+\(B\succ A\), and they form a single reversal pair. Let \(s\) and \(1-s\) be
+the proportions of voters with these two rankings. The reversal component is
+\(R=2\min\{s,1-s\}\). If \(R>0\), all reversal mass lies in the only reversal
+pair, so \(q_1=1\) and \(\kappa=\sum_i q_i^2=1\). If \(R=0\), there is no
+reversal mass to concentrate, so \(\kappa\) is not substantively defined and
+\(RHHI\) is set to zero by convention.
 
+For \(m=2\), \(\Psi\) and \(R\) coincide. Let there be \(n\) voters, and denote
+\(n_{AB}=\#\{i:A\succ_i B\}\) and \(n_{BA}=n-n_{AB}\). By
+\textcite{can2015measuring}, there is only one unordered pair \(\{A,B\}\), so
+\(\Psi(p)=(n-d_{AB}(p))/(n\binom{2}{2})=(n-d_{AB}(p))/n\), where
+\(d_{AB}(p)=|n_{AB}-n_{BA}|=|n_{AB}-(n-n_{AB})|=|2n_{AB}-n|\). Hence
+\(\Psi(p)=1-|2n_{AB}-n|/n\).
 
-\subsection{Derivations for m=2}
-\label{sec:appendixB}
-For \(\kappa = 1\) when \(m=2\) note that the number of possible rankings is \(2! = 2\). The set of rankings is \(\{ A \succ B,\; B \succ A \}\), and there is only one possible reversed pair: \((A \succ B,\; B \succ A)\). Let \(p\) and \(1-p\) be the proportions of voters with each ranking. Then, the local reversal component is \(r = 2 \cdot \min(p, 1 - p)\). Since there is only this pair, the total reversal is just \(r\). Thus, the normalized distribution has \(q_1 = r/R = 1\), which implies \(\kappa = \sum_i q_i^2 = 1^2 = 1\).
-
-Now, for \(m=2\) alternatives, \(\Psi\) and \(R\) coincide. Let there be \(m=2\) alternatives, \(A\) and \(B\), and \(n\) voters. Denote
+There are only two linear orders, \(AB\) and \(BA\), which are reversals. Their
+proportions are \(p(AB)=n_{AB}/n\) and \(p(BA)=n_{BA}/n\). By definition,
+\(R(p)=2\min\{p(AB),p(BA)\}=(2/n)\min\{n_{AB},n-n_{AB}\}\). Using
+\(\min\{x,y\}=(x+y-|x-y|)/2\), with \(x=n_{AB}\) and \(y=n-n_{AB}\), we obtain
+\(\min\{n_{AB},n-n_{AB}\}=(n-|n-2n_{AB}|)/2\). Therefore
 \[
-n_{AB}=\#\{i: A\succ_i B\},\qquad n_{BA}=n-n_{AB}.
+R(p)
+=
+\frac{2}{n}\cdot\frac{n-|n-2n_{AB}|}{2}
+=
+1-\frac{|n-2n_{AB}|}{n}
+=
+1-\frac{|2n_{AB}-n|}{n}.
 \]
-By \textcite{can2015measuring}, for \(m=2\) there is only one unordered pair \(\{A,B\}\), so
-\[
-\Psi(p)
-= \frac{n - d_{AB}(p)}{n \binom{2}{2}}
-= \frac{n - d_{AB}(p)}{n},
-\]
-where
-\[
-d_{AB}(p) = \big|n_{AB}-n_{BA}\big|
-= \big|n_{AB} - (n-n_{AB})\big|
-= \big| 2n_{AB} - n \big|.
-\]
-Hence
-\[
-\Psi(p) = 1 - \frac{|2n_{AB} - n|}{n}.
-\]
-There are only two linear orders, \(AB\) and \(BA\), which are reversals. Let the proportions be
-\[
-p(AB) = \frac{n_{AB}}{n}, \qquad p(BA) = \frac{n_{BA}}{n}.
-\]
-By definition,
-\[
-R(p) = 2\min\{p(AB), p(BA)\}
-= \frac{2}{n} \min\{n_{AB},\, n - n_{AB}\}.
-\]
-Using \(\min\{x,y\} = \frac{x+y - |x-y|}{2}\) with \(x=n_{AB}\), \(y=n-n_{AB}\), we obtain
-\[
-\min\{n_{AB}, n-n_{AB}\}
-= \frac{n - |n - 2n_{AB}|}{2},
-\]
-and
-\[
-R(p) = \frac{2}{n} \cdot \frac{n - |n - 2n_{AB}|}{2}
-= 1 - \frac{|n - 2n_{AB}|}{n}
-= 1 - \frac{|2n_{AB} - n|}{n}.
-\]
-Thus, we have \(\Psi(p) = R(p)\) for \(m=2\).
-
+Thus, \(\Psi(p)=R(p)\) for \(m=2\).
 
 \section{Methodological Appendix}
+
 \subsection{Pattern-conditional linearization with Jeffreys smoothing}
 \label{app:pattern-linearization}
 
-The survey records evaluations as ratings rather than complete strict rankings.
-For a respondent \(i\), let \(A_m\) denote the candidate set and let
-\(x_i(a)\) be the imputed rating assigned to candidate \(a\in A_m\). These
-ratings induce a weak order \(w_i\) over \(A_m\). Equivalently, \(A_m\) is
-partitioned into indifference classes
-\[
-B_{i1},B_{i2},\ldots,B_{iK_i},
-\]
-where all candidates in the same class receive the same rating and the classes
-are ordered from higher to lower rating:
-\[
-x_i(a) > x_i(b)
-\quad\text{whenever}\quad
-a\in B_{ik},\ b\in B_{i\ell},\ k<\ell .
-\]
-Linearization preserves this between-class ordering and resolves only
-within-class indifferences.
+The survey records evaluations as ratings rather than complete strict
+rankings. For respondent \(i\), let \(A_m\) denote the candidate set, with
+\(|A_m|=m\), and let \(x_i(a)\) be the imputed rating assigned to candidate
+\(a\in A_m\). These ratings induce a weak order \(w_i\) over \(A_m\).
+Equivalently, \(A_m\) is partitioned into ordered indifference classes
+\(B_{i1},B_{i2},\ldots,B_{iK_i}\), where candidates in the same class receive
+the same rating, and classes are ordered from higher to lower rating:
+\(x_i(a)>x_i(b)\) whenever \(a\in B_{ik}\), \(b\in B_{i\ell}\), and
+\(k<\ell\). The linearization step preserves this ordering between classes and
+resolves only ties within classes.
 
-Let \(\mathcal E(w)\) be the set of all strict linear extensions compatible
-with weak order \(w\). Thus,
-\[
-\mathcal E(w)
-=
-\{\pi\in \mathcal L(A_m): \pi \text{ preserves the strict comparisons in } w\},
-\]
-where \(\mathcal L(A_m)\) is the set of all \(m!\) linear orders over \(A_m\).
-If the weak order has indifference classes \(B_1,\ldots,B_K\), then
-\[
-|\mathcal E(w)|=\prod_{k=1}^K |B_k|!.
-\]
-The random-tie linearizer samples uniformly from \(\mathcal E(w)\):
-\[
-p_{\mathrm{unif}}(\pi\mid w)
-=
-\frac{1}{|\mathcal E(w)|},
-\qquad
-\pi\in\mathcal E(w).
-\]
+Let \(\mathcal E(w)\) be the set of strict rankings compatible with a weak
+order \(w\): \(\mathcal E(w)=\{r\in\mathcal L(A_m): r \text{ preserves all
+strict comparisons in } w\}\). If \(w\) has indifference classes
+\(B_1,\ldots,B_K\), then \(|\mathcal E(w)|=\prod_{k=1}^{K}|B_k|!\). When
+\(|\mathcal E(w)|=1\), no random linearization is needed. When
+\(|\mathcal E(w)|>1\), the simplest rule is uniform tie-breaking:
+\(p_{\mathrm{unif}}(r\mid w)=1/|\mathcal E(w)|\) for
+\(r\in\mathcal E(w)\).
 
-The pattern-conditional linearizer instead estimates a conditional distribution
-over compatible refinements. Let \(n_w(\pi)\) denote the number of observed
-cases in the relevant empirical stratum with weak-order pattern \(w\) whose
-strict refinement is \(\pi\in\mathcal E(w)\). The raw empirical estimator would
-be
-\[
-\widehat p(\pi\mid w)
-=
-\frac{n_w(\pi)}
-{\sum_{\pi'\in\mathcal E(w)}n_w(\pi')}.
-\]
-This estimator is undesirable in sparse strata because it assigns probability
-zero to unobserved refinements and probability one to a refinement observed only
-once when no alternatives have been observed.
+The pattern-conditional rule uses information from respondents whose observed
+weak orders are stricter than \(w\). Write \(w_j\preceq w\) when \(w_j\)
+refines \(w\), meaning that \(w_j\) preserves all strict comparisons in \(w\)
+and may break some or all of the ties in \(w\). Equivalently,
+\(w_j\preceq w\) if and only if \(\mathcal E(w_j)\subseteq \mathcal E(w)\).
+For a target weak order \(w\), define the informative cases as
+\(S(w)=\{j:w_j\preceq w \text{ and } |\mathcal E(w_j)|=1\}\). For each
+\(j\in S(w)\), let \(r_j\) be the unique strict ranking compatible with
+\(w_j\). Then, for each compatible ranking \(r\in\mathcal E(w)\), define
+\(n_w(r)=\#\{j\in S(w):r_j=r\}\).
 
-I therefore use Jeffreys smoothing. For each compatible refinement
-\(\pi\in\mathcal E(w)\), define
-\[
-\widetilde p_\alpha(\pi\mid w)
-=
-\frac{n_w(\pi)+\alpha}
-{\sum_{\pi'\in\mathcal E(w)}\{n_w(\pi')+\alpha\}},
-\qquad
-\alpha=\frac12.
-\]
-Equivalently, if
-\[
-N_w=\sum_{\pi'\in\mathcal E(w)} n_w(\pi'),
-\]
-then
-\[
-\widetilde p_{1/2}(\pi\mid w)
-=
-\frac{n_w(\pi)+1/2}
-{N_w+\frac12|\mathcal E(w)|}.
-\]
-This is the posterior mean under a symmetric Dirichlet prior with parameter
-\(\alpha=1/2\) over the vector of refinement probabilities. It is symmetric
-across refinements, prevents degenerate zero and one probabilities in sparse
-cells, and regularizes less strongly than Laplace smoothing
-\((\alpha=1)\).
+Thus, \(n_w(r)\) is not estimated from respondents whose weak order is \(w\)
+itself. It is estimated from respondents whose ratings preserve the same
+between-class ordering but reveal a strict ordering inside the tied classes of
+\(w\). These counts are computed within the current imputed pseudo-profile
+before the stochastic linearization step, so no previously linearized rankings
+are used.
 
-The behavior of the estimator is straightforward. If no empirical refinements
-are observed for a weak-order pattern, \(N_w=0\), then
-\[
-\widetilde p_{1/2}(\pi\mid w)
-=
-\frac{1}{|\mathcal E(w)|},
-\]
-so the procedure reduces to uniform tie-breaking. If \(N_w\) is large, the
-pseudo-counts become negligible and
-\[
-\widetilde p_{1/2}(\pi\mid w)
-\approx
-\widehat p(\pi\mid w).
-\]
-Thus the rule interpolates between uniform tie-breaking in empty or very sparse
-strata and empirical pattern-conditional tie-breaking in well-populated strata.
+Let \(N_w=\sum_{r\in\mathcal E(w)}n_w(r)\) be the number of informative cases
+for weak order \(w\). The unsmoothed empirical rule would be
+\(\widehat p(r\mid w)=n_w(r)/N_w\) when \(N_w>0\). This rule is unstable in
+sparse cells: it assigns zero probability to unobserved compatible rankings
+and can put all mass on a single ranking when only one informative case is
+available.
 
-The linearization step for respondent \(i\) is therefore:
+I therefore use Jeffreys smoothing. This adds one-half pseudo-count to every
+compatible strict ranking before normalizing:
 \[
-\pi_i \sim \widetilde p_{1/2}(\cdot\mid w_i),
-\qquad
-\pi_i\in\mathcal E(w_i).
+\widetilde p(r\mid w)
+=
+\frac{n_w(r)+1/2}{N_w+\frac12|\mathcal E(w)|},
+\qquad r\in\mathcal E(w).
 \]
-This preserves the ordinal information contained in the ratings while allowing
-recurrent empirical refinements of ties to inform the completed ranking. The
-purpose is not to recover a latent ``true'' strict order behind every tie, but
-to avoid injecting purely uniform noise when the data contain stable
-tie-breaking structure.
+If \(N_w=0\), this reduces to uniform tie-breaking:
+\(\widetilde p(r\mid w)=1/|\mathcal E(w)|\). If \(N_w\) is large, the
+pseudo-counts become negligible and \(\widetilde p(r\mid w)\approx
+\widehat p(r\mid w)\). The rule therefore interpolates between uniform
+tie-breaking when no informative refinements are available and empirical
+tie-breaking when the data contain many strict refinements of the same
+weak-order pattern.
+
+The completed ranking for respondent \(i\) is drawn as
+\(r_i\sim\widetilde p(\cdot\mid w_i)\), with
+\(r_i\in\mathcal E(w_i)\). This procedure preserves the ordinal information in
+the ratings while allowing recurrent empirical refinements of ties to inform
+the completed rankings. The goal is not to recover a latent true strict ranking
+behind every tie. The goal is simply to avoid replacing all ties with uniform
+noise when the data contain repeated information about how similar ties are
+usually resolved.
+
+% As a diagnostic, I report how much the pattern-conditional rule departs from
+% uniform tie-breaking. For every tied weak order \(w_i\), record \(N_{w_i}\) and
+% the total variation distance between the smoothed rule and the uniform rule,
+% \(\Delta(w_i)=\frac12\sum_{r\in\mathcal E(w_i)}
+% \left|\widetilde p(r\mid w_i)-1/|\mathcal E(w_i)|\right|\). For each wave and
+% candidate-set size \(m\), I report the share of tied weak orders with
+% \(N_{w_i}=0\), the distribution of \(N_{w_i}\), and the average value of
+% \(\Delta(w_i)\). If most \(N_{w_i}\)'s are zero or very small, the canonical
+% procedure is effectively close to uniform tie-breaking. If many \(N_{w_i}\)'s
+% are large and \(\Delta(w_i)\) is far from zero, then the pattern-conditional
+% component is doing substantive work and should be interpreted as part of the
+% measurement procedure.
 
 \subsection{Nested variance decomposition}
 \label{app:nested-variance-decomposition}
 
-For a fixed analysis cell, defined by wave, scenario, candidate-set size
-\(m\), measure, grouping, and pipeline specification, let
-\[
-Y_{brk}
-\]
-denote the value of the measure computed from bootstrap replicate
-\(b\in\{1,\ldots,B\}\), imputation replicate \(r\in\{1,\ldots,R\}\), and
-linearization replicate \(k\in\{1,\ldots,K\}\). The indices are nested:
-linearization varies within imputed datasets, imputation varies within
-bootstrap pseudo-profiles, and bootstrap resampling varies over pseudo-profiles.
 
-Define the lower-level conditional means
+For each fixed analysis cell, defined by wave, scenario, candidate-set size
+\(m\), measure, grouping, and pipeline specification, let \(Y_{bsk}\) denote
+the value of the measure computed from bootstrap replicate
+\(b\in\{1,\ldots,B\}\), imputation replicate \(s\in\{1,\ldots,S\}\), and
+linearization replicate \(k\in\{1,\ldots,K\}\). The design is nested:
+linearization varies within an imputed dataset, imputation varies within a
+bootstrap pseudo-profile, and bootstrap resampling varies across
+pseudo-profiles.
+
+Define the conditional means
 \[
-\bar Y_{br\cdot}
+\bar Y_{bs\cdot}
 =
-\frac{1}{K}\sum_{k=1}^K Y_{brk},
-\]
-and
-\[
+\frac{1}{K}\sum_{k=1}^{K}Y_{bsk},
+\qquad
 \bar Y_{b\cdot\cdot}
 =
-\frac{1}{R}\sum_{r=1}^R \bar Y_{br\cdot}.
-\]
-The overall mean for the fixed analysis cell is
-\[
+\frac{1}{S}\sum_{s=1}^{S}\bar Y_{bs\cdot},
+\qquad
 \bar Y_{\cdot\cdot\cdot}
 =
-\frac{1}{B}\sum_{b=1}^B \bar Y_{b\cdot\cdot}.
+\frac{1}{B}\sum_{b=1}^{B}\bar Y_{b\cdot\cdot}.
 \]
-
-The bootstrap component is the variance across bootstrap-level conditional
-means:
-\[
-V_{\mathrm{boot}}
-=
-\operatorname{Var}_b(\bar Y_{b\cdot\cdot}).
-\]
-This term captures variation induced by changing the weighted pseudo-profile
-while averaging over the imputation and linearization replicates nested within
-that pseudo-profile.
-
-The imputation component is the average, over bootstrap replicates, of the
-within-bootstrap variance across imputation-level conditional means:
-\[
-V_{\mathrm{imp}}
-=
-\frac{1}{B}\sum_{b=1}^B
-\operatorname{Var}_r(\bar Y_{br\cdot}).
-\]
-This term captures variation induced by different imputations of the same
-bootstrap pseudo-profile, after averaging over the linearization replicates
-nested within each imputed dataset.
-
-The linearization component is the average, over bootstrap and imputation
-replicates, of the within-\((b,r)\) variance across linearizations:
-\[
-V_{\mathrm{lin}}
-=
-\frac{1}{BR}
-\sum_{b=1}^B\sum_{r=1}^R
-\operatorname{Var}_k(Y_{brk}).
-\]
-This term captures variation induced by completing weak preferences into
-linear orders conditional on a fixed bootstrap pseudo-profile and a fixed
-imputed dataset.
-
-The reported total is the sum of these nested components:
-\[
-V_{\mathrm{tot}}
-=
-V_{\mathrm{boot}}
-+
-V_{\mathrm{imp}}
-+
-V_{\mathrm{lin}}.
-\]
-With the balanced-tree and population-variance convention used in the
-replication code, this total equals the empirical variance of the leaf-level
-values:
-\[
-V_{\mathrm{tot}}
-=
-\operatorname{Var}_{b,r,k}(Y_{brk}).
-\]
-The point of the decomposition is therefore not to define a different total
-variance. It is to partition the empirical simulation variance according to the
-nested stochastic operations that generated it. Variation across \(k\) is
-interpreted as linearization variability only after conditioning on \(b\) and
-\(r\); variation across \(r\) is interpreted as imputation variability only
-after conditioning on \(b\); and variation across \(b\) is interpreted as
-bootstrap variability only after averaging over the lower-level stochastic
-operations.
-
-Explicitly, the implementation uses the population-variance convention
+Using the population-variance convention, define
 \[
 \operatorname{Var}_b(\bar Y_{b\cdot\cdot})
 =
-\frac{1}{B}
-\sum_{b=1}^B
-\left(
-\bar Y_{b\cdot\cdot}
--
-\bar Y_{\cdot\cdot\cdot}
-\right)^2,
+\frac{1}{B}\sum_{b=1}^{B}
+\left(\bar Y_{b\cdot\cdot}-\bar Y_{\cdot\cdot\cdot}\right)^2,
 \]
-with analogous formulas for \(\operatorname{Var}_r\) and
-\(\operatorname{Var}_k\). Under this convention, a component with only one
-realized branch is set to zero. Thus, if \(B=1\), the bootstrap component is
-zero; if \(R=1\), the imputation component is zero; and if \(K=1\), the
-linearization component is zero.
+with analogous definitions for \(\operatorname{Var}_s\) and
+\(\operatorname{Var}_k\). The three variance components are
+\[
+\begin{aligned}
+V_{\mathrm{boot}}
+&=
+\operatorname{Var}_b(\bar Y_{b\cdot\cdot}),\\
+V_{\mathrm{imp}}
+&=
+\frac{1}{B}\sum_{b=1}^{B}
+\operatorname{Var}_s(\bar Y_{bs\cdot}),\\
+V_{\mathrm{lin}}
+&=
+\frac{1}{BS}\sum_{b=1}^{B}\sum_{s=1}^{S}
+\operatorname{Var}_k(Y_{bsk}).
+\end{aligned}
+\]
 
-The decomposition is computed within fixed analysis cells. In particular,
-candidate-set size \(m\) is part of the conditioning information, not a
-stochastic source of variation. This is important because changing \(m\) changes
-the ranking space, the number of possible linear orders, the sparsity of the
-profile, and the scale on which several measures vary. Comparisons across
-pipeline specifications are therefore made within the same wave, scenario,
-candidate-set size \(m\), measure, and grouping. Summaries that pool over
-multiple values of \(m\) are used only as compact descriptive diagnostics across
-analysis cells, not as the primary variance decomposition.
+The bootstrap component captures variation across weighted pseudo-profiles,
+after averaging over imputation and linearization within each pseudo-profile.
+The imputation component captures variation across imputations of the same
+bootstrap pseudo-profile, after averaging over linearizations. The
+linearization component captures variation across completed strict rankings,
+conditional on a fixed bootstrap pseudo-profile and a fixed imputed dataset.
+
+The reported total is
+\[
+V_{\mathrm{tot}}
+=
+V_{\mathrm{boot}}+V_{\mathrm{imp}}+V_{\mathrm{lin}}.
+\]
+With a balanced nested design and the population-variance convention above,
+this total is exactly the empirical variance of the leaf-level values:
+\[
+V_{\mathrm{tot}}
+=
+\operatorname{Var}_{b,s,k}(Y_{bsk}).
+\]
+This identity follows from the finite-sample law of total variance. Equivalently,
+one can decompose each leaf-level value as
+\[
+Y_{bsk}-\bar Y_{\cdot\cdot\cdot}
+=
+\left(\bar Y_{b\cdot\cdot}-\bar Y_{\cdot\cdot\cdot}\right)
++
+\left(\bar Y_{bs\cdot}-\bar Y_{b\cdot\cdot}\right)
++
+\left(Y_{bsk}-\bar Y_{bs\cdot}\right),
+\]
+and the cross-products vanish when averaged over the balanced nested array.
+
+The decomposition is descriptive. It does not introduce a population model for
+the measures, and it is not a Rubin-style multiple-imputation variance formula.
+Its purpose is to partition the empirical simulation variance generated by the
+measurement pipeline. Variation across \(b\) is interpreted as weighted
+bootstrap variability; variation across \(s\), conditional on \(b\), is
+interpreted as imputation variability; and variation across \(k\), conditional
+on \(b\) and \(s\), is interpreted as linearization variability.
+
+The decomposition is computed within fixed analysis cells. Candidate-set size
+\(m\) is part of the conditioning information, not a stochastic source of
+variation. This matters because changing \(m\) changes the ranking space, the
+number of possible linear orders, the sparsity of the profile, and the scale on
+which several measures vary. Comparisons across pipeline specifications are
+therefore made within the same wave, scenario, candidate-set size \(m\),
+measure, and grouping. Summaries that pool over multiple values of \(m\) are
+used only as compact descriptive summaries across analysis cells, not as the
+primary variance decomposition.
+
+If one of the nested branches has only one realized value, the corresponding
+empirical component is set to zero by construction. For example, if \(B=1\),
+then \(V_{\mathrm{boot}}=0\); if \(S=1\), then \(V_{\mathrm{imp}}=0\); and if
+\(K=1\), then \(V_{\mathrm{lin}}=0\). These cases should be read as missing
+variation at that level of the simulation design, not as substantive evidence
+that the corresponding source of uncertainty is absent.
+
+
+A compact visualization of this decomposition is shown in
+Figure~\ref{fig:variance-decomposition-2022}. The figure reports, for the 2022
+wave and the selected scenario, the bootstrap, imputation, and linearization
+components of the empirical simulation variance. The horizontal axis gives
+candidate-set size \(m\). Within each value of \(m\), the boxplots compare the
+three nested components. For the group-based measures, \(C\) and \(D\) pool the
+corresponding analysis cells across available groupings, so the figure should
+be read as a descriptive summary across group diagnostics, not as a statement
+about one particular grouping variable.
 
 
 \begin{figure}[htp]
   \centering
   \vspace{-1.2cm}
-\includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{imgs/variance_decomposition_2022.png}
-\caption{Nested variance decomposition by measure and candidate-set size,
-2022. The figure reports the bootstrap, imputation, and linearization variance
-components for the measures used in the main analysis. For the group-based
-measures, \(C\) and \(D\) pool the corresponding analysis cells across
-available groupings.}
-\label{fig:variance-decomposition-2022}
+  \includegraphics[
+    width=\textwidth,
+    height=\textheight,
+    keepaspectratio
+  ]{imgs/variance_decomposition_2022.png}
+  \caption{Nested variance decomposition by measure and candidate-set size,
+  2022.}
+  \label{fig:variance-decomposition-2022}
 \end{figure}
 
 
-The decomposition is descriptive. It does not introduce an additional
-population model for the measures. Its purpose is to report how much of the
-simulation variability in the measured profile, within a fixed analysis cell,
-is attributable to weighted resampling, missing-data imputation, and stochastic
-linearization.
 
+Several features stand out. First, the variance components are small on the
+scale of the indices. The pipeline contains several stochastic steps, but the
+resulting measures are typically stable within a fixed analysis cell. The
+decomposition is therefore not uncovering large instability in the measurement
+procedure; it is identifying a modest amount of simulation variability and its
+relative composition.
 
-A compact visualization of this decomposition is shown in Figure
-\ref{fig:variance-decomposition-2022}. The figure reports, for the 2022 wave
-and the selected scenario, the bootstrap, imputation, and linearization
-variance components for the measures used in the main analysis. The horizontal
-axis gives candidate-set size \(m\), and within each value of \(m\) the
-boxplots compare the three nested variance components. For the group-based
-measures, \(C\) and \(D\) pool the corresponding analysis cells across the
-available groupings, so the figure should be read as a descriptive summary
-across group diagnostics, not as a statement about one particular grouping
-variable.
+Second, most of this variability comes from the bootstrap stage. Across nearly
+all measures and values of \(m\), the bootstrap component is larger than the
+imputation and linearization components. This means that variation across
+weighted pseudo-profiles contributes more to the leaf-level simulation variance
+than the downstream stochastic steps applied to a fixed pseudo-profile. This
+pattern is especially clear for \(\Psi\), \(R\), \(\kappa\), and \(RHHI\), but
+it also appears for the group-based measures \(C\) and \(D\).
 
-Several features stand out. First, the variance values are generally very
-small in absolute magnitude. In most panels the components lie close to zero,
-often in the range of small fractions of a percentage point. This is itself a
-substantive result: although the pipeline contains several stochastic steps,
-the resulting measures are typically quite stable within a fixed analysis cell.
-The decomposition is therefore not uncovering large instabilities in the
-measurement procedure, but rather a modest amount of simulation variability
-whose relative composition can still be meaningfully compared across measures.
+Third, the imputation and linearization components are usually smaller, though
+their relative importance varies across measures. Linearization is more visible
+than imputation in some measures, especially \(R\) and \(RHHI\), while
+imputation remains comparatively modest across most panels. Even so, both
+components are generally below the bootstrap contribution.
 
-Second, most of the variance comes from the bootstrap stage. Across nearly all
-measures and values of \(m\), the bootstrap component is visibly larger than
-the imputation and linearization components. This means that most of the
-simulation variability comes from changing the weighted pseudo-profile rather
-than from the downstream stochastic operations applied to that pseudo-profile.
-This pattern is especially clear for \(\Psi\), \(R\), \(\kappa\), and \(RHHI\),
-but it also holds for the group-based measures \(C\) and \(D\).
-In other words, once a bootstrap pseudo-profile is fixed, the additional
-variability introduced by missing-data imputation and by stochastic
-linearization is usually much smaller than the variability already induced by
-resampling.
+Fourth, there is heterogeneity across measures and candidate-set sizes. This is
+expected: different measures respond differently to profile geometry, sparsity,
+and the number of alternatives. Increasing \(m\) changes the ranking space
+itself. The qualitative conclusion, however, is stable: within fixed analysis
+cells, most of the measured simulation variability is induced by weighted
+resampling rather than by the subsequent imputation or weak-order
+linearization steps.
 
-Third, the imputation and linearization components are typically small, although
-their relative importance varies across measures. Linearization is usually more
-visible than imputation in this run, especially for measures such as \(R\)
-and \(RHHI\), while imputation remains comparatively modest across
-most panels. Even so, both components remain well below the bootstrap
-contribution in most cases.
-
-Fourth, there is some heterogeneity across measures and across \(m\). Measures
-such as \(D\) occasionally exhibit somewhat larger bootstrap
-dispersion, and \(\kappa\) and \(RHHI\) show more uneven behavior as \(m\) changes.
-This is unsurprising. Different measures respond differently to the geometry
-and sparsity of the profile, and increasing \(m\) changes the ranking space
-itself. Still, the broad qualitative pattern remains the same: candidate-set
-size matters for the level of the components, but it does not overturn the
-basic conclusion that the decomposition is dominated by bootstrap variability.
-
-The corresponding figures for the other years are very similar. The exact
-magnitudes differ across waves, scenarios, measures, and candidate-set sizes,
-but the same basic structure reappears: leaf-level simulation variability is
-generally small, most of it comes from bootstrap resampling, and the imputation
-and linearization components are comparatively modest. The decomposition
-therefore supports the view that the primary source of simulation variability
-within fixed analysis cells is the sampling variation represented by the
-weighted bootstrap, rather than instability introduced by the subsequent
-handling of missing values or weak-order linearization.
-
+The corresponding figures for the other years show the same broad pattern. The
+exact magnitudes differ across waves, scenarios, measures, and candidate-set
+sizes, but leaf-level simulation variability is generally small, bootstrap
+variability is the dominant component, and imputation and linearization
+variability are comparatively modest.
 \subsection{Candidate Set Selection}
+\label{app:candidate-set-selection}
+
 For 2006, the availability criterion and substantive relevance coincide closely.
-The five most available figures are Lula, Geraldo Alckmin, Heloísa Helena, José
-Serra, and Cristóvam Buarque.\footnote{The weighted missingness order for 2006
-is: Lula, 1.91\%; Geraldo Alckmin, 5.68\%; Heloísa Helena, 8.10\%; José Serra,
-8.71\%; and Cristóvam Buarque, 19.18\%.} This set captures the incumbent
-president, the main opposition candidate, a relevant left-wing dissident
-candidacy, and nationally salient presidential or presidentially relevant
-figures. I therefore use this order as the 2006 candidate sequence.
+The five most available figures are Lula, Geraldo Alckmin, Heloísa Helena,
+José Serra, and Cristóvam Buarque.\footnote{The weighted missingness order for
+2006 is: Lula, 1.91\%; Geraldo Alckmin, 5.68\%; Heloísa Helena, 8.10\%; José
+Serra, 8.71\%; and Cristóvam Buarque, 19.18\%.} This set captures the
+incumbent president, the main opposition candidate, a relevant left-wing
+dissident candidacy, and nationally salient presidential or presidentially
+relevant figures. I therefore use this order as the 2006 candidate sequence.
 
 The 2018 case requires a different decision rule. If alternatives are selected
 only by weighted missingness, the first names are Lula, Dilma Rousseff, Michel
@@ -1716,9 +1478,8 @@ who was an actual presidential candidate and occupied a substantively relevant
 position in the electoral field. The 2022 candidate sequence is thus Lula,
 Bolsonaro, Ciro Gomes, Simone Tebet, and Marina Silva.
 
-
-
 \section{Supporting Results}
+
 \subsection{Effective Rankings}
 
 \input{./imgs/effective_rankings.tex}

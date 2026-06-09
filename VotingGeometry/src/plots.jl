@@ -148,7 +148,7 @@ function _profile_text_value(x, coerce_to_int)
 end
 
 function plot_profile_tetrahedron_freqs(p4; ax = nothing, coerce_to_int = true, textsize = 9, title = "")
-    v = validate_profile_vector(p4, 24)
+    v = validate_profile_counts(p4, 24)
     ax = draw_opened_tetrahedron(ax)
     for i in 1:24
         pos = TETRAHEDRON_TEXT_POSITIONS[i]
@@ -174,7 +174,17 @@ const _COMPONENT_GROUP_ORDER = (
     :double_reversals,
 )
 
-function _component_summary_row(label_or_group, coefficient, component; norm = :l2)
+function _component_summary_row(
+    label_or_group,
+    coefficient,
+    component;
+    norm = :l2,
+    label = nothing,
+    group = nothing,
+    description = nothing,
+    source = nothing,
+    source_index = nothing,
+)
     l1_norm = sum(abs, component)
     l2_norm = LinearAlgebra.norm(component)
     max_abs = maximum(abs, component)
@@ -187,29 +197,74 @@ function _component_summary_row(label_or_group, coefficient, component; norm = :
         max_abs = max_abs,
         norm_value = norm_value,
         sum_component = sum(component),
+        label = label,
+        group = group,
+        description = description,
+        source = source,
+        source_index = source_index,
     )
 end
 
+function _check_component_label_style(label_style)
+    label_style in (:symbol, :description) ||
+        throw(ArgumentError("label_style must be :symbol or :description"))
+    return label_style
+end
+
+function _component_label_or_description(meta, label_style)
+    label_style == :symbol && return meta.label
+    return meta.description
+end
+
+function _group_label_or_description(group, label_style)
+    label_style == :symbol && return group
+    return _COMPONENT_GROUP_DESCRIPTIONS[group]
+end
+
 """
-    component_summary(dec::Decomposition; by=:label, norm=:l2)
+    component_summary(dec::Decomposition; by=:label, norm=:l2, label_style=:symbol)
 
 Return vector-of-NamedTuple summaries for each decomposition label or aggregate
 group. Group rows use `coefficient = nothing` because group components combine
 multiple basis coefficients. `norm_value` stores the selected norm requested by
 `norm`.
+
+With `label_style=:description`, `label_or_group` uses source-anchored metadata
+text instead of the canonical symbol. The canonical `label`, `group`,
+`description`, `source`, and `source_index` fields remain available in each row.
 """
-function component_summary(dec::Decomposition; by = :label, norm = :l2)
+function component_summary(dec::Decomposition; by = :label, norm = :l2, label_style = :symbol)
     norm in (:l1, :l2, :max_abs) ||
         throw(ArgumentError("norm must be :l1, :l2, or :max_abs"))
+    _check_component_label_style(label_style)
 
     if by == :label
         return [
-            _component_summary_row(COMPONENT_LABELS[i], dec.coefficients[i], dec.components[:, i]; norm = norm)
+            let meta = component_metadata(COMPONENT_LABELS[i])
+                _component_summary_row(
+                    _component_label_or_description(meta, label_style),
+                    dec.coefficients[i],
+                    dec.components[:, i];
+                    norm = norm,
+                    label = meta.label,
+                    group = meta.group,
+                    description = meta.description,
+                    source = meta.source,
+                    source_index = meta.source_index,
+                )
+            end
             for i in eachindex(COMPONENT_LABELS)
         ]
     elseif by == :group
         return [
-            _component_summary_row(group, nothing, group_component(dec, group); norm = norm)
+            _component_summary_row(
+                _group_label_or_description(group, label_style),
+                nothing,
+                group_component(dec, group);
+                norm = norm,
+                group = group,
+                description = _COMPONENT_GROUP_DESCRIPTIONS[group],
+            )
             for group in _COMPONENT_GROUP_ORDER
         ]
     end
@@ -218,20 +273,22 @@ function component_summary(dec::Decomposition; by = :label, norm = :l2)
 end
 
 """
-    plot_decomposition_coefficients(dec::Decomposition; by=:label, ax=nothing,
-        title="Saari decomposition coefficients")
+    plot_decomposition_coefficients(dec::Decomposition; by=:label,
+        label_style=:symbol, ax=nothing, title="Saari decomposition coefficients")
 
 Plot basis coefficients by label, or aggregate group L2 norms when `by=:group`.
-Returns the PythonPlot axis.
+Use `label_style=:description` to draw source-anchored metadata descriptions on
+the x axis. Returns the PythonPlot axis.
 """
 function plot_decomposition_coefficients(
     dec::Decomposition;
     by = :label,
+    label_style = :symbol,
     ax = nothing,
     title = "Saari decomposition coefficients",
 )
     ax = _axis2d(ax)
-    rows = component_summary(dec; by = by)
+    rows = component_summary(dec; by = by, label_style = label_style)
     names = [string(row.label_or_group) for row in rows]
     xs = collect(1:length(rows))
 
@@ -279,7 +336,7 @@ function plot_signed_profile_tetrahedron(
     annotate = true,
     title = "",
 )
-    v = validate_profile_vector(p4, 24)
+    v = validate_profile_differential(p4, 24)
     ax = draw_opened_tetrahedron(ax; labels = labels)
     max_abs = maximum(abs, v)
     scale = max_abs == 0.0 ? 1.0 : max_abs
@@ -405,7 +462,7 @@ function plot_decomposition_reconstruction_check(dec::Decomposition; labels = ("
     return fig
 end
 
-const _DEFAULT_POSITIONAL_COMPARISONS = (
+const _EJPE_BOLSONARO_POSITIONAL_COMPARISONS = (
     ("Bolsonaro", Symbol(">="), "Ciro"),
     ("Ciro", Symbol(">="), "Haddad"),
     ("Alckmin", Symbol(">"), "Bolsonaro"),
@@ -463,12 +520,26 @@ function _label_index_map(labels)
     return label_vec, index
 end
 
-function _default_positional_comparisons(label_index)
-    required_labels = ("Bolsonaro", "Ciro", "Haddad", "Alckmin")
-    if all(label -> haskey(label_index, label), required_labels)
-        return _DEFAULT_POSITIONAL_COMPARISONS
+"""
+    ejpe_bolsonaro_comparison_specs()
+
+Return the explicit positional comparison specs used by the EJPE Bolsonaro 2018
+paper examples. Generic comparison-region APIs default to all unordered
+pairwise weak comparisons among the supplied labels; pass this helper via
+`comparisons=ejpe_bolsonaro_comparison_specs()` for the paper-specific claims.
+"""
+function ejpe_bolsonaro_comparison_specs()
+    return collect(_EJPE_BOLSONARO_POSITIONAL_COMPARISONS)
+end
+
+function _default_positional_comparisons(label_vec)
+    comparisons = Tuple{Any,Symbol,Any}[]
+    for i in 1:(length(label_vec) - 1)
+        for j in (i + 1):length(label_vec)
+            push!(comparisons, (label_vec[i], Symbol(">="), label_vec[j]))
+        end
     end
-    throw(ArgumentError("pass comparisons when labels do not include Bolsonaro, Ciro, Haddad, and Alckmin"))
+    return comparisons
 end
 
 function _comparison_parts(comparison)
@@ -504,11 +575,20 @@ function _normalize_positional_comparison(comparison, label_index)
     )
 end
 
+"""
+    positional_comparison_region_masks(p4, labels; comparisons=nothing, resolution=101)
+
+Sample diagnostic grid masks over `0 <= s2 <= s1 <= 1` for four-candidate
+positional comparisons. When `comparisons === nothing`, all unordered pairwise
+weak comparisons are used in label order: `label_i >= label_j` for `i < j`.
+Pass explicit comparisons for paper-specific claims, for example
+`comparisons=ejpe_bolsonaro_comparison_specs()`.
+"""
 function positional_comparison_region_masks(p4, labels; comparisons = nothing, resolution::Integer = 101)
     resolution >= 2 || throw(ArgumentError("resolution must be at least 2"))
-    v = validate_profile_vector(p4, 24)
-    _, label_index = _label_index_map(labels)
-    comparison_input = comparisons === nothing ? _default_positional_comparisons(label_index) : comparisons
+    v = validate_profile_counts(p4, 24)
+    label_vec, label_index = _label_index_map(labels)
+    comparison_input = comparisons === nothing ? _default_positional_comparisons(label_vec) : comparisons
     comparison_specs = [_normalize_positional_comparison(comp, label_index) for comp in comparison_input]
 
     s1_values = Float64[]
@@ -535,9 +615,12 @@ end
 """
     positional_comparison_region_table(p4, labels; comparisons=nothing, resolution=101)
 
-Summarize `positional_comparison_region_masks` as parameter-space grid
-proportions over `0 <= s2 <= s1 <= 1`. These proportions are not procedure-hull
-area measures.
+Summarize `positional_comparison_region_masks` as diagnostic grid
+proportions over `0 <= s2 <= s1 <= 1`. Use `grid_proportion` for the sampled
+approximation; use `positional_comparison_region_exact_table` for rigorous
+parameter-space area proportions. When `comparisons === nothing`, all
+unordered pairwise weak comparisons are used in label order. Pass explicit
+comparisons for paper-specific claims.
 """
 function positional_comparison_region_table(p4, labels; comparisons = nothing, resolution::Integer = 101)
     region_data = positional_comparison_region_masks(
@@ -548,15 +631,19 @@ function positional_comparison_region_table(p4, labels; comparisons = nothing, r
     )
     grid_count = length(region_data.s1)
     return [
-        (
-            comparison = spec.label,
-            left = spec.left,
-            op = spec.op,
-            right = spec.right,
-            true_count = count(region_data.masks[i]),
-            grid_count = grid_count,
-            parameter_space_proportion = count(region_data.masks[i]) / grid_count,
-        )
+        let true_count = count(region_data.masks[i]),
+            grid_proportion = count(region_data.masks[i]) / grid_count
+            (
+                comparison = spec.label,
+                left = spec.left,
+                op = spec.op,
+                right = spec.right,
+                true_count = true_count,
+                grid_count = grid_count,
+                grid_proportion = grid_proportion,
+                parameter_space_proportion = grid_proportion,
+            )
+        end
         for (i, spec) in pairs(region_data.comparisons)
     ]
 end
@@ -568,6 +655,14 @@ function _comparison_region_colors(n, colors)
     return color_vec
 end
 
+"""
+    plot_positional_comparison_regions(p4, labels; comparisons=nothing, resolution=101, ax=nothing, ...)
+
+Plot diagnostic grid comparison regions over `0 <= s2 <= s1 <= 1`. When
+`comparisons === nothing`, all unordered pairwise weak comparisons are used in
+label order. Pass explicit comparisons, such as
+`ejpe_bolsonaro_comparison_specs()`, for paper-specific plots.
+"""
 function plot_positional_comparison_regions(
     p4,
     labels;
@@ -577,7 +672,7 @@ function plot_positional_comparison_regions(
     alpha = 0.35,
     colors = nothing,
     markersize = nothing,
-    title = "Comparison regions over 0 <= s2 <= s1 <= 1",
+    title = "Diagnostic grid comparison regions over Saari parameter space",
 )
     ax = _axis2d(ax)
     region_data = positional_comparison_region_masks(
@@ -657,28 +752,25 @@ function _closed_coordinate(points, dim)
 end
 
 """
-    plot_procedure_hull_4c(p4; labels=("A", "B", "C", "D"), ax=nothing,
-        convention=:saari, show_borda=true, show_vertices=true, annotate=true,
-        title="4-candidate procedure hull")
+    plot_procedure_hull_q_image_4c(p4; labels=("A", "B", "C", "D"), ax=nothing,
+        show_borda=true, show_vertices=true, annotate=true,
+        title="q-normalized image of the 4-candidate Saari procedure hull")
 
-Draw the four-candidate procedure hull inside the candidate-tally tetrahedron.
-The embedding uses candidate-share normalized endpoint locations because the
-closed tetrahedron is `x_A+x_B+x_C+x_D=1`. The `convention` keyword controls
-the barycentric coordinates reported by `procedure_hull_4c`; Saari's score-vector
-convention puts Borda at `(1/3, 1/3, 1/3)`, while the embedded q-normalized
-triangle puts it at `(1/6, 1/3, 1/2)`.
+Draw the q-normalized image of the four-candidate Saari procedure hull inside
+the candidate-tally tetrahedron. The triangle vertices and Borda point are true
+candidate score shares, so this is a display embedding of the procedure hull,
+not Saari's score-vector parameter triangle.
 """
-function plot_procedure_hull_4c(
+function plot_procedure_hull_q_image_4c(
     p4;
     labels = ("A", "B", "C", "D"),
     ax = nothing,
-    convention = :saari,
     show_borda = true,
     show_vertices = true,
     annotate = true,
-    title = "4-candidate procedure hull",
+    title = "q-normalized image of the 4-candidate Saari procedure hull",
 )
-    hull = procedure_hull_4c(p4; labels = labels, convention = convention)
+    hull = procedure_hull_q_image_4c(p4; labels = labels)
     ax = plot_candidate_tally_tetrahedron(; labels = labels, ax = ax)
     points = [
         hull.vertices_cartesian.vote_for_one,
@@ -730,10 +822,42 @@ function plot_procedure_hull_4c(
 end
 
 """
+    plot_procedure_hull_4c(p4; labels=("A", "B", "C", "D"), ax=nothing,
+        convention=:saari, show_borda=true, show_vertices=true, annotate=true,
+        title="q-normalized image of the 4-candidate Saari procedure hull")
+
+Compatibility wrapper for `plot_procedure_hull_q_image_4c`. Despite the legacy
+name, this draws the q-normalized display image inside the candidate-tally
+tetrahedron, not the Saari score-vector procedure triangle. The `convention`
+keyword is accepted only for migration compatibility.
+"""
+function plot_procedure_hull_4c(
+    p4;
+    labels = ("A", "B", "C", "D"),
+    ax = nothing,
+    convention = :saari,
+    show_borda = true,
+    show_vertices = true,
+    annotate = true,
+    title = "q-normalized image of the 4-candidate Saari procedure hull",
+)
+    _normalize_hull_convention(convention)
+    return plot_procedure_hull_q_image_4c(
+        p4;
+        labels = labels,
+        ax = ax,
+        show_borda = show_borda,
+        show_vertices = show_vertices,
+        annotate = annotate,
+        title = title,
+    )
+end
+
+"""
     plot_procedure_hull_parameter_triangle(; ax=nothing, show_borda=true)
 
-Draw the admissible score-parameter triangle `0 <= s2 <= s1 <= 1`. This is a
-parameter-space plot, not a uniform-area plot of the procedure hull in q-space.
+Draw the Saari score-parameter triangle `0 <= s2 <= s1 <= 1`. This is a
+parameter-space plot, not a uniform-area plot of the procedure hull q-image.
 """
 function plot_procedure_hull_parameter_triangle(; ax = nothing, show_borda = true)
     ax = _axis2d(ax)
@@ -763,6 +887,6 @@ function plot_procedure_hull_parameter_triangle(; ax = nothing, show_borda = tru
     ax.set_ylabel("s2: third-place score")
     ax.set_xlim(-0.04, 1.08)
     ax.set_ylim(-0.04, 1.08)
-    ax.set_title("4-candidate positional parameter space")
+    ax.set_title("4-candidate Saari parameter space")
     return _set_equal_2d(ax)
 end

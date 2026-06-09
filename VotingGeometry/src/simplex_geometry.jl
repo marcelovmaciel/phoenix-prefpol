@@ -48,7 +48,7 @@ function barycentric_to_cartesian(weights; vertices = nothing)
 end
 
 function triangle_points_from_profile(p3)
-    v = validate_profile_vector(p3, 6)
+    v = validate_profile_counts(p3, 6)
     return Dict{Symbol,Tuple{Float64,Float64}}(
         :plurality => tern2cart(plurality_3a(v)...),
         :antiplurality => tern2cart(antiplurality_3a(v)...),
@@ -57,7 +57,7 @@ function triangle_points_from_profile(p3)
 end
 
 function tetrahedron_points_from_profile(p4, q_functions)
-    v = validate_profile_vector(p4, 24)
+    v = validate_profile_counts(p4, 24)
     point_for(f) = barycentric_to_cartesian(f(v))
 
     if q_functions isa AbstractDict

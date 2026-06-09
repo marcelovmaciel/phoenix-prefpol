@@ -1,0 +1,69 @@
+source_note = "Published EJPE Bolsonaro 2018 reference contract; rounded values copied from source_notes/ejpe_reference_contract.md."
+candidate_order = ["Alckmin", "Bolsonaro", "Ciro", "Haddad"]
+
+[activation]
+status = "missing_local_data"
+profile_fixture_present = false
+required_profile_fixture = "A 24-entry strict complete four-candidate profile vector reconstructed from the Brazil 2018 DataFolha full rankings in candidate order Alckmin, Bolsonaro, Ciro, Haddad."
+activation_note = "When the DataFolha reconstruction pipeline or stored profile fixture is added locally, replace the skipped reconstruction test with active checks against these rounded published values. Do not fabricate a profile from this table."
+
+[position_share_coefficients.Alckmin]
+constant = 0.05
+s1 = 0.51
+s2 = 0.36
+
+[position_share_coefficients.Bolsonaro]
+constant = 0.49
+s1 = 0.04
+s2 = 0.10
+
+[position_share_coefficients.Ciro]
+constant = 0.13
+s1 = 0.33
+s2 = 0.44
+
+[position_share_coefficients.Haddad]
+constant = 0.31
+s1 = 0.10
+s2 = 0.08
+
+[[pairwise_percentages]]
+left = "Alckmin"
+right = "Bolsonaro"
+left_over_right = 43.57
+right_over_left = 56.43
+
+[[pairwise_percentages]]
+left = "Alckmin"
+right = "Ciro"
+left_over_right = 64.44
+right_over_left = 35.56
+
+[[pairwise_percentages]]
+left = "Alckmin"
+right = "Haddad"
+left_over_right = 76.10
+right_over_left = 23.89
+
+[[pairwise_percentages]]
+left = "Bolsonaro"
+right = "Ciro"
+left_over_right = 65.97
+right_over_left = 34.03
+
+[[pairwise_percentages]]
+left = "Bolsonaro"
+right = "Haddad"
+left_over_right = 100.00
+right_over_left = 0.00
+
+[[pairwise_percentages]]
+left = "Ciro"
+right = "Haddad"
+left_over_right = 76.12
+right_over_left = 23.88
+
+[expected]
+borda_ranking = ["Bolsonaro", "Alckmin", "Ciro", "Haddad"]
+condorcet_winner = "Bolsonaro"
+condorcet_loser = "Haddad"

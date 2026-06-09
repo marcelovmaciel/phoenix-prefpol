@@ -1,0 +1,17 @@
+source_note = "Saari 2000, Mathematical Structure of Voting Paradoxes II, Theorem 14 / Figure 8 voter-type order"
+provenance_note = "Matrix transcribed from existing implementation pending source recheck against the original source table; fixture locks current behavior for auditability."
+created_date = "2026-06-09"
+candidate_encoding = "A=1,B=2,C=3,D=4"
+
+[canonical_order]
+file = "saari_fig8_order_4c.csv"
+rows = 24
+columns = 5
+sha256 = "a6d2ff341ffb89c08d22b97ab9a40d7d6fab6b17b200c188224a89f3fa58f989"
+
+[theorem14_t_int]
+file = "saari_theorem14_t_int.csv"
+rows = 24
+columns = 24
+scale = "1/24"
+sha256 = "3ad610f95309840cf1a5ce5262520f3a926741b83e73f0329e6ff99d3c0dc86a"

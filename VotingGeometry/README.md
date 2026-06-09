@@ -90,9 +90,8 @@ reconstructed_profile = reconstruct(dec)
 The candidate-tally tetrahedron is the closed simplex of normalized candidate
 score/tally shares, `x_A + x_B + x_C + x_D = 1`. Use
 `plot_candidate_tally_tetrahedron` for this object. When a Saari procedure hull
-is drawn in this tetrahedron, only the display coordinates are normalized into
-candidate shares; the hull itself is still defined by Saari's raw vote-for-k
-tallies.
+is drawn in this tetrahedron, the display coordinates are candidate score shares in the q-image; the
+hull itself is still defined by Saari's raw vote-for-k tallies.
 
 The opened representation tetrahedron is the profile/ranking-region object from
 Saari's representation simplex. It is opened by cutting along edges from `D`; each
@@ -119,19 +118,52 @@ So `procedure_hull_barycentric_4c(s1, s2)` defaults to Saari coordinates
 `(1/3, 1/3, 1/3)`, and the raw Borda tally is the average of the three
 vote-for-k tallies.
 
-The older `q_s_4candidates` helper normalizes each score tally by total score
-`1 + s1 + s2`. This is a score-share display helper, not Saari's procedure-hull
-coordinate system:
+`get_4c_w_s` and `raw_score_tally_4c` return raw score tallies. For
+count profiles, those tallies sum to `sum(p4) * (1 + s1 + s2)`. The explicit
+`score_tally_per_rule_mass_4c` helper preserves the older normalization that
+divides only by `1 + s1 + s2`; for count profiles it sums to `sum(p4)` and is
+not a candidate score share.
+
+`candidate_score_share_4c` and its compatibility name `q_s_4candidates` return
+true candidate score shares by dividing by `sum(p4) * (1 + s1 + s2)`. They are
+invariant to multiplying an actual profile by a positive scalar:
 
 ```julia
-procedure_hull_point_4c(p4, 2/3, 1/3)  # Saari raw Borda tally
-q_s_4candidates(p4, 2/3, 1/3)          # normalized Borda score shares
+procedure_hull_point_4c(p4, 2/3, 1/3)       # Saari raw Borda tally
+score_tally_per_rule_mass_4c(p4, 2/3, 1/3)  # old per-rule-mass tally
+q_s_4candidates(p4, 2/3, 1/3)               # Borda candidate score shares
 ```
 
-Because this normalization divides all candidates by the same positive scalar
-for fixed `(s1, s2)`, it does not change candidate score comparisons at that
-rule. It should not be used to decide whether Borda is the procedure-hull
+For a fixed profile and `(s1, s2)`, these normalizations divide all candidates
+by positive scalars, so they do not change candidate score comparisons at that
+rule. They should not be used to decide whether Borda is the procedure-hull
 barycenter; that statement belongs to Saari's raw score-vector hull.
+
+
+## Four-Candidate Comparison Regions
+
+`positional_comparison_region_masks`, `positional_comparison_region_table`,
+`positional_comparison_region_exact_table`, and the corresponding plot helpers
+default to generic comparisons. With `comparisons=nothing`, they use every
+unordered pairwise weak comparison in the supplied label order: `label_i >=
+label_j` for `i < j`. For labels `[:A, :B, :C, :D]`, the default comparisons are
+`A >= B`, `A >= C`, `A >= D`, `B >= C`, `B >= D`, and `C >= D`.
+
+`positional_comparison_region_table` reports approximate diagnostic grid
+proportions. Use `positional_comparison_region_exact_table` or
+`plot_positional_comparison_regions_exact` for exact proportions from polygon
+area over the Saari parameter triangle `0 <= s2 <= s1 <= 1`.
+
+Pass explicit comparisons for paper-specific claims. The EJPE Bolsonaro 2018
+examples remain available under an explicit helper:
+
+```julia
+plot_positional_comparison_regions_exact(
+    p4,
+    [:Alckmin, :Bolsonaro, :Ciro, :Haddad];
+    comparisons = ejpe_bolsonaro_comparison_specs(),
+)
+```
 
 ## Decomposition Summaries and Plots
 
@@ -151,11 +183,15 @@ subsets agree in Saari's sense, and pairwise margins satisfy additive transitivi
 Condorcet components are orthogonal to Basic and double-reversal components;
 they have zero full four-candidate positional tallies but nonzero cyclic pairwise
 effects. Departure components have zero pairwise margins and zero full-set Borda
-tallies while changing non-Borda positional outcomes.
+tallies while changing non-Borda positional outcomes. `COMPONENT_METADATA` records
+source descriptions for each component. The eight subset departure components
+keep canonical `:departure_subset_i` labels until their exact Saari subset and
+candidate-role mapping is verified from a source fixture.
 
 ```julia
 dec = decompose_profile(p4)
 label_rows = component_summary(dec; by = :label)
+description_rows = component_summary(dec; by = :label, label_style = :description)
 group_rows = component_summary(dec; by = :group)
 
 ax = plot_decomposition_coefficients(dec)
