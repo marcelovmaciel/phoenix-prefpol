@@ -52,13 +52,11 @@ const _GROUP_TRIPLET_PANEL_LABELS = Dict(
     :S => "S",
 )
 const _GROUP_TRIPLET_PANEL_COLORRANGE = (0.0f0, 1.0f0)
-const _PAPER_GROUP_HEATMAP_MEASURES = (:C, :D, :O, :S)
-const _PAPER_GROUP_HEATMAP_COMPLEMENTS = (:O,)
+const _PAPER_GROUP_HEATMAP_MEASURES = (:C, :D)
+const _PAPER_GROUP_HEATMAP_COMPLEMENTS = Symbol[]
 const _PAPER_GROUP_HEATMAP_LABELS = Dict(
     :C => "C",
     :D => "D",
-    :O => "1 - O",
-    :S => "S",
 )
 const _PAPER_O_SMOOTHED_MEASURES = (:O_smoothed,)
 const _PAPER_O_SMOOTHED_COMPLEMENTS = (:O_smoothed,)
@@ -77,6 +75,10 @@ const _VARIANCE_COMPONENT_OFFSETS = Dict(
     3 => [-0.24, 0.0, 0.24],
     4 => [-0.30, -0.10, 0.10, 0.30],
 )
+const _PAPER_AXIS_LABELSIZE = 15
+const _PAPER_TICK_LABELSIZE = 13
+const _PAPER_LEGEND_FONTSIZE = 13
+const _PAPER_NOTE_FONTSIZE = 14
 
 function _plot_measure_label(measure::Symbol, measure_labels)
     if measure_labels !== nothing && haskey(measure_labels, measure)
@@ -116,12 +118,12 @@ function _resolve_heatmap_colorrange(allvals;
     return colorrange, data_min, data_max
 end
 
-function _overlay_heatmap_values!(ax, xs_m, n_groups::Int, z)
+function _overlay_heatmap_values!(ax, xs_m, n_groups::Int, z; fontsize = 9)
     n_m = length(xs_m)
     xs = repeat(xs_m, inner = n_groups)
     ys = repeat(collect(1:n_groups), outer = n_m)
     labels = [isnan(z[i, j]) ? "NA" : @sprintf("%.3f", z[i, j]) for i in 1:n_m for j in 1:n_groups]
-    text!(ax, xs, ys; text = labels, align = (:center, :center), color = :black, fontsize = 8)
+    text!(ax, xs, ys; text = labels, align = (:center, :center), color = :black, fontsize = fontsize)
     return nothing
 end
 
@@ -187,15 +189,39 @@ function _plot_paper_title(rows::AbstractDataFrame;
                  (hasproperty(rows, :year) ? string(rows[1, :year]) :
                   wave_id === nothing ? string(rows[1, :wave_id]) : string(wave_id)) :
                  string(year)
-    return string("Group measures • Year = ", year_label)
+    return string("Group diagnostics • Year = ", year_label)
+end
+
+function _candidate_sequence_text(candidate_label::AbstractString)
+    text = strip(String(candidate_label))
+    isempty(text) && return ""
+    text = replace(text, r"^Candidates:\s*" => "Candidate sequence: ")
+    startswith(text, "Candidate sequence:") || (text = "Candidate sequence: " * text)
+    return text
+end
+
+function _candidate_sequence_note(candidate_label::AbstractString; prefix_note::Bool = true)
+    text = _candidate_sequence_text(candidate_label)
+    isempty(text) && return ""
+    return text
+end
+
+function _wrapped_candidate_sequence_note(candidate_label::AbstractString;
+                                          width::Int = 80,
+                                          prefix_note::Bool = true)
+    text = _candidate_sequence_note(candidate_label; prefix_note = prefix_note)
+    isempty(text) && return ""
+    return join(TextWrap.wrap(text; width = width), "\n")
 end
 
 function _candidate_label_text(candidate_label::AbstractString;
                                wrap_candidates::Bool = false,
-                               candidate_wrap_width::Int = 60)
+                               candidate_wrap_width::Int = 60,
+                               prefix_note::Bool = true)
+    text = _candidate_sequence_note(candidate_label; prefix_note = prefix_note)
     return wrap_candidates ?
-           join(TextWrap.wrap(candidate_label; width = candidate_wrap_width), "\n") :
-           candidate_label
+           join(TextWrap.wrap(text; width = candidate_wrap_width), "\n") :
+           text
 end
 
 function lines_alt_by_variant(measures_over_m::AbstractDict;
@@ -738,47 +764,38 @@ function plot_pipeline_scenario(result_or_results;
     m_values = Float32.(data.m_values)
     wanted_measures = [_measure for _measure in PrefPol._normalize_measure_list(measures)]
 
-    fig = Figure(resolution = figsize)
-    ax = Axis(
-        fig[1, 1];
-        xlabel = "number of alternatives",
-        ylabel = "value",
-        xticks = (m_values, string.(Int.(m_values))),
-    )
-    if ytick_step !== nothing
-        ticks = collect(0.0:Float64(ytick_step):1.0)
-        ax.yticks[] = (ticks, [@sprintf("%.1f", tick) for tick in ticks])
-    end
-
-    titlegrid = GridLayout(tellwidth = false)
-    rowgap!(titlegrid, 0)
-    fig[0, 1:2] = titlegrid
+    fig = Figure(size = (figsize[1], max(figsize[2], 500)), fontsize = 14)
     Label(
-        titlegrid[1, 1];
+        fig[1, 1:2];
         text = _plot_year_label(rows; year = year, wave_id = wave_id),
-        fontsize = 14,
+        fontsize = 16,
         halign = :center,
         padding = (0, 0, 0, 0),
         tellwidth = false,
     )
     Label(
-        titlegrid[2, 1];
-        text = _plot_draws_label(rows),
-        fontsize = 12,
+        fig[2, 1:2];
+        text = _wrapped_candidate_sequence_note(data.candidate_label; width = 95),
+        fontsize = _PAPER_NOTE_FONTSIZE,
         halign = :left,
         justification = :left,
         padding = (0, 0, 0, 0),
         tellwidth = false,
     )
-    Label(
-        titlegrid[3, 1];
-        text = data.candidate_label,
-        fontsize = 12,
-        halign = :left,
-        justification = :left,
-        padding = (0, 0, 0, 0),
-        tellwidth = false,
+    ax = Axis(
+        fig[3, 1];
+        xlabel = "m",
+        ylabel = "value",
+        xticks = (m_values, string.(Int.(m_values))),
+        xlabelsize = _PAPER_AXIS_LABELSIZE,
+        ylabelsize = _PAPER_AXIS_LABELSIZE,
+        xticklabelsize = _PAPER_TICK_LABELSIZE,
+        yticklabelsize = _PAPER_TICK_LABELSIZE,
     )
+    if ytick_step !== nothing
+        ticks = collect(0.0:Float64(ytick_step):1.0)
+        ax.yticks[] = (ticks, [@sprintf("%.1f", tick) for tick in ticks])
+    end
 
     legend_handles = Any[]
     legend_labels = AbstractString[]
@@ -831,8 +848,10 @@ function plot_pipeline_scenario(result_or_results;
         end
     end
 
-    Legend(fig[1, 2], legend_handles, legend_labels)
-    resize_to_layout!(fig)
+    Legend(fig[3, 2], legend_handles, legend_labels; labelsize = _PAPER_LEGEND_FONTSIZE)
+    colsize!(fig.layout, 1, Relative(0.80))
+    colsize!(fig.layout, 2, Relative(0.20))
+    rowsize!(fig.layout, 3, Relative(1.0))
     return fig
 end
 
@@ -1240,21 +1259,17 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
     fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :center)
     fig[2, 1:ncol] = Label(
         fig,
-        _plot_draws_label(rows);
-        fontsize = 14,
-        halign = :left,
-    )
-    fig[3, 1:ncol] = Label(
-        fig,
         _candidate_label_text(
             data.candidate_label;
-            wrap_candidates = wrap_candidates,
-            candidate_wrap_width = candidate_wrap_width,
+            wrap_candidates = true,
+            candidate_wrap_width = max(candidate_wrap_width, 112),
         );
-        fontsize = 14,
+        fontsize = _PAPER_NOTE_FONTSIZE,
         halign = :left,
+        justification = :left,
+        tellwidth = false,
     )
-    header_rows = 3
+    header_rows = 2
 
     hm_ref = nothing
     for (panel_idx, measure) in enumerate(wanted_measures)
@@ -1269,6 +1284,11 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
             ylabel = show_ylabel ? "grouping" : "",
             xticks = (xs_m, string.(m_values_int)),
             yticks = (1:length(group_syms), group_labels),
+            xlabelsize = _PAPER_AXIS_LABELSIZE,
+            ylabelsize = _PAPER_AXIS_LABELSIZE,
+            xticklabelsize = _PAPER_TICK_LABELSIZE,
+            yticklabelsize = _PAPER_TICK_LABELSIZE,
+            titlesize = _PAPER_AXIS_LABELSIZE,
         )
         hm = heatmap!(
             ax,
@@ -1288,11 +1308,16 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
             hm_ref;
             label = something(colorbar_label, String(data.statistic)),
             ticks = 0.0:0.2:1.0,
+            labelsize = _PAPER_AXIS_LABELSIZE,
+            ticklabelsize = _PAPER_TICK_LABELSIZE,
         )
-        colsize!(fig.layout, ncol + 1, Auto())
+        colsize!(fig.layout, ncol + 1, Relative(0.10))
     end
+    for col in 1:ncol
+        colsize!(fig.layout, col, Relative(0.90 / ncol))
+    end
+    rowsize!(fig.layout, header_rows + 1, Relative(1.0))
 
-    resize_to_layout!(fig)
     return fig
 end
 
@@ -1686,10 +1711,10 @@ function plot_variance_decomposition_year_scenario_boxplots(table::AbstractDataF
         figsize = (max(380 * ncol, 720), max(285 * nrow + 95, 420))
     end
 
-    fig = Figure(size = figsize)
+    fig = Figure(size = figsize, fontsize = 14)
     Label(
         fig[0, 1:ncol];
-        text = "Variance decomposition: year=$(year)",
+        text = "Variance components: $(year)",
         fontsize = 18,
         halign = :center,
     )
@@ -1697,9 +1722,10 @@ function plot_variance_decomposition_year_scenario_boxplots(table::AbstractDataF
     if !isempty(candidate_label)
         Label(
             fig[1, 1:ncol];
-            text = join(TextWrap.wrap(candidate_label; width = 120)),
+            text = _wrapped_candidate_sequence_note(candidate_label; width = 120),
             fontsize = 13,
             halign = :left,
+            justification = :left,
         )
     end
     plot_row_offset = isempty(candidate_label) ? 0 : 1
@@ -1716,6 +1742,11 @@ function plot_variance_decomposition_year_scenario_boxplots(table::AbstractDataF
             xlabel = grid_row == nrow ? "m" : "",
             ylabel = grid_col == 1 ? ylabel : "",
             xticks = (ms, string.(ms)),
+            xlabelsize = _PAPER_AXIS_LABELSIZE,
+            ylabelsize = _PAPER_AXIS_LABELSIZE,
+            xticklabelsize = _PAPER_TICK_LABELSIZE,
+            yticklabelsize = _PAPER_TICK_LABELSIZE,
+            titlesize = _PAPER_AXIS_LABELSIZE,
         )
         push!(axes, ax)
 
@@ -1744,11 +1775,12 @@ function plot_variance_decomposition_year_scenario_boxplots(table::AbstractDataF
 
     handles = [Makie.LineElement(; color = palette[(idx - 1) % length(palette) + 1], linewidth = 5)
                for idx in eachindex(component_syms)]
-    Legend(fig[(1 + plot_row_offset):(nrow + plot_row_offset), ncol + 1], handles, component_labels)
-
-    pipelines = sort(unique(String.(rows.pipeline_label)))
-    pipeline_text = "Pipelines: " * join(pipelines, "; ")
-    Label(fig[nrow + plot_row_offset + 1, 1:ncol]; text = join(TextWrap.wrap(pipeline_text; width = 120)), fontsize = 10, halign = :left)
+    Legend(
+        fig[(1 + plot_row_offset):(nrow + plot_row_offset), ncol + 1],
+        handles,
+        component_labels;
+        labelsize = _PAPER_LEGEND_FONTSIZE,
+    )
 
     resize_to_layout!(fig)
     outfile !== nothing && save(outfile, fig; px_per_unit = 4)

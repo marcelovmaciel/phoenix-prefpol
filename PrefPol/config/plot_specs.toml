@@ -54,10 +54,10 @@ measure_manifest = "PrefPol/composable_running/output/manifests/measure_manifest
 plot_manifest = "PrefPol/composable_running/output/manifests/plot_manifest.csv"
 group_plot_manifest = "PrefPol/composable_running/output/manifests/group_plot_manifest.csv"
 analysis_role = "main"
-measures = ["C", "D", "O", "S"]
-measure_labels = { C = "C", D = "D", O = "1 - O", S = "S" }
-complement_measures = ["O"]
-basename = "paper_group_heatmap_panel_C_D_1mO_S"
+measures = ["C", "D"]
+measure_labels = { C = "C", D = "D" }
+complement_measures = []
+basename = "paper_group_heatmap_panel_C_D"
 formats = ["png"]
 write_tables = true
 statistic = "median"
@@ -70,7 +70,7 @@ linearizers = ["pattern_conditional"]
 2022 = ["Sex", "Religion", "Race", "Ideology", "PT", "Abortion", "Age", "Education", "Income"]
 
 [group_plots.o_smoothed]
-enabled = true
+enabled = false
 analysis_role = "o_smoothed_extension"
 measures = ["O_smoothed"]
 measure_labels = { O_smoothed = "1 - O_smoothed" }
@@ -81,19 +81,19 @@ basename = "paper_o_smoothed_heatmap"
 wave_id = "2006"
 scenario_name = "main_2006"
 m_values = [2, 3, 4, 5]
-paper_filename = "2006_group.png"
+paper_filename = "2006_group_C_D.png"
 
 [[group_plots.targets]]
 wave_id = "2018"
 scenario_name = "main_2018"
 m_values = [2, 3, 4, 5]
-paper_filename = "2018_group.png"
+paper_filename = "2018_group_C_D.png"
 
 [[group_plots.targets]]
 wave_id = "2022"
 scenario_name = "main_2022"
 m_values = [2, 3, 4, 5]
-paper_filename = "2022_group.png"
+paper_filename = "2022_group_C_D.png"
 
 [extra_plots]
 extra_plot_root = "PrefPol/composable_running/output/extra_plots"

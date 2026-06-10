@@ -27,18 +27,21 @@ source_stage = "plot_global"
 
 [[artifacts]]
 id = "group_2006_main"
-destination_filename = "2006_group.png"
+destination_filename = "2006_group_C_D.png"
 source_stage = "plot_group"
+artifact_prefix = "paper_group_heatmap_panel_C_D_year"
 
 [[artifacts]]
 id = "group_2018_main"
-destination_filename = "2018_group.png"
+destination_filename = "2018_group_C_D.png"
 source_stage = "plot_group"
+artifact_prefix = "paper_group_heatmap_panel_C_D_year"
 
 [[artifacts]]
 id = "group_2022_main"
-destination_filename = "2022_group.png"
+destination_filename = "2022_group_C_D.png"
 source_stage = "plot_group"
+artifact_prefix = "paper_group_heatmap_panel_C_D_year"
 
 [[artifacts]]
 id = "effective_rankings_evolution"

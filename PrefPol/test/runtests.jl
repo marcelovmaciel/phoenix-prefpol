@@ -28,6 +28,8 @@ include("composable_stage_order_tests.jl")
 
 include("variance_decomposition_report_tests.jl")
 
+include("appendix_raw_profile_diagnostics_tests.jl")
+
 try
     @eval using CairoMakie
     include("plotting_extension_tests.jl")

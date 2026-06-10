@@ -70,6 +70,8 @@ function extra_plot_settings(cfg, opts)
                                       joinpath(output_root, "measures", "decomposition_table.csv")))),
         extra_plot_manifest = resolve_path(String(config_value(plot_cfg, "extra_plot_manifest",
                                       joinpath(output_root, "manifests", "extra_plot_manifest.csv")))),
+        run_manifest = resolve_path(String(config_value(plot_cfg, "run_manifest",
+                              joinpath(output_root, "manifests", "run_manifest.csv")))),
         formats = normalize_format.(config_value(plot_cfg, "formats", ["png", "svg"])),
         effective_enabled = Bool(config_value(plot_cfg, "effective_rankings_enabled", true)),
         variance_enabled = Bool(config_value(variance_cfg, "enabled", true)),
@@ -112,18 +114,47 @@ function regular_ticks(values, step::Real)
     return 0:step:upper
 end
 
-function plot_evolution(df::DataFrame)
+function candidate_sequence_from_label(label)
+    text = strip(String(label))
+    text = replace(text, r"^Candidates:\s*" => "")
+    return text
+end
+
+function candidate_sequence_notes(settings, df::DataFrame)
+    isfile(settings.run_manifest) || return String[]
+    manifest = CSV.read(settings.run_manifest, DataFrame)
+    notes = String[]
+    for year in sort(unique(Int.(df.year)))
+        year_rows = manifest[Int.(manifest.year) .== year, :]
+        :analysis_role in propertynames(year_rows) &&
+            (year_rows = year_rows[string.(year_rows.analysis_role) .== "main", :])
+        :imputer_backend in propertynames(year_rows) &&
+            (year_rows = year_rows[string.(year_rows.imputer_backend) .== "mice", :])
+        :linearizer_policy in propertynames(year_rows) &&
+            (year_rows = year_rows[string.(year_rows.linearizer_policy) .== "pattern_conditional", :])
+        isempty(year_rows) && continue
+        mcol = :m in propertynames(year_rows) ? :m : :n_candidates
+        row = year_rows[argmax(Int.(year_rows[!, mcol])), :]
+        label = :candidate_label in propertynames(year_rows) && !ismissing(row.candidate_label) ?
+                row.candidate_label : PrefPol.describe_candidate_set(split(String(row.active_candidates_key), '|'))
+        push!(notes, "$(year) candidate sequence: " * candidate_sequence_from_label(label))
+    end
+    return notes
+end
+
+function plot_evolution(df::DataFrame; candidate_notes = String[])
     years = sort(unique(Int.(df.year)))
     palette = (RGBf(0.13, 0.37, 0.66), RGBf(0.82, 0.33, 0.16), RGBf(0.20, 0.55, 0.28), RGBf(0.45, 0.33, 0.62))
     colors = Dict(year => palette[(idx - 1) % length(palette) + 1] for (idx, year) in enumerate(years))
 
-    fig = Figure(size = (1050, 430), fontsize = 14)
-    ax_eo = Axis(fig[1, 1], xlabel = "m", ylabel = "median EO",
+    fig = Figure(size = (1050, isempty(candidate_notes) ? 430 : 540), fontsize = 14)
+    axis_kwargs = (xlabelsize = 15, ylabelsize = 15, xticklabelsize = 13, yticklabelsize = 13, titlesize = 15)
+    ax_eo = Axis(fig[1, 1]; xlabel = "m", ylabel = "median EO",
                  title = "Effective number of rankings", xticks = 2:5,
-                 yticks = regular_ticks(df.EO_median, 5))
-    ax_enrp = Axis(fig[1, 2], xlabel = "m", ylabel = "median ENRP",
+                 yticks = regular_ticks(df.EO_median, 5), axis_kwargs...)
+    ax_enrp = Axis(fig[1, 2]; xlabel = "m", ylabel = "median ENRP",
                    title = "Effective reversal pairs", xticks = 2:5,
-                   yticks = regular_ticks(df.ENRP_median, 2.5))
+                   yticks = regular_ticks(df.ENRP_median, 2.5), axis_kwargs...)
 
     for year in years
         rows = sort(df[Int.(df.year) .== year, :], :m)
@@ -134,7 +165,17 @@ function plot_evolution(df::DataFrame)
         lines!(ax_enrp, rows.m, rows.ENRP_median; color, linewidth = 2.5, label)
         scatter!(ax_enrp, rows.m, rows.ENRP_median; color, markersize = 9)
     end
-    axislegend(ax_eo, "year"; position = :lt, framevisible = false)
+    axislegend(ax_eo, "year"; position = :lt, framevisible = false, labelsize = 13, titlesize = 13)
+    if !isempty(candidate_notes)
+        Label(
+            fig[2, 1:2];
+            text = join(candidate_notes, "
+"),
+            fontsize = 12,
+            halign = :left,
+            justification = :left,
+        )
+    end
     linkxaxes!(ax_eo, ax_enrp)
     return fig
 end
@@ -153,7 +194,7 @@ end
 function write_effective_plot(settings)
     df = load_evolution_tables(settings.table_root)
     out_dir = joinpath(settings.extra_plot_root, "effective_rankings")
-    fig = plot_evolution(df)
+    fig = plot_evolution(df; candidate_notes = candidate_sequence_notes(settings, df))
     paths = save_all_formats(fig, "effective_rankings_evolution_1x2", out_dir, settings.formats)
     data_path = joinpath(out_dir, "effective_rankings_evolution_plot_data.csv")
     CSV.write(data_path, df)
