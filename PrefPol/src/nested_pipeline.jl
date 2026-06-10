@@ -14,7 +14,7 @@ const SUPPORTED_CONSENSUS_TIE_POLICIES = (:average, :hash, :interval)
 
 Registry entry for nested-pipeline measure identity and dispatch.
 
-Global measures store the callable used on a strict `Preferences` profile.
+Global measures store the callable used on a strict `PreferenceProfiles` profile.
 Grouped measures store the fields read from `compute_group_measure_details`.
 The `manuscript_default` flag drives default `PipelineSpec` measure selection;
 `diagnostic` distinguishes extended and legacy measures from paper-facing
@@ -32,10 +32,10 @@ struct PipelineMeasureSpec
 end
 
 const PIPELINE_MEASURE_REGISTRY = (
-    PipelineMeasureSpec(:Psi, :global, nothing, nothing, nothing, Preferences.can_polarization, true, false),
-    PipelineMeasureSpec(:R, :global, nothing, nothing, nothing, Preferences.total_reversal_component, true, false),
-    PipelineMeasureSpec(:HHI, :global, nothing, nothing, nothing, Preferences.reversal_hhi, true, false),
-    PipelineMeasureSpec(:RHHI, :global, nothing, nothing, nothing, Preferences.reversal_geometric, true, false),
+    PipelineMeasureSpec(:Psi, :global, nothing, nothing, nothing, PreferenceProfiles.can_polarization, true, false),
+    PipelineMeasureSpec(:R, :global, nothing, nothing, nothing, PreferenceProfiles.total_reversal_component, true, false),
+    PipelineMeasureSpec(:HHI, :global, nothing, nothing, nothing, PreferenceProfiles.reversal_hhi, true, false),
+    PipelineMeasureSpec(:RHHI, :global, nothing, nothing, nothing, PreferenceProfiles.reversal_geometric, true, false),
     PipelineMeasureSpec(:C, :grouped, :C, :C, :C, nothing, true, false),
     PipelineMeasureSpec(:W, :grouped, :W, :W, :W, nothing, false, true),
     PipelineMeasureSpec(:D, :grouped, :D, :D_lo, :D_hi, nothing, true, false),
@@ -155,7 +155,7 @@ It also fixes the imputation backend, weak-order linearization policy, consensus
 tie policy, seed namespace, schema version, and code version. The stable
 serialization of this object defines the cache key, so changing these fields
 creates a separate cache directory. Formal meanings of the stored measures and
-profile objects are delegated to `Preferences`.
+profile objects are delegated to `PreferenceProfiles`.
 """
 struct PipelineSpec
     wave_id::String
@@ -489,7 +489,7 @@ end
     LinearizedProfile
 
 One strict-profile branch after converting imputed weak score profiles into
-`Preferences.AnnotatedProfile` strict rankings. `k` indexes the linearization
+`PreferenceProfiles.AnnotatedProfile` strict rankings. `k` indexes the linearization
 replicate within `(b, r)`, and `policy` records the tie-breaking strategy.
 """
 struct LinearizedProfile
@@ -508,7 +508,7 @@ end
 Leaf-level scalar output for one `(b, r, k)` profile and one measure. `grouping`
 is `nothing` for global measures and a demographic symbol for grouped measures;
 `lower` and `upper` carry consensus-tie intervals where applicable. Formal
-measure definitions are in `Preferences`; this struct records their applied
+measure definitions are in `PreferenceProfiles`; this struct records their applied
 placement in the Brazil/ESEB workflow.
 """
 struct MeasureResult
@@ -815,7 +815,7 @@ function _weak_profile_bundle(imputed::ImputedData, spec::PipelineSpec)
     )
     metadata!(df, "candidates", candidate_syms)
     metadata!(df, "profile_kind", "weak")
-    return Preferences.dataframe_to_annotated_profile(df; ballot_kind = :weak)
+    return PreferenceProfiles.dataframe_to_annotated_profile(df; ballot_kind = :weak)
 end
 
 function _resolve_nested_linearizer(weak_bundle::AnnotatedProfile,
@@ -823,7 +823,7 @@ function _resolve_nested_linearizer(weak_bundle::AnnotatedProfile,
     if spec.linearizer_policy === :random_ties
         return :random
     elseif spec.linearizer_policy === :pattern_conditional
-        return Preferences.PatternConditionalLinearizer(
+        return PreferenceProfiles.PatternConditionalLinearizer(
             weak_bundle.profile;
             alpha = 0.5,
             fallback = :uniform,
@@ -839,7 +839,7 @@ function _assert_complete_weak_orders(bundle::AnnotatedProfile;
                                       context::AbstractString)
     profile = bundle.profile
 
-    if !Preferences.is_weak_order(profile) || !Preferences.is_complete(profile)
+    if !PreferenceProfiles.is_weak_order(profile) || !PreferenceProfiles.is_complete(profile)
         throw(ArgumentError(
             "$context expected complete weak orders before linearization. " *
             "This pipeline stage does not define incomplete-ballot completion semantics.",
@@ -863,7 +863,7 @@ function _linearize_imputed(imputed::ImputedData,
     )
     rng = _rng_from_seed(seed)
     tie_break = _resolve_nested_linearizer(weak_bundle, spec)
-    strict_bundle = Preferences.linearize_annotated_profile(
+    strict_bundle = PreferenceProfiles.linearize_annotated_profile(
         weak_bundle;
         rng = rng,
         tie_break = tie_break,
@@ -928,24 +928,24 @@ function _merge_tie_break_context(base_key, extension::NamedTuple)
     return (; context = base_key, extension...)
 end
 
-function _consensus_ballots_for_result(result, pool::Preferences.CandidatePool, tie_policy::Symbol)
+function _consensus_ballots_for_result(result, pool::PreferenceProfiles.CandidatePool, tie_policy::Symbol)
     if tie_policy === :hash
-        return [Preferences.StrictRank(pool, collect(Int.(result.consensus_perm)))]
+        return [PreferenceProfiles.StrictRank(pool, collect(Int.(result.consensus_perm)))]
     end
 
     return [
-        Preferences.StrictRank(pool, collect(Int.(perm)))
+        PreferenceProfiles.StrictRank(pool, collect(Int.(perm)))
         for perm in result.all_minimizers
     ]
 end
 
 @inline _normalized_kendall_distance(ballot_i, ballot_j, norm_factor::Real) =
-    Preferences.kendall_tau_distance(ballot_i, ballot_j) / norm_factor
+    PreferenceProfiles.kendall_tau_distance(ballot_i, ballot_j) / norm_factor
 
 function _pairwise_consensus_distance_stats(result_i,
-                                            pool_i::Preferences.CandidatePool,
+                                            pool_i::PreferenceProfiles.CandidatePool,
                                             result_j,
-                                            pool_j::Preferences.CandidatePool,
+                                            pool_j::PreferenceProfiles.CandidatePool,
                                             tie_policy::Symbol)
     ballots_i = _consensus_ballots_for_result(result_i, pool_i, tie_policy)
     ballots_j = _consensus_ballots_for_result(result_j, pool_j, tie_policy)
@@ -969,20 +969,20 @@ end
 Compute the grouped PrefPol measures for one strict annotated profile and one
 demographic column.
 
-`bundle` is a `Preferences.AnnotatedProfile` produced by the applied pipeline;
+`bundle` is a `PreferenceProfiles.AnnotatedProfile` produced by the applied pipeline;
 `demo` selects a metadata column whose values define groups. The function builds
 group-specific formal profiles, obtains group consensus rankings via
-`Preferences.consensus_kendall`, and returns the applied grouped quantities used
+`PreferenceProfiles.consensus_kendall`, and returns the applied grouped quantities used
 by manuscript and diagnostic tables. The manuscript-facing grouped measures are
 `C` and `D`; extended rows such as `W`, `O`, `O_smoothed`, `Sep`, `S`, `E`,
 `lambda_sep`, and `S_old` are retained for diagnostics, appendices, legacy
 comparisons, and extended configs. It does not read or write cache. Formal
-consensus, overlap, and distance definitions live in `Preferences`.
+consensus, overlap, and distance definitions live in `PreferenceProfiles`.
 """
 function compute_group_measure_details(bundle::AnnotatedProfile,
                                        demo::Symbol;
                                        tie_policy::Symbol = :average,
-                                       cache = Preferences.GLOBAL_LINEAR_ORDER_CACHE,
+                                       cache = PreferenceProfiles.GLOBAL_LINEAR_ORDER_CACHE,
                                        tie_break_context = nothing)
     tie_policy in SUPPORTED_CONSENSUS_TIE_POLICIES || throw(ArgumentError(
         "Unsupported tie_policy `$tie_policy`.",
@@ -1003,13 +1003,13 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
     C_raw = 0.0
 
     for (group, idxs) in grouped
-        subbundle = Preferences.subset_annotated_profile(bundle, idxs)
-        profile = Preferences.strict_profile(subbundle)
+        subbundle = PreferenceProfiles.subset_annotated_profile(bundle, idxs)
+        profile = PreferenceProfiles.strict_profile(subbundle)
         tie_key = _merge_tie_break_context(
             tie_break_context,
             (demographic = String(demo), group = string(group)),
         )
-        result = Preferences.consensus_kendall(
+        result = PreferenceProfiles.consensus_kendall(
             profile;
             cache = cache,
             tie_break_key = tie_key,
@@ -1022,7 +1022,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         C_raw += (1.0 - result.avg_normalized_distance) * props[group]
     end
 
-    support_separation_S_old = Preferences.overall_support_separation_old(
+    support_separation_S_old = PreferenceProfiles.overall_support_separation_old(
         group_profiles,
         group_sizes,
     )
@@ -1056,7 +1056,7 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
                 contribution = 0.0
                 for source in keys(group_profiles)
                     source == target && continue
-                    source_distance = Preferences.average_normalized_distance(
+                    source_distance = PreferenceProfiles.average_normalized_distance(
                         group_profiles[source],
                         ballot,
                     )
@@ -1086,38 +1086,38 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
         group_D_hi = OrderedDict(group => group_D_hi_sum[group] / denom for group in keys(group_profiles))
     end
 
-    D_median = Preferences.overall_divergence_median(group_profiles, consensus_results)
+    D_median = PreferenceProfiles.overall_divergence_median(group_profiles, consensus_results)
     D_median_lo = D_median
     D_median_hi = D_median
-    O = Preferences.overall_overlap(group_profiles)
+    O = PreferenceProfiles.overall_overlap(group_profiles)
     O_lo = O
     O_hi = O
-    O_smoothed = Preferences.overall_overlap_smoothed(group_profiles)
+    O_smoothed = PreferenceProfiles.overall_overlap_smoothed(group_profiles)
     O_smoothed_lo = O_smoothed
     O_smoothed_hi = O_smoothed
-    Sep = Preferences.overall_separation(group_profiles, consensus_results)
+    Sep = PreferenceProfiles.overall_separation(group_profiles, consensus_results)
     Sep_lo = Sep
     Sep_hi = Sep
 
     C01 = C_raw
     W_from_C01 = 1.0 - C01
-    C = Preferences.group_coherence_from_within_dispersion(W_from_C01)
-    W = Preferences.within_dispersion_from_group_coherence(C)
-    cleaned_S = Preferences.overall_sstar_from_CD(C, D)
-    cleaned_S_lo = Preferences.overall_sstar_from_CD(C, D_lo)
-    cleaned_S_hi = Preferences.overall_sstar_from_CD(C, D_hi)
-    E = Preferences.normalized_consensus_separation(W, D)
-    E_lo = Preferences.normalized_consensus_separation(W, D_lo)
-    E_hi = Preferences.normalized_consensus_separation(W, D_hi)
+    C = PreferenceProfiles.group_coherence_from_within_dispersion(W_from_C01)
+    W = PreferenceProfiles.within_dispersion_from_group_coherence(C)
+    cleaned_S = PreferenceProfiles.overall_sstar_from_CD(C, D)
+    cleaned_S_lo = PreferenceProfiles.overall_sstar_from_CD(C, D_lo)
+    cleaned_S_hi = PreferenceProfiles.overall_sstar_from_CD(C, D_hi)
+    E = PreferenceProfiles.normalized_consensus_separation(W, D)
+    E_lo = PreferenceProfiles.normalized_consensus_separation(W, D_lo)
+    E_hi = PreferenceProfiles.normalized_consensus_separation(W, D_hi)
     # Λ is derived from the same aggregate W and D components as S; it is not
     # a naive average of group-level ratios.
-    lambda_sep = Preferences.separation_ratio(D, W)
-    lambda_sep_lo = Preferences.separation_ratio(D_lo, W)
-    lambda_sep_hi = Preferences.separation_ratio(D_hi, W)
-    G = Preferences.grouped_geometric_index(C, D)
-    G_lo = Preferences.grouped_geometric_index(C, D_lo)
-    G_hi = Preferences.grouped_geometric_index(C, D_hi)
-    Gsep = Preferences.grouped_gsep(C, Sep)
+    lambda_sep = PreferenceProfiles.separation_ratio(D, W)
+    lambda_sep_lo = PreferenceProfiles.separation_ratio(D_lo, W)
+    lambda_sep_hi = PreferenceProfiles.separation_ratio(D_hi, W)
+    G = PreferenceProfiles.grouped_geometric_index(C, D)
+    G_lo = PreferenceProfiles.grouped_geometric_index(C, D_lo)
+    G_hi = PreferenceProfiles.grouped_geometric_index(C, D_hi)
+    Gsep = PreferenceProfiles.grouped_gsep(C, Sep)
     Gsep_lo = Gsep
     Gsep_hi = Gsep
 
@@ -1137,12 +1137,12 @@ function compute_group_measure_details(bundle::AnnotatedProfile,
             S = group_D[group] - group_W[group],
             S_lo = group_D_lo[group] - group_W[group],
             S_hi = group_D_hi[group] - group_W[group],
-            E = Preferences.normalized_consensus_separation(group_W[group], group_D[group]),
-            E_lo = Preferences.normalized_consensus_separation(group_W[group], group_D_lo[group]),
-            E_hi = Preferences.normalized_consensus_separation(group_W[group], group_D_hi[group]),
-            lambda_sep = Preferences.separation_ratio(group_D[group], group_W[group]),
-            lambda_sep_lo = Preferences.separation_ratio(group_D_lo[group], group_W[group]),
-            lambda_sep_hi = Preferences.separation_ratio(group_D_hi[group], group_W[group]),
+            E = PreferenceProfiles.normalized_consensus_separation(group_W[group], group_D[group]),
+            E_lo = PreferenceProfiles.normalized_consensus_separation(group_W[group], group_D_lo[group]),
+            E_hi = PreferenceProfiles.normalized_consensus_separation(group_W[group], group_D_hi[group]),
+            lambda_sep = PreferenceProfiles.separation_ratio(group_D[group], group_W[group]),
+            lambda_sep_lo = PreferenceProfiles.separation_ratio(group_D_lo[group], group_W[group]),
+            lambda_sep_hi = PreferenceProfiles.separation_ratio(group_D_hi[group], group_W[group]),
         )
         for group in keys(group_profiles)
     ]
@@ -1206,7 +1206,7 @@ function _global_measure_value(measure::Symbol, bundle::AnnotatedProfile)
         join(String.(SUPPORTED_GLOBAL_NESTED_MEASURES), ", ") * ".",
     ))
 
-    profile = Preferences.strict_profile(bundle)
+    profile = PreferenceProfiles.strict_profile(bundle)
     return spec.fn(profile)
 end
 
@@ -1350,9 +1350,9 @@ function _grouped_s_measure_rows(measure_cube::AbstractDataFrame)
         c_value = Float64(row.c_value)
         d_value = Float64(row.d_value)
         value_lo = ismissing(row.d_value_lo) ? missing :
-                   Preferences.overall_sstar_from_CD(c_value, Float64(row.d_value_lo))
+                   PreferenceProfiles.overall_sstar_from_CD(c_value, Float64(row.d_value_lo))
         value_hi = ismissing(row.d_value_hi) ? missing :
-                   Preferences.overall_sstar_from_CD(c_value, Float64(row.d_value_hi))
+                   PreferenceProfiles.overall_sstar_from_CD(c_value, Float64(row.d_value_hi))
 
         push!(rows, (
             b = Int(row.b),
@@ -1360,7 +1360,7 @@ function _grouped_s_measure_rows(measure_cube::AbstractDataFrame)
             k = Int(row.k),
             measure = :S,
             grouping = row.grouping,
-            value = Preferences.overall_sstar_from_CD(c_value, d_value),
+            value = PreferenceProfiles.overall_sstar_from_CD(c_value, d_value),
             value_lo = value_lo,
             value_hi = value_hi,
             diagnostics = row.c_diagnostics,
@@ -1392,7 +1392,7 @@ function _grouped_w_measure_rows(measure_cube::AbstractDataFrame)
 
     rows = NamedTuple[]
     for row in eachrow(grouped_c)
-        W = Preferences.within_dispersion_from_group_coherence(Float64(row.value))
+        W = PreferenceProfiles.within_dispersion_from_group_coherence(Float64(row.value))
         push!(rows, (
             b = Int(row.b),
             r = Int(row.r),
@@ -1453,9 +1453,9 @@ function _grouped_lambda_sep_measure_rows(measure_cube::AbstractDataFrame)
     for row in eachrow(joined)
         W = Float64(row.w_value)
         value_lo = ismissing(row.d_value_lo) ? missing :
-                   Preferences.separation_ratio(Float64(row.d_value_lo), W)
+                   PreferenceProfiles.separation_ratio(Float64(row.d_value_lo), W)
         value_hi = ismissing(row.d_value_hi) ? missing :
-                   Preferences.separation_ratio(Float64(row.d_value_hi), W)
+                   PreferenceProfiles.separation_ratio(Float64(row.d_value_hi), W)
 
         push!(rows, (
             b = Int(row.b),
@@ -1463,7 +1463,7 @@ function _grouped_lambda_sep_measure_rows(measure_cube::AbstractDataFrame)
             k = Int(row.k),
             measure = :lambda_sep,
             grouping = row.grouping,
-            value = Preferences.separation_ratio(Float64(row.d_value), W),
+            value = PreferenceProfiles.separation_ratio(Float64(row.d_value), W),
             value_lo = value_lo,
             value_hi = value_hi,
             diagnostics = row.w_diagnostics,
@@ -1517,9 +1517,9 @@ function _grouped_e_measure_rows(measure_cube::AbstractDataFrame)
     for row in eachrow(joined)
         W = Float64(row.w_value)
         value_lo = ismissing(row.d_value_lo) ? missing :
-                   Preferences.normalized_consensus_separation(W, Float64(row.d_value_lo))
+                   PreferenceProfiles.normalized_consensus_separation(W, Float64(row.d_value_lo))
         value_hi = ismissing(row.d_value_hi) ? missing :
-                   Preferences.normalized_consensus_separation(W, Float64(row.d_value_hi))
+                   PreferenceProfiles.normalized_consensus_separation(W, Float64(row.d_value_hi))
 
         push!(rows, (
             b = Int(row.b),
@@ -1527,7 +1527,7 @@ function _grouped_e_measure_rows(measure_cube::AbstractDataFrame)
             k = Int(row.k),
             measure = :E,
             grouping = row.grouping,
-            value = Preferences.normalized_consensus_separation(W, Float64(row.d_value)),
+            value = PreferenceProfiles.normalized_consensus_separation(W, Float64(row.d_value)),
             value_lo = value_lo,
             value_hi = value_hi,
             diagnostics = row.w_diagnostics,
@@ -1717,7 +1717,7 @@ end
 Append diagnostic grouped normalized consensus-separation `:E` rows from cached
 grouped `D` and `W`/`C` leaf rows, then recompute pooled summaries and the
 variance decomposition. This documents a reporting augmentation, not a new
-formal measure definition or a manuscript-facing default; see `Preferences` for
+formal measure definition or a manuscript-facing default; see `PreferenceProfiles` for
 the underlying consensus quantities.
 """
 function augment_pipeline_result_with_E(result::PipelineResult;
@@ -2102,7 +2102,7 @@ function _load_linearized_artifact(path::AbstractString,
     artifact = load_stage_artifact(path)
     bundle = artifact isa AnnotatedProfile ?
              artifact :
-             Preferences.dataframe_to_annotated_profile(artifact; ballot_kind = :strict)
+             PreferenceProfiles.dataframe_to_annotated_profile(artifact; ballot_kind = :strict)
 
     return LinearizedProfile(
         b,
@@ -2252,7 +2252,7 @@ function ensure_linearizations!(pipeline::NestedStochasticPipeline,
                 _save_stage_artifact(
                     cache_dir,
                     :linearized,
-                    Preferences.compact_profile_artifact_dataframe(linearized.bundle);
+                    PreferenceProfiles.compact_profile_artifact_dataframe(linearized.bundle);
                     b = b,
                     r = r,
                     k = k,
@@ -2474,7 +2474,7 @@ application, variance decomposition, stage manifest, audit log, and
 `result.jld2`. Existing aggregate cache is reused unless `force=true`.
 
 This is the one-spec execution entry point used by batch orchestration. Formal
-profile and measure semantics remain in `Preferences`; this function defines the
+profile and measure semantics remain in `PreferenceProfiles`; this function defines the
 Brazil/ESEB reproducibility and cache convention.
 """
 function run_pipeline(pipeline::NestedStochasticPipeline,
@@ -2583,7 +2583,7 @@ function run_pipeline(pipeline::NestedStochasticPipeline,
 
             for k in 1:spec.K
                 linearized = _linearize_imputed(imputed, spec, k)
-                linearized_artifact = Preferences.compact_profile_artifact_dataframe(linearized.bundle)
+                linearized_artifact = PreferenceProfiles.compact_profile_artifact_dataframe(linearized.bundle)
                 linearized_path, linearized_hash = _save_stage_artifact(
                     cache_dir,
                     :linearized,

@@ -6,13 +6,13 @@ authors = ["Mvm <marcelovmaciel@gmail.com>"]
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-Preferences = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
+PreferenceProfiles = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 PythonPlot = "274fc56d-3b97-40fa-a1cd-1b4a50311bf9"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [sources]
-Preferences = {path = "../Preferences"}
+PreferenceProfiles = {path = "../PreferenceProfiles"}
 
 [compat]
 CSV = "0.10"

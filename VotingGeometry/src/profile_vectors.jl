@@ -1,4 +1,4 @@
-const _STRICT_PROFILE_MESSAGE = "VotingGeometry requires strict complete profiles. Use Preferences.linearize first."
+const _STRICT_PROFILE_MESSAGE = "VotingGeometry requires strict complete profiles. Use PreferenceProfiles.linearize first."
 const _PROFILE_ZERO_SUM_ATOL = 1e-9
 
 function _validate_profile_shape_and_finiteness(p, n::Integer)::Vector{Float64}
@@ -51,19 +51,19 @@ electorates or profile-frequency displays.
 validate_profile_vector(p, n::Integer)::Vector{Float64} = validate_profile_differential(p, n)
 
 function _check_profile_basis_pool(profile, basis::SaariBasis)
-    Preferences.candidates(profile.pool) == Preferences.candidates(basis.pool) ||
+    PreferenceProfiles.candidates(profile.pool) == PreferenceProfiles.candidates(basis.pool) ||
         throw(ArgumentError("profile and basis must use the same candidate symbols in the same order"))
     return nothing
 end
 
 function _canonical_index_for_ballot(ballot, basis::SaariBasis{N}) where {N}
-    key = SVector{N,Int}(Preferences.perm(ballot))
+    key = SVector{N,Int}(PreferenceProfiles.perm(ballot))
     idx = get(basis.index, key, nothing)
     idx === nothing && throw(ArgumentError("ballot permutation is not in the canonical Saari basis"))
     return idx
 end
 
-function profile_counts(profile::Preferences.Profile{<:Preferences.StrictRank}, basis::SaariBasis{N}) where {N}
+function profile_counts(profile::PreferenceProfiles.Profile{<:PreferenceProfiles.StrictRank}, basis::SaariBasis{N}) where {N}
     _check_profile_basis_pool(profile, basis)
     counts = zeros(Float64, length(basis.permutations))
     @inbounds for ballot in profile.ballots
@@ -72,10 +72,10 @@ function profile_counts(profile::Preferences.Profile{<:Preferences.StrictRank}, 
     return counts
 end
 
-function profile_counts(profile::Preferences.WeightedProfile{<:Preferences.StrictRank}, basis::SaariBasis{N}) where {N}
+function profile_counts(profile::PreferenceProfiles.WeightedProfile{<:PreferenceProfiles.StrictRank}, basis::SaariBasis{N}) where {N}
     _check_profile_basis_pool(profile, basis)
     counts = zeros(Float64, length(basis.permutations))
-    profile_weights = Preferences.weights(profile)
+    profile_weights = PreferenceProfiles.weights(profile)
     @inbounds for i in eachindex(profile.ballots)
         idx = _canonical_index_for_ballot(profile.ballots[i], basis)
         counts[idx] += Float64(profile_weights[i])
@@ -83,7 +83,7 @@ function profile_counts(profile::Preferences.WeightedProfile{<:Preferences.Stric
     return counts
 end
 
-function profile_counts(profile::Union{Preferences.Profile,Preferences.WeightedProfile}, basis::SaariBasis)
+function profile_counts(profile::Union{PreferenceProfiles.Profile,PreferenceProfiles.WeightedProfile}, basis::SaariBasis)
     throw(ArgumentError(_STRICT_PROFILE_MESSAGE))
 end
 

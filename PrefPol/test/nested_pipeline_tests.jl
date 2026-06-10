@@ -45,11 +45,11 @@ function _legacy_raw_group_coherence(bundle, demo::Symbol)
     c_raw = 0.0
 
     for (_, idxs) in grouped
-        subbundle = PrefPol.Preferences.subset_annotated_profile(bundle, idxs)
-        profile = PrefPol.Preferences.strict_profile(subbundle)
-        result = PrefPol.Preferences.consensus_kendall(
+        subbundle = PrefPol.PreferenceProfiles.subset_annotated_profile(bundle, idxs)
+        profile = PrefPol.PreferenceProfiles.strict_profile(subbundle)
+        result = PrefPol.PreferenceProfiles.consensus_kendall(
             profile;
-            cache = PrefPol.Preferences.GLOBAL_LINEAR_ORDER_CACHE,
+            cache = PrefPol.PreferenceProfiles.GLOBAL_LINEAR_ORDER_CACHE,
         )
         c_raw += (1.0 - result.avg_normalized_distance) * (length(idxs) / total_n)
     end
@@ -69,7 +69,7 @@ function _registry_test_bundle()
     )
     metadata!(df, "candidates", [:A, :B, :C])
     metadata!(df, "profile_kind", "linearized")
-    return PrefPol.Preferences.dataframe_to_annotated_profile(df)
+    return PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(df)
 end
 
 function _captured_exception(f)
@@ -199,12 +199,12 @@ end
     @test [result.measure_id for result in results] == collect(PrefPol.SUPPORTED_NESTED_MEASURES)
     @test all(result -> result.b == 1 && result.r == 1 && result.k == 1, results)
 
-    profile = PrefPol.Preferences.strict_profile(bundle)
+    profile = PrefPol.PreferenceProfiles.strict_profile(bundle)
     direct_global = Dict(
-        :Psi => PrefPol.Preferences.can_polarization(profile),
-        :R => PrefPol.Preferences.total_reversal_component(profile),
-        :HHI => PrefPol.Preferences.reversal_hhi(profile),
-        :RHHI => PrefPol.Preferences.reversal_geometric(profile),
+        :Psi => PrefPol.PreferenceProfiles.can_polarization(profile),
+        :R => PrefPol.PreferenceProfiles.total_reversal_component(profile),
+        :HHI => PrefPol.PreferenceProfiles.reversal_hhi(profile),
+        :RHHI => PrefPol.PreferenceProfiles.reversal_geometric(profile),
     )
 
     for (measure, expected) in direct_global
@@ -575,10 +575,10 @@ end
 end
 
 @testset "lambda_sep derived identities and boundary cases" begin
-    @test isnan(PrefPol.Preferences.separation_ratio(0.0, 0.0))
-    @test isinf(PrefPol.Preferences.separation_ratio(0.2, 0.0))
-    @test PrefPol.Preferences.separation_ratio(0.3, 0.3) == 1.0
-    @test PrefPol.Preferences.separation_ratio(0.6, 0.3) == 2.0
+    @test isnan(PrefPol.PreferenceProfiles.separation_ratio(0.0, 0.0))
+    @test isinf(PrefPol.PreferenceProfiles.separation_ratio(0.2, 0.0))
+    @test PrefPol.PreferenceProfiles.separation_ratio(0.3, 0.3) == 1.0
+    @test PrefPol.PreferenceProfiles.separation_ratio(0.6, 0.3) == 2.0
 
     components = DataFrame(
         group = [:A, :B],
@@ -620,20 +620,20 @@ end
     @test only(lambda_rows.value) == lambda
 end
 
-@testset "grouped scalar algebra uses Preferences directly" begin
+@testset "grouped scalar algebra uses PreferenceProfiles directly" begin
     for C01 in (0.5, 0.625, 0.75, 1.0)
         W_from_C01 = 1.0 - C01
-        C = PrefPol.Preferences.group_coherence_from_within_dispersion(W_from_C01)
-        W = PrefPol.Preferences.within_dispersion_from_group_coherence(C)
+        C = PrefPol.PreferenceProfiles.group_coherence_from_within_dispersion(W_from_C01)
+        W = PrefPol.PreferenceProfiles.within_dispersion_from_group_coherence(C)
 
         @test isapprox(C, (2 * C01) - 1; atol = 1e-12)
         @test isapprox(W, (1 - C) / 2; atol = 1e-12)
         @test isapprox(W, W_from_C01; atol = 1e-12)
     end
 
-    @test PrefPol.Preferences.grouped_geometric_index(0.25, 0.64) == 0.4
-    @test PrefPol.Preferences.grouped_geometric_index(-0.25, 0.64) == 0.0
-    @test isinf(PrefPol.Preferences.separation_ratio(0.2, 0.0))
+    @test PrefPol.PreferenceProfiles.grouped_geometric_index(0.25, 0.64) == 0.4
+    @test PrefPol.PreferenceProfiles.grouped_geometric_index(-0.25, 0.64) == 0.0
+    @test isinf(PrefPol.PreferenceProfiles.separation_ratio(0.2, 0.0))
 end
 
 @testset "grouped measure details scalar regressions" begin
@@ -647,7 +647,7 @@ end
     metadata!(reversal_df, "candidates", [:A, :B, :C])
     metadata!(reversal_df, "profile_kind", "linearized")
     reversal = PrefPol.compute_group_measure_details(
-        PrefPol.Preferences.dataframe_to_annotated_profile(reversal_df),
+        PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(reversal_df),
         :grp;
         tie_policy = :average,
     )
@@ -659,9 +659,9 @@ end
     @test reversal.E == 1.0
     @test isinf(reversal.lambda_sep)
     @test reversal.G == 1.0
-    @test reversal.G == PrefPol.Preferences.grouped_geometric_index(reversal.C, reversal.D)
-    @test reversal.W == PrefPol.Preferences.within_dispersion_from_group_coherence(reversal.C)
-    @test reversal.lambda_sep == PrefPol.Preferences.separation_ratio(reversal.D, reversal.W)
+    @test reversal.G == PrefPol.PreferenceProfiles.grouped_geometric_index(reversal.C, reversal.D)
+    @test reversal.W == PrefPol.PreferenceProfiles.within_dispersion_from_group_coherence(reversal.C)
+    @test reversal.lambda_sep == PrefPol.PreferenceProfiles.separation_ratio(reversal.D, reversal.W)
     @test all(row -> row.W == 0.0 && row.D == 1.0 && isinf(row.lambda_sep),
               reversal.diagnostics.group_components)
 
@@ -674,7 +674,7 @@ end
     metadata!(dispersed_df, "candidates", [:A, :B, :C])
     metadata!(dispersed_df, "profile_kind", "linearized")
     dispersed = PrefPol.compute_group_measure_details(
-        PrefPol.Preferences.dataframe_to_annotated_profile(dispersed_df),
+        PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(dispersed_df),
         :grp;
         tie_policy = :hash,
     )
@@ -686,38 +686,38 @@ end
     @test dispersed.G > 0.0
     @test isapprox(
         dispersed.W,
-        PrefPol.Preferences.within_dispersion_from_group_coherence(dispersed.C);
+        PrefPol.PreferenceProfiles.within_dispersion_from_group_coherence(dispersed.C);
         atol = 1e-12,
     )
     @test isapprox(
         dispersed.G,
-        PrefPol.Preferences.grouped_geometric_index(dispersed.C, dispersed.D);
+        PrefPol.PreferenceProfiles.grouped_geometric_index(dispersed.C, dispersed.D);
         atol = 1e-12,
     )
     @test isapprox(
         dispersed.lambda_sep,
-        PrefPol.Preferences.separation_ratio(dispersed.D, dispersed.W);
+        PrefPol.PreferenceProfiles.separation_ratio(dispersed.D, dispersed.W);
         atol = 1e-12,
     )
     @test isapprox(
         dispersed.E,
-        PrefPol.Preferences.normalized_consensus_separation(dispersed.W, dispersed.D);
+        PrefPol.PreferenceProfiles.normalized_consensus_separation(dispersed.W, dispersed.D);
         atol = 1e-12,
     )
     @test isapprox(
         dispersed.S,
-        PrefPol.Preferences.overall_sstar_from_CD(dispersed.C, dispersed.D);
+        PrefPol.PreferenceProfiles.overall_sstar_from_CD(dispersed.C, dispersed.D);
         atol = 1e-12,
     )
     @test all(row -> row.W > 0.0 && row.D > 0.0, dispersed.diagnostics.group_components)
     @test all(row -> isapprox(
             row.E,
-            PrefPol.Preferences.normalized_consensus_separation(row.W, row.D);
+            PrefPol.PreferenceProfiles.normalized_consensus_separation(row.W, row.D);
             atol = 1e-12,
         ), dispersed.diagnostics.group_components)
     @test all(row -> isapprox(
             row.lambda_sep,
-            PrefPol.Preferences.separation_ratio(row.D, row.W);
+            PrefPol.PreferenceProfiles.separation_ratio(row.D, row.W);
             atol = 1e-12,
         ), dispersed.diagnostics.group_components)
 
@@ -725,7 +725,7 @@ end
     metadata!(one_group_df, "candidates", [:A, :B, :C])
     metadata!(one_group_df, "profile_kind", "linearized")
     one_group = PrefPol.compute_group_measure_details(
-        PrefPol.Preferences.dataframe_to_annotated_profile(one_group_df),
+        PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(one_group_df),
         :grp,
     )
 
@@ -745,7 +745,7 @@ end
     metadata!(identical_df, "candidates", [:A, :B, :C])
     metadata!(identical_df, "profile_kind", "linearized")
     identical = PrefPol.compute_group_measure_details(
-        PrefPol.Preferences.dataframe_to_annotated_profile(identical_df),
+        PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(identical_df),
         :grp,
     )
 
@@ -759,7 +759,7 @@ end
     no_group_df = DataFrame(profile = fill(abc, 2))
     metadata!(no_group_df, "candidates", [:A, :B, :C])
     metadata!(no_group_df, "profile_kind", "linearized")
-    no_group_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(no_group_df)
+    no_group_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(no_group_df)
     @test_throws ArgumentError PrefPol.compute_group_measure_details(no_group_bundle, :grp)
 end
 
@@ -778,7 +778,7 @@ end
     metadata!(df, "candidates", [:A, :B, :C])
     metadata!(df, "profile_kind", "linearized")
 
-    bundle = PrefPol.Preferences.dataframe_to_annotated_profile(df)
+    bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(df)
     avg = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :average)
     hash = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :hash)
     interval = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :interval)
@@ -789,7 +789,7 @@ end
     @test isapprox(hash.C, avg.C)
     @test isapprox(interval.C, avg.C)
     @test 0.0 <= avg.C <= 1.0
-    @test isapprox(avg.W, PrefPol.Preferences.within_dispersion_from_group_coherence(avg.C); atol = 1e-12)
+    @test isapprox(avg.W, PrefPol.PreferenceProfiles.within_dispersion_from_group_coherence(avg.C); atol = 1e-12)
     @test interval.D_lo <= interval.D <= interval.D_hi
     @test avg.D_median == hash.D_median
     @test hash.D_median == interval.D_median
@@ -803,32 +803,32 @@ end
     @test interval.O_smoothed_lo == interval.O_smoothed
     @test interval.O_smoothed == interval.O_smoothed_hi
     @test 0.0 <= avg.Sep <= 1.0
-    @test isapprox(avg.S, PrefPol.Preferences.overall_sstar_from_CD(avg.C, avg.D))
+    @test isapprox(avg.S, PrefPol.PreferenceProfiles.overall_sstar_from_CD(avg.C, avg.D))
     @test isapprox(avg.S, avg.D - avg.W; atol = 1e-12)
-    @test isapprox(avg.lambda_sep, PrefPol.Preferences.separation_ratio(avg.D, avg.W); atol = 1e-12)
+    @test isapprox(avg.lambda_sep, PrefPol.PreferenceProfiles.separation_ratio(avg.D, avg.W); atol = 1e-12)
     @test isapprox(avg.lambda_sep, 1 + avg.S / avg.W; atol = 1e-12)
     @test all(row -> isapprox(row.S, row.D - row.W; atol = 1e-12), avg.diagnostics.group_components)
-    @test isapprox(avg.E, PrefPol.Preferences.normalized_consensus_separation(avg.W, avg.D); atol = 1e-12)
+    @test isapprox(avg.E, PrefPol.PreferenceProfiles.normalized_consensus_separation(avg.W, avg.D); atol = 1e-12)
     @test all(row -> isapprox(
             row.E,
-            PrefPol.Preferences.normalized_consensus_separation(row.W, row.D);
+            PrefPol.PreferenceProfiles.normalized_consensus_separation(row.W, row.D);
             atol = 1e-12,
         ), avg.diagnostics.group_components)
     @test all(row -> row.W == 0.0 ? (isnan(row.lambda_sep) || isinf(row.lambda_sep)) :
-                            isapprox(row.lambda_sep, PrefPol.Preferences.separation_ratio(row.D, row.W); atol = 1e-12),
+                            isapprox(row.lambda_sep, PrefPol.PreferenceProfiles.separation_ratio(row.D, row.W); atol = 1e-12),
               avg.diagnostics.group_components)
     @test avg.S_old == hash.S_old
     @test hash.S_old == interval.S_old
     @test interval.S_lo <= interval.S <= interval.S_hi
-    @test isapprox(interval.S_lo, PrefPol.Preferences.overall_sstar_from_CD(interval.C, interval.D_lo))
-    @test isapprox(interval.S_hi, PrefPol.Preferences.overall_sstar_from_CD(interval.C, interval.D_hi))
+    @test isapprox(interval.S_lo, PrefPol.PreferenceProfiles.overall_sstar_from_CD(interval.C, interval.D_lo))
+    @test isapprox(interval.S_hi, PrefPol.PreferenceProfiles.overall_sstar_from_CD(interval.C, interval.D_hi))
     @test interval.S_old_lo == interval.S_old
     @test interval.S_old == interval.S_old_hi
-    @test isapprox(avg.Gsep, PrefPol.Preferences.grouped_gsep(avg.C, avg.Sep))
-    @test isapprox(avg.G, PrefPol.Preferences.grouped_geometric_index(avg.C, avg.D))
+    @test isapprox(avg.Gsep, PrefPol.PreferenceProfiles.grouped_gsep(avg.C, avg.Sep))
+    @test isapprox(avg.G, PrefPol.PreferenceProfiles.grouped_geometric_index(avg.C, avg.D))
     @test interval.G_lo <= interval.G <= interval.G_hi
-    @test isapprox(interval.G_lo, PrefPol.Preferences.grouped_geometric_index(interval.C, interval.D_lo))
-    @test isapprox(interval.G_hi, PrefPol.Preferences.grouped_geometric_index(interval.C, interval.D_hi))
+    @test isapprox(interval.G_lo, PrefPol.PreferenceProfiles.grouped_geometric_index(interval.C, interval.D_lo))
+    @test isapprox(interval.G_hi, PrefPol.PreferenceProfiles.grouped_geometric_index(interval.C, interval.D_hi))
     @test interval.D_lo <= hash.D <= interval.D_hi
 end
 
@@ -847,7 +847,7 @@ end
     metadata!(df, "candidates", [:A, :B, :C])
     metadata!(df, "profile_kind", "linearized")
 
-    bundle = PrefPol.Preferences.dataframe_to_annotated_profile(df)
+    bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(df)
     avg = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :average)
     hash = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :hash)
     interval = PrefPol.compute_group_measure_details(bundle, :grp; tie_policy = :interval)
@@ -902,22 +902,22 @@ end
     )
     metadata!(identical_df, "candidates", [:A, :B, :C])
     metadata!(identical_df, "profile_kind", "linearized")
-    identical_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(identical_df)
+    identical_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(identical_df)
     identical_details = PrefPol.compute_group_measure_details(identical_bundle, :grp; tie_policy = :average)
 
     @test isapprox(
         identical_details.S,
-        PrefPol.Preferences.overall_sstar_from_CD(identical_details.C, identical_details.D);
+        PrefPol.PreferenceProfiles.overall_sstar_from_CD(identical_details.C, identical_details.D);
         atol = 1e-12,
     )
     @test isapprox(
         identical_details.S_lo,
-        PrefPol.Preferences.overall_sstar_from_CD(identical_details.C, identical_details.D_lo);
+        PrefPol.PreferenceProfiles.overall_sstar_from_CD(identical_details.C, identical_details.D_lo);
         atol = 1e-12,
     )
     @test isapprox(
         identical_details.S_hi,
-        PrefPol.Preferences.overall_sstar_from_CD(identical_details.C, identical_details.D_hi);
+        PrefPol.PreferenceProfiles.overall_sstar_from_CD(identical_details.C, identical_details.D_hi);
         atol = 1e-12,
     )
     @test isfinite(identical_details.S)
@@ -935,7 +935,7 @@ end
     )
     metadata!(positive_df, "candidates", [:A, :B, :C])
     metadata!(positive_df, "profile_kind", "linearized")
-    positive_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(positive_df)
+    positive_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(positive_df)
 
     positive_avg = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :average)
     positive_hash = PrefPol.compute_group_measure_details(positive_bundle, :grp; tie_policy = :hash)
@@ -953,7 +953,7 @@ end
     )
     metadata!(identical_df, "candidates", [:A, :B, :C])
     metadata!(identical_df, "profile_kind", "linearized")
-    identical_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(identical_df)
+    identical_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(identical_df)
     identical_details = PrefPol.compute_group_measure_details(identical_bundle, :grp; tie_policy = :average)
 
     @test isapprox(identical_details.S_old, 0.0; atol = 0.01)
@@ -964,7 +964,7 @@ end
     )
     metadata!(negative_df, "candidates", [:A, :B, :C])
     metadata!(negative_df, "profile_kind", "linearized")
-    negative_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(negative_df)
+    negative_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(negative_df)
     negative_details = PrefPol.compute_group_measure_details(negative_bundle, :grp; tie_policy = :average)
 
     @test negative_details.S_old < 0.0
@@ -977,7 +977,7 @@ end
     )
     metadata!(relabeled_df, "candidates", [:A, :B, :C])
     metadata!(relabeled_df, "profile_kind", "linearized")
-    relabeled_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(relabeled_df)
+    relabeled_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(relabeled_df)
 
     original_df = vcat(
         DataFrame(grp = :A, profile = [abc, abc]),
@@ -986,7 +986,7 @@ end
     )
     metadata!(original_df, "candidates", [:A, :B, :C])
     metadata!(original_df, "profile_kind", "linearized")
-    original_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(original_df)
+    original_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(original_df)
 
     @test isapprox(
         PrefPol.compute_group_measure_details(original_bundle, :grp; tie_policy = :average).S_old,
@@ -1006,7 +1006,7 @@ end
     )
     metadata!(surviving_pair_df, "candidates", [:A, :B, :C])
     metadata!(surviving_pair_df, "profile_kind", "linearized")
-    surviving_pair_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(surviving_pair_df)
+    surviving_pair_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(surviving_pair_df)
 
     @test isapprox(
         PrefPol.compute_group_measure_details(surviving_pair_bundle, :grp; tie_policy = :average).S_old,
@@ -1020,7 +1020,7 @@ end
     )
     metadata!(no_valid_pair_df, "candidates", [:A, :B, :C])
     metadata!(no_valid_pair_df, "profile_kind", "linearized")
-    no_valid_pair_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(no_valid_pair_df)
+    no_valid_pair_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(no_valid_pair_df)
 
     @test isnan(PrefPol.compute_group_measure_details(no_valid_pair_bundle, :grp; tie_policy = :average).S_old)
 end
@@ -1186,17 +1186,17 @@ end
         for row in eachrow(joined)
             @test isapprox(
                 row.s_value,
-                PrefPol.Preferences.overall_sstar_from_CD(row.c_value, row.d_value);
+                PrefPol.PreferenceProfiles.overall_sstar_from_CD(row.c_value, row.d_value);
                 atol = 1e-12,
             )
             @test isapprox(
                 row.s_lo,
-                PrefPol.Preferences.overall_sstar_from_CD(row.c_value, row.d_lo);
+                PrefPol.PreferenceProfiles.overall_sstar_from_CD(row.c_value, row.d_lo);
                 atol = 1e-12,
             )
             @test isapprox(
                 row.s_hi,
-                PrefPol.Preferences.overall_sstar_from_CD(row.c_value, row.d_hi);
+                PrefPol.PreferenceProfiles.overall_sstar_from_CD(row.c_value, row.d_hi);
                 atol = 1e-12,
             )
         end
@@ -1382,9 +1382,9 @@ end
     weak_df = PrefPol.profile_dataframe(df; score_cols = [:A, :B, :C], demo_cols = [:grp], kind = :weak)
     metadata!(weak_df, "candidates", [:A, :B, :C])
     metadata!(weak_df, "profile_kind", "weak")
-    weak_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(weak_df; ballot_kind = :weak)
-    strict_bundle = PrefPol.Preferences.linearize_annotated_profile(weak_bundle; rng = MersenneTwister(1))
-    artifact = PrefPol.Preferences.compact_profile_artifact_dataframe(strict_bundle)
+    weak_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(weak_df; ballot_kind = :weak)
+    strict_bundle = PrefPol.PreferenceProfiles.linearize_annotated_profile(weak_bundle; rng = MersenneTwister(1))
+    artifact = PrefPol.PreferenceProfiles.compact_profile_artifact_dataframe(strict_bundle)
 
     mktempdir() do dir
         compact_path = joinpath(dir, "compact.jld2")
@@ -1440,7 +1440,7 @@ end
     )
     metadata!(bad_df, "candidates", [:A, :B, :C])
     metadata!(bad_df, "profile_kind", "weak")
-    bad_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(bad_df)
+    bad_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(bad_df)
 
     @test_throws ArgumentError PrefPol._assert_complete_weak_orders(
         bad_bundle;

@@ -4,7 +4,7 @@
 loads the survey waves, applies the article's candidate-set and preprocessing
 rules, runs bootstrap/imputation/linearization, computes the paper measures, and
 collects the paper-facing figures and tables. Formal preference representations
-and social-choice definitions live in the sibling `Preferences` package.
+and social-choice definitions live in the sibling `PreferenceProfiles` package.
 
 From the repository root, reproduce the Brazil polarization article with:
 
@@ -135,7 +135,7 @@ start with `manifests/` and then follow the recorded paths into `cache/`,
 - `PrefPol/src/survey_config.jl` parses year configs, builds survey-wave
   configs, resolves candidate sets, loads raw survey data, and keeps the raw
   profile helper entry points used by tests and the pipeline.
-- `Preferences/` owns the formal preference, profile, ranking, aggregation, and
+- `PreferenceProfiles/` owns the formal preference, profile, ranking, aggregation, and
   measure primitives used by `PrefPol`.
 
 ## Troubleshooting

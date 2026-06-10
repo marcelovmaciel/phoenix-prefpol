@@ -1,3 +1,4 @@
+
 # VotingGeometry.jl
 
 WIP note: the four-candidate Saari geometry and decomposition notes in this
@@ -5,7 +6,7 @@ package are still being tested.
 
 
 `VotingGeometry.jl` is a Saari-style voting geometry package for the
-`phoenix-prefpol` monorepo. It uses `Preferences.jl` for formal candidate
+`phoenix-prefpol` monorepo. It uses `PreferenceProfiles.jl` for formal candidate
 pools, rankings, profiles, weighted profiles, and profile linearization. It
 owns the Saari canonical ranking bases, profile-vector projections, positional
 scoring, simplex geometry, Saari decomposition, and PythonPlot visualizations.
@@ -15,7 +16,7 @@ normal dependency.
 
 ## Walkthrough Notebook
 
-A longer Jupyter walkthrough lives at `examples/saari_geometry_walkthrough.ipynb`. It covers canonical orders, strict and weighted profile projection through `Preferences.jl`, 3-candidate Saari triangles, 4-candidate positional methods, tetrahedron plots, candidate restriction, and the 24-dimensional decomposition.
+A longer Jupyter walkthrough lives at `examples/saari_geometry_walkthrough.ipynb`. It covers canonical orders, strict and weighted profile projection through `PreferenceProfiles.jl`, 3-candidate Saari triangles, 4-candidate positional methods, tetrahedron plots, candidate restriction, and the 24-dimensional decomposition.
 
 Run it from the repository root:
 
@@ -48,7 +49,7 @@ jupyter lab VotingGeometry/examples/saari_geometry_walkthrough.ipynb
 ## Minimal 3-Candidate Example
 
 ```julia
-using Preferences, VotingGeometry
+using PreferenceProfiles, VotingGeometry
 
 pool = CandidatePool([:A, :B, :C])
 p = Profile(pool, [
@@ -65,7 +66,7 @@ ax = plot_saari_triangle(v)
 ## 4-Candidate Decomposition Example
 
 ```julia
-using Preferences, VotingGeometry
+using PreferenceProfiles, VotingGeometry
 
 pool = CandidatePool([:A, :B, :C, :D])
 p = Profile(pool, [
@@ -149,19 +150,16 @@ unordered pairwise weak comparison in the supplied label order: `label_i >=
 label_j` for `i < j`. For labels `[:A, :B, :C, :D]`, the default comparisons are
 `A >= B`, `A >= C`, `A >= D`, `B >= C`, `B >= D`, and `C >= D`.
 
-`plot_positional_comparison_regions` draws exact half-plane-clipped
-polygons by default, and `positional_comparison_region_exact_table` reports
-exact proportions from polygon area over the Saari parameter triangle
-`0 <= s2 <= s1 <= 1`. The old finite-grid visualization remains available as
-`plot_positional_comparison_regions_grid`, while
 `positional_comparison_region_table` reports approximate diagnostic grid
-proportions.
+proportions. Use `positional_comparison_region_exact_table` or
+`plot_positional_comparison_regions_exact` for exact proportions from polygon
+area over the Saari parameter triangle `0 <= s2 <= s1 <= 1`.
 
 Pass explicit comparisons for paper-specific claims. The EJPE Bolsonaro 2018
 examples remain available under an explicit helper:
 
 ```julia
-plot_positional_comparison_regions(
+plot_positional_comparison_regions_exact(
     p4,
     [:Alckmin, :Bolsonaro, :Ciro, :Haddad];
     comparisons = ejpe_bolsonaro_comparison_specs(),

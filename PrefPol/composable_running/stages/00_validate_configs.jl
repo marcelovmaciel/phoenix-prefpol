@@ -76,7 +76,7 @@ end
 function resolve_path(path::AbstractString)
     isabspath(path) && return normpath(path)
     first_component = first(splitpath(path))
-    if first_component in ("PrefPol", "Preferences", "writing")
+    if first_component in ("PrefPol", "PreferenceProfiles", "writing")
         return normpath(joinpath(REPOSITORY_ROOT, path))
     end
     return normpath(joinpath(pp.project_root, path))

@@ -28,9 +28,9 @@ using DataFrames
         )
 
         @test collect(prof.pool.names) == [Symbol("LULA"), Symbol("CIRO GOMES")]
-        @test PrefPol.Preferences.nballots(prof) == 3
+        @test PrefPol.PreferenceProfiles.nballots(prof) == 3
 
-        tbl = PrefPol.Preferences.profile_pattern_proportions(prof; weighted = false)
+        tbl = PrefPol.PreferenceProfiles.profile_pattern_proportions(prof; weighted = false)
         @test names(tbl) == ["pattern", "mass", "proportion"]
 
         props = Dict(String(r.pattern) => Float64(r.proportion) for r in eachrow(tbl))
@@ -48,10 +48,10 @@ using DataFrames
             candidate_set = ["lula", "ciro gomes"],
         )
 
-        @test PrefPol.Preferences.nballots(prof_w) == 1
-        @test PrefPol.Preferences.weights(prof_w) == [1.0]
+        @test PrefPol.PreferenceProfiles.nballots(prof_w) == 1
+        @test PrefPol.PreferenceProfiles.weights(prof_w) == [1.0]
 
-        meta = PrefPol.Preferences.profile_build_meta(prof_w)
+        meta = PrefPol.PreferenceProfiles.profile_build_meta(prof_w)
         @test meta !== nothing
         @test meta.total_rows == 4
         @test meta.kept_rows == 1
@@ -59,7 +59,7 @@ using DataFrames
         @test meta.skipped_invalid_weight == 2
         @test meta.zero_rank_weight_mass ≈ 2.0
 
-        nav = PrefPol.Preferences.profile_ranksize_summary(
+        nav = PrefPol.PreferenceProfiles.profile_ranksize_summary(
             prof_w;
             k = 2,
             weighted = true,
@@ -70,7 +70,7 @@ using DataFrames
         @test nav.zero_rank.mass ≈ 2.0
         @test nav.zero_rank.proportion ≈ 2 / 3
 
-        type_tbl = PrefPol.Preferences.profile_ranking_type_proportions(
+        type_tbl = PrefPol.PreferenceProfiles.profile_ranking_type_proportions(
             prof_w;
             k = 2,
             weighted = true,

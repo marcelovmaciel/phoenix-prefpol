@@ -3,7 +3,7 @@
 `PrefPol/composable_running/` contains the staged runner for the applied
 ESEB/Brazil article replication. It is an orchestration layer around the
 statistical code in `PrefPol/src/` and the plotting extension; the formal
-preference objects and social-choice definitions live in `Preferences`.
+preference objects and social-choice definitions live in `PreferenceProfiles`.
 
 From the repository root, reproduce the article figures and tables with:
 

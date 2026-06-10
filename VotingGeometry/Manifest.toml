@@ -2,7 +2,7 @@
 
 julia_version = "1.11.9"
 manifest_format = "2.0"
-project_hash = "425e509b30c71b33255bdb7c94d4678ad6854c3c"
+project_hash = "6f167f0ff48ea1d921e399fcc4842851548b0ae2"
 
 [[deps.AliasTables]]
 deps = ["PtrArrays", "Random"]
@@ -59,20 +59,10 @@ uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.1.1+0"
 
 [[deps.CondaPkg]]
+deps = ["JSON", "Markdown", "MicroMamba", "Pidfile", "Pkg", "Preferences", "Scratch", "TOML", "pixi_jll"]
 git-tree-sha1 = "2b1afb8ae65a0758795b00adafb37f97e67ef0e9"
 uuid = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
 version = "0.2.36"
-
-    [deps.CondaPkg.deps]
-    JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-    Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
-    MicroMamba = "0b3b1443-0f03-428d-bdfb-f27f9c1191ea"
-    Pidfile = "fa939f87-e72e-5be4-a000-7fc836dbe307"
-    Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-    Preferences = "21216c6a-2e73-6563-6e65-726566657250"
-    Scratch = "6c6a2e73-6563-6170-7368-637461726353"
-    TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
-    pixi_jll = "4d7b5844-a134-5dcd-ac86-c8f19cd51bed"
 
 [[deps.Crayons]]
 git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
@@ -165,13 +155,10 @@ uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
 
 [[deps.JLLWrappers]]
+deps = ["Artifacts", "Preferences"]
 git-tree-sha1 = "7204148362dafe5fe6a273f855b8ccbe4df8173e"
 uuid = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
 version = "1.8.0"
-
-    [deps.JLLWrappers.deps]
-    Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
-    Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 
 [[deps.JSON]]
 deps = ["Dates", "Logging", "Parsers", "PrecompileTools", "StructUtils", "UUIDs", "Unicode"]
@@ -322,23 +309,22 @@ uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
 version = "1.4.3"
 
 [[deps.PrecompileTools]]
+deps = ["Preferences"]
 git-tree-sha1 = "5aa36f7049a63a1528fe8f7c3f2113413ffd4e1f"
 uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 version = "1.2.1"
 
-    [deps.PrecompileTools.deps]
-    Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+[[deps.PreferenceProfiles]]
+deps = ["Combinatorics", "Crayons", "DataFrames", "OrderedCollections", "PooledArrays", "PrettyTables", "Printf", "Random", "SHA", "StaticArrays", "Statistics", "StatsBase"]
+path = "../PreferenceProfiles"
+uuid = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
+version = "0.1.0"
 
 [[deps.Preferences]]
 deps = ["TOML"]
 git-tree-sha1 = "8b770b60760d4451834fe79dd483e318eee709c4"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.5.2"
-[[deps.Preferences]]
-deps = ["Combinatorics", "Crayons", "DataFrames", "OrderedCollections", "PooledArrays", "PrettyTables", "Printf", "Random", "SHA", "StaticArrays", "Statistics", "StatsBase"]
-path = "../Preferences"
-uuid = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
-version = "0.1.0"
 
 [[deps.PrettyTables]]
 deps = ["Crayons", "LaTeXStrings", "Markdown", "PrecompileTools", "Printf", "REPL", "Reexport", "StringManipulation", "Tables"]
@@ -363,20 +349,10 @@ uuid = "43287f4e-b6f4-7ad1-bb20-aadabca52c3d"
 version = "1.4.0"
 
 [[deps.PythonCall]]
+deps = ["CondaPkg", "Dates", "Libdl", "MacroTools", "Markdown", "Preferences", "Serialization", "Tables", "UnsafePointers"]
 git-tree-sha1 = "2b67e030054dd9438a00e3d7f59927e839b00569"
 uuid = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 version = "0.9.35"
-
-    [deps.PythonCall.deps]
-    CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
-    Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-    Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-    MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-    Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
-    Preferences = "21216c6a-2e73-6563-6e65-726566657250"
-    Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
-    Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-    UnsafePointers = "e17b2a0c-0bdf-430a-bd0c-3a23cae4ff39"
 
     [deps.PythonCall.extensions]
     CategoricalArraysExt = "CategoricalArrays"

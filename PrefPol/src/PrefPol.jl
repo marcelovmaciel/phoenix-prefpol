@@ -1,14 +1,14 @@
 """
     PrefPol
 
-Applied Brazil/ESEB replication package built on the reusable `Preferences`
+Applied Brazil/ESEB replication package built on the reusable `PreferenceProfiles`
 formal package.
 
 `PrefPol` owns survey configuration loading, candidate-set selection,
 bootstrap/imputation/linearization orchestration, cache layout, applied measure
 execution, and paper-facing tables/figures. Formal profile representations,
 rankings, consensus, overlap, reversal, polarization, and related mathematical
-definitions live in `Preferences`; PrefPol adapters construct those
+definitions live in `PreferenceProfiles`; PrefPol adapters construct those
 formal objects from survey data for applied ESEB workflows.
 """
 module PrefPol
@@ -33,17 +33,17 @@ using PooledArrays, StaticArrays
 using JLD2, TOML
 
 const project_root = normpath(joinpath(@__DIR__, ".."))
-const _LOCAL_PREFERENCES_SRC = normpath(
-    joinpath(project_root, "..", "Preferences", "src", "Preferences.jl"),
+const _LOCAL_PREFERENCE_PROFILES_SRC = normpath(
+    joinpath(project_root, "..", "PreferenceProfiles", "src", "PreferenceProfiles.jl"),
 )
 
-# Load local Preferences at module load time to avoid world-age issues from
+# Load local PreferenceProfiles at module load time to avoid world-age issues from
 # runtime includes under Revise/Julia 1.12.
-if !isdefined(@__MODULE__, :Preferences)
-    if isfile(_LOCAL_PREFERENCES_SRC)
-        include(_LOCAL_PREFERENCES_SRC)
+if !isdefined(@__MODULE__, :PreferenceProfiles)
+    if isfile(_LOCAL_PREFERENCE_PROFILES_SRC)
+        include(_LOCAL_PREFERENCE_PROFILES_SRC)
     else
-        @warn "Local Preferences module not found at $(_LOCAL_PREFERENCES_SRC). " *
+        @warn "Local PreferenceProfiles module not found at $(_LOCAL_PREFERENCE_PROFILES_SRC). " *
               "Raw profile helpers will error until it is available."
     end
 end

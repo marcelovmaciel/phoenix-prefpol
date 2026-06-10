@@ -4,7 +4,7 @@ Default measure order for manuscript-facing variance-decomposition reports.
 
 The public paper set is `:Psi`, `:R`, `:HHI`, `:RHHI`, `:C`, and `:D`, matching
 `PrefPol/config/publication.toml`. These symbols refer to measures already
-computed in PrefPol pipeline results; formal definitions live in `Preferences`.
+computed in PrefPol pipeline results; formal definitions live in `PreferenceProfiles`.
 """
 const DEFAULT_PAPER_VARIANCE_MEASURES = [DEFAULT_GLOBAL_NESTED_MEASURES..., :C, :D]
 """

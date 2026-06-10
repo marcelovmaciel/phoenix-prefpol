@@ -37,7 +37,7 @@ function _validation_bundle(groups::Vector{String})
     )
     metadata!(df, "candidates", [:A, :B, :C])
     metadata!(df, "profile_kind", "linearized")
-    return PrefPol.Preferences.dataframe_to_annotated_profile(df)
+    return PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(df)
 end
 
 function _write_validation_config(path;
@@ -82,7 +82,7 @@ end
 
 @testset "prompt 10 static validation matrix" begin
     prefpol_src = _prefpol_src_texts()
-    prefs_src_dir = normpath(joinpath(@__DIR__, "..", "..", "Preferences", "src"))
+    prefs_src_dir = normpath(joinpath(@__DIR__, "..", "..", "PreferenceProfiles", "src"))
     prefs_src = Dict(
         basename(path) => read(path, String)
         for path in filter(path -> endswith(path, ".jl"), readdir(prefs_src_dir; join = true))
@@ -151,15 +151,15 @@ end
     end
 end
 
-@testset "prompt 10 grouped algebra boundary is owned by Preferences" begin
+@testset "prompt 10 grouped algebra boundary is owned by PreferenceProfiles" begin
     bundle = _validation_bundle(["x", "x", "y", "y"])
     details = PrefPol.compute_group_measure_details(bundle, :grp)
 
-    @test isapprox(details.W, PrefPol.Preferences.within_dispersion_from_group_coherence(details.C); atol = 1e-12)
-    @test isapprox(details.C, PrefPol.Preferences.group_coherence_from_within_dispersion(details.W); atol = 1e-12)
-    @test isapprox(details.S, PrefPol.Preferences.overall_sstar_from_CD(details.C, details.D); atol = 1e-12)
-    @test isapprox(details.G, PrefPol.Preferences.grouped_geometric_index(details.C, details.D); atol = 1e-12)
-    @test isapprox(details.lambda_sep, PrefPol.Preferences.separation_ratio(details.D, details.W); atol = 1e-12)
+    @test isapprox(details.W, PrefPol.PreferenceProfiles.within_dispersion_from_group_coherence(details.C); atol = 1e-12)
+    @test isapprox(details.C, PrefPol.PreferenceProfiles.group_coherence_from_within_dispersion(details.W); atol = 1e-12)
+    @test isapprox(details.S, PrefPol.PreferenceProfiles.overall_sstar_from_CD(details.C, details.D); atol = 1e-12)
+    @test isapprox(details.G, PrefPol.PreferenceProfiles.grouped_geometric_index(details.C, details.D); atol = 1e-12)
+    @test isapprox(details.lambda_sep, PrefPol.PreferenceProfiles.separation_ratio(details.D, details.W); atol = 1e-12)
     @test details.diagnostics.n_groups == 2
     @test length(details.diagnostics.group_components) == 2
 
@@ -169,5 +169,5 @@ end
     @test one_group.D_hi == 0.0
     @test one_group.E == 0.0
     @test one_group.diagnostics.n_groups == 1
-    @test isapprox(one_group.S, PrefPol.Preferences.overall_sstar_from_CD(one_group.C, one_group.D); atol = 1e-12)
+    @test isapprox(one_group.S, PrefPol.PreferenceProfiles.overall_sstar_from_CD(one_group.C, one_group.D); atol = 1e-12)
 end

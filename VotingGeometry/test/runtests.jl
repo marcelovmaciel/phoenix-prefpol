@@ -3,7 +3,7 @@ ENV["MPLBACKEND"] = "Agg"
 using Test
 using LinearAlgebra
 using StaticArrays
-using Preferences
+using PreferenceProfiles
 using SHA
 using TOML
 using VotingGeometry
@@ -181,14 +181,14 @@ end
     @test CANONICAL_4C_IDS[24] == @SVector [1, 2, 4, 3]
 end
 
-@testset "Profile vector through Preferences" begin
-    pool = Preferences.CandidatePool([:Alckmin, :Bolsonaro, :Ciro, :Haddad])
+@testset "Profile vector through PreferenceProfiles" begin
+    pool = PreferenceProfiles.CandidatePool([:Alckmin, :Bolsonaro, :Ciro, :Haddad])
     ballots = [
-        Preferences.StrictRank(pool, [:Alckmin, :Bolsonaro, :Ciro, :Haddad]),
-        Preferences.StrictRank(pool, [:Bolsonaro, :Alckmin, :Ciro, :Haddad]),
-        Preferences.StrictRank(pool, [:Bolsonaro, :Alckmin, :Ciro, :Haddad]),
+        PreferenceProfiles.StrictRank(pool, [:Alckmin, :Bolsonaro, :Ciro, :Haddad]),
+        PreferenceProfiles.StrictRank(pool, [:Bolsonaro, :Alckmin, :Ciro, :Haddad]),
+        PreferenceProfiles.StrictRank(pool, [:Bolsonaro, :Alckmin, :Ciro, :Haddad]),
     ]
-    p = Preferences.Profile(pool, ballots)
+    p = PreferenceProfiles.Profile(pool, ballots)
     basis = SaariBasis4(pool)
     v_freq = profile_vector(p, basis; normalize = false)
     v_prop = profile_vector(p, basis; normalize = true)
@@ -199,7 +199,7 @@ end
     @test isapprox(v_prop[1], 1 / 3)
     @test isapprox(v_prop[6], 2 / 3)
 
-    wp = Preferences.WeightedProfile(pool, ballots, [1.0, 2.0, 3.0])
+    wp = PreferenceProfiles.WeightedProfile(pool, ballots, [1.0, 2.0, 3.0])
     v = profile_vector(wp, basis; normalize = false)
     @test v[1] == 1.0
     @test v[6] == 5.0

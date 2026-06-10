@@ -6,7 +6,7 @@ CurrentModule = PrefPol
 
 This page lists the `PrefPol` APIs used by the public Brazil/ESEB article
 replication path. Broader formal preference APIs are documented in the sibling
-`Preferences` package.
+`PreferenceProfiles` package.
 
 ## Survey Configuration
 
@@ -32,9 +32,9 @@ The publication-facing replication config,
 `PrefPol/config/publication.toml`, runs the article's measure set:
 `Psi`, `R`, `HHI`, `RHHI`, `C`, and `D`. In PrefPol, `Psi`, `R`, `HHI`,
 and `RHHI` are selected and executed by the nested pipeline, delegating the
-formal definitions to `Preferences.can_polarization`,
-`Preferences.total_reversal_component`, `Preferences.reversal_hhi`, and
-`Preferences.reversal_geometric`. `C` and `D` are computed by the
+formal definitions to `PreferenceProfiles.can_polarization`,
+`PreferenceProfiles.total_reversal_component`, `PreferenceProfiles.reversal_hhi`, and
+`PreferenceProfiles.reversal_geometric`. `C` and `D` are computed by the
 grouped-measure pipeline through `compute_group_measure_details`.
 
 ```@docs; canonical=false

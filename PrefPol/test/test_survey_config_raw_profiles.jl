@@ -401,9 +401,9 @@ end
                                               allow_incomplete = true)
             prof_raw = PrefPol.build_profile(by_wave; candidate_set = by_wave.candidate_cols[1:2], allow_ties = true)
 
-            @test PrefPol.Preferences.nballots(prof_year) == PrefPol.Preferences.nballots(prof_cfg)
-            @test PrefPol.Preferences.nballots(prof_cfg) == PrefPol.Preferences.nballots(prof_wave)
-            @test PrefPol.Preferences.nballots(prof_raw) == PrefPol.Preferences.nballots(prof_wave)
+            @test PrefPol.PreferenceProfiles.nballots(prof_year) == PrefPol.PreferenceProfiles.nballots(prof_cfg)
+            @test PrefPol.PreferenceProfiles.nballots(prof_cfg) == PrefPol.PreferenceProfiles.nballots(prof_wave)
+            @test PrefPol.PreferenceProfiles.nballots(prof_raw) == PrefPol.PreferenceProfiles.nballots(prof_wave)
         end
     end
 
@@ -434,23 +434,23 @@ end
                                      candidate_set = ["A", "B", "C", "D"],
                                      allow_ties = true,
                                      allow_incomplete = true)
-        @test PrefPol.Preferences.nballots(prof) == 4
+        @test PrefPol.PreferenceProfiles.nballots(prof) == 4
 
         prof_complete = PrefPol.build_profile(_SURVEY_REFACTOR_DF, cfg;
                                               candidate_set = ["A", "B", "C", "D"],
                                               allow_ties = true,
                                               allow_incomplete = false)
-        @test PrefPol.Preferences.nballots(prof_complete) == 2
+        @test PrefPol.PreferenceProfiles.nballots(prof_complete) == 2
 
         prof_w = PrefPol.build_profile(_SURVEY_REFACTOR_DF, cfg;
                                        weighted = true,
                                        candidate_set = ["A", "B", "C", "D"],
                                        allow_ties = true,
                                        allow_incomplete = true)
-        @test PrefPol.Preferences.nballots(prof_w) == 4
-        @test PrefPol.Preferences.weights(prof_w) == [1.0, 3.0, 4.0, 5.0]
+        @test PrefPol.PreferenceProfiles.nballots(prof_w) == 4
+        @test PrefPol.PreferenceProfiles.weights(prof_w) == [1.0, 3.0, 4.0, 5.0]
 
-        patterns = PrefPol.Preferences.profile_pattern_proportions(prof; weighted = false)
+        patterns = PrefPol.PreferenceProfiles.profile_pattern_proportions(prof; weighted = false)
         @test any(occursin("A~B~C~D", String(row.pattern)) for row in eachrow(patterns))
 
         no_weight = select(_SURVEY_REFACTOR_DF, Not(:peso))

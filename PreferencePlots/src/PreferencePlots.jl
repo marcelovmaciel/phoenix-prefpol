@@ -2,7 +2,7 @@ module PreferencePlots
 
 using CSV
 using DataFrames
-using Preferences
+using PreferenceProfiles
 using Printf
 using PythonPlot
 using Statistics
@@ -40,14 +40,14 @@ function _plurality_table(table_or_profile)
     if table_or_profile isa DataFrame
         return table_or_profile
     end
-    return Preferences.plurality_scores_table(table_or_profile)
+    return PreferenceProfiles.plurality_scores_table(table_or_profile)
 end
 
 function _edges_table(table_or_result)
     if table_or_result isa DataFrame
         return table_or_result
     end
-    return Preferences.majority_edges_table(table_or_result)
+    return PreferenceProfiles.majority_edges_table(table_or_result)
 end
 
 function _column_or_error(df::DataFrame, name::Symbol)

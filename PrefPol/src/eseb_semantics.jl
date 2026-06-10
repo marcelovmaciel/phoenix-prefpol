@@ -2,7 +2,7 @@
 #
 # This file contains candidate thermometer score normalization and derived
 # ESEB grouping variables. General preference/profile semantics belong in
-# Preferences.
+# PreferenceProfiles.
 
 const ESEB_SCORE_MISSING_CODES = (96, 97, 98, 99)
 const ESEB_VALID_SCORE_MIN = 0.0

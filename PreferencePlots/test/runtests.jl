@@ -1,7 +1,7 @@
 using Test
 using CSV
 using DataFrames
-using Preferences
+using PreferenceProfiles
 using PreferencePlots
 
 @testset "PreferencePlots" begin

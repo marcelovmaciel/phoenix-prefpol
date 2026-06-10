@@ -46,7 +46,7 @@ candidate universe, which demographic columns are available for grouped
 measures, and which scenario-specific candidates must be forced into an active
 candidate set. Raw-profile builders and the nested pipeline resolve candidates
 through the same `SurveyWaveConfig` rules. Formal profile and measure
-definitions live in `Preferences`.
+definitions live in `PreferenceProfiles`.
 """
 struct SurveyWaveConfig
     wave_id::String
@@ -318,15 +318,15 @@ function _candidate_order(cfg;
 end
 
 function _ensure_preferences_module()
-    if !isdefined(@__MODULE__, :Preferences)
+    if !isdefined(@__MODULE__, :PreferenceProfiles)
         throw(ArgumentError(
-            "Missing Preferences module. Expected local source at " *
+            "Missing PreferenceProfiles module. Expected local source at " *
             "`$(_LOCAL_PREFERENCES_SRC)`. Restart Julia so PrefPol can " *
             "load it at module initialization.",
         ))
     end
 
-    prefs = getfield(@__MODULE__, :Preferences)
+    prefs = getfield(@__MODULE__, :PreferenceProfiles)
     required = (
         :CandidatePool, :WeakRank, :Profile, :WeightedProfile,
         :build_profile_from_scores,
@@ -336,7 +336,7 @@ function _ensure_preferences_module()
     )
     for sym in required
         isdefined(prefs, sym) || throw(ArgumentError(
-            "Incompatible Preferences module: missing `$sym`.",
+            "Incompatible PreferenceProfiles module: missing `$sym`.",
         ))
     end
     return prefs
@@ -774,7 +774,7 @@ end
     build_profile(df, cfg::ElectionConfig; ...)
     build_profile(df, wcfg::SurveyWaveConfig; ...)
 
-Build a `Preferences.Profile` or `Preferences.WeightedProfile` from raw survey
+Build a `PreferenceProfiles.Profile` or `PreferenceProfiles.WeightedProfile` from raw survey
 rows using weak rankings and the centralized PrefPol candidate-resolution
 rules.
 
@@ -877,9 +877,9 @@ function build_profile(df::DataFrame, wcfg::SurveyWaveConfig;
 end
 
 """
-    build_profile(raw::NamedTuple; kwargs...) -> Preferences.Profile
+    build_profile(raw::NamedTuple; kwargs...) -> PreferenceProfiles.Profile
 
-Build a formal `Preferences.Profile` or `Preferences.WeightedProfile` from a
+Build a formal `PreferenceProfiles.Profile` or `PreferenceProfiles.WeightedProfile` from a
 `load_raw_pref_data` result. This method reuses the stored raw DataFrame,
 candidate columns, labels, and weight-column hint when available; scenario-based
 selection falls back to the centralized survey config resolver.

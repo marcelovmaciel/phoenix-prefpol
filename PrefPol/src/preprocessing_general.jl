@@ -376,7 +376,7 @@ const SUPPORTED_IMPUTATION_VARIANTS = (:zero, :random, :mice)
 
 Normalize and validate requested PrefPol imputation variants. Supported applied
 variants are `:zero`, `:random`, and `:mice`; the formal profile semantics after
-imputation are handled by `Preferences` adapters downstream.
+imputation are handled by `PreferenceProfiles` adapters downstream.
 """
 function normalize_imputation_variants(variants)
     raw = if variants isa Symbol || variants isa AbstractString
@@ -595,7 +595,7 @@ columns.
 
 `kind=:weak` preserves equal scores as weak-order ties; `kind=:linear` breaks
 ties randomly with `rng`. This is an applied preprocessing helper that produces
-rank dictionaries later converted to `Preferences` profiles by the adapter
+rank dictionaries later converted to `PreferenceProfiles` profiles by the adapter
 layer.
 """
 function build_profile(df::DataFrame;
@@ -622,7 +622,7 @@ demographic columns.
 
 The `:profile` values are ranking dictionaries from `build_profile`. Downstream
 helpers attach candidate metadata and convert this table to a
-`Preferences.AnnotatedProfile`; formal profile invariants live in `Preferences`.
+`PreferenceProfiles.AnnotatedProfile`; formal profile invariants live in `PreferenceProfiles`.
 """
 function profile_dataframe(df::DataFrame;
                            score_cols::Vector,

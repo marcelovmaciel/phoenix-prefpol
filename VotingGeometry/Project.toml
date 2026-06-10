@@ -5,12 +5,12 @@ authors = ["Mvm <marcelovmaciel@gmail.com>"]
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-Preferences = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
+PreferenceProfiles = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
 PythonPlot = "274fc56d-3b97-40fa-a1cd-1b4a50311bf9"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [sources]
-Preferences = {path = "../Preferences"}
+PreferenceProfiles = {path = "../PreferenceProfiles"}
 
 [compat]
 PythonPlot = "1"

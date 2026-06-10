@@ -9,7 +9,7 @@ using JLD2
 using SHA
 using Statistics
 
-const prefs = pp.Preferences
+const prefs = pp.PreferenceProfiles
 const DEFAULT_EXTRA_M_VALUES = collect(2:5)
 
 function parse_extra_measure_args(args)
@@ -103,7 +103,7 @@ function strict_profile_from_linearized(path::AbstractString)
     artifact isa AbstractDataFrame || error(
         "Expected cached linearized artifact $(artifact_path) to be a DataFrame; got $(typeof(artifact)).",
     )
-    return pp.Preferences.dataframe_to_annotated_profile(artifact; ballot_kind = :strict).profile
+    return pp.PreferenceProfiles.dataframe_to_annotated_profile(artifact; ballot_kind = :strict).profile
 end
 
 function ranking_masses(profile)

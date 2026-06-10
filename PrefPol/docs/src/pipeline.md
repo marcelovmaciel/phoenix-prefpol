@@ -4,7 +4,7 @@
 CurrentModule = PrefPol
 ```
 
-The nested pipeline turns configured survey waves into strict `Preferences`
+The nested pipeline turns configured survey waves into strict `PreferenceProfiles`
 profiles and scalar measure outputs. The pipeline tree is:
 
 1. observed data for a fixed survey wave, candidate set, and grouping set,
@@ -27,18 +27,18 @@ year recodes. `eseb_semantics.jl` centralizes ESEB score missing-code handling
 and derived Lula-score grouping helpers.
 
 `profile_adapters.jl` and the raw-profile helpers in `survey_config.jl` build
-formal `Preferences` profile objects from survey-derived tables. PrefPol does
+formal `PreferenceProfiles` profile objects from survey-derived tables. PrefPol does
 not redefine the mathematical profile layer; it adapts ESEB data into the
 formal objects.
 
 ## Measures
 
-Global measures call formal `Preferences` functions on strict profiles:
+Global measures call formal `PreferenceProfiles` functions on strict profiles:
 
-- `Psi`: `Preferences.can_polarization`,
-- `R`: `Preferences.total_reversal_component`,
-- `HHI`: `Preferences.reversal_hhi`, and
-- `RHHI`: `Preferences.reversal_geometric`.
+- `Psi`: `PreferenceProfiles.can_polarization`,
+- `R`: `PreferenceProfiles.total_reversal_component`,
+- `HHI`: `PreferenceProfiles.reversal_hhi`, and
+- `RHHI`: `PreferenceProfiles.reversal_geometric`.
 
 Grouped manuscript measures are computed through
 `compute_group_measure_details`:

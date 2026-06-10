@@ -3,7 +3,7 @@
 This directory contains local HTML documentation for the applied `PrefPol` Julia
 package in this monorepo. The public documentation is scoped to the
 ESEB/Brazil article replication path; formal preference and social-choice APIs
-are documented by `Preferences`.
+are documented by `PreferenceProfiles`.
 
 The publication-facing replication command is:
 
@@ -33,7 +33,7 @@ ROOT=$(pwd)
 ```
 
 Starting Julia outside the repository tree avoids shadowing Julia's internal
-`Preferences` dependency with the local `Preferences/` package directory during
+`PreferenceProfiles` dependency with the local `PreferenceProfiles/` package directory during
 dependency resolution.
 
 To browse the generated site locally, serve the build directory:

@@ -47,9 +47,9 @@ const EX_RHHI = sqrt(EX_R * EX_HHI)
 @testset "linear order catalog cache uses exact candidate tuples" begin
     cache = Dict{Tuple{Vararg{Symbol}},Any}()
 
-    cat_abc = PrefPol.Preferences.get_linear_order_catalog((:a, :b, :c); cache = cache)
-    cat_abd = PrefPol.Preferences.get_linear_order_catalog((:a, :b, :d); cache = cache)
-    cat_abc_again = PrefPol.Preferences.get_linear_order_catalog((:a, :b, :c); cache = cache)
+    cat_abc = PrefPol.PreferenceProfiles.get_linear_order_catalog((:a, :b, :c); cache = cache)
+    cat_abd = PrefPol.PreferenceProfiles.get_linear_order_catalog((:a, :b, :d); cache = cache)
+    cat_abc_again = PrefPol.PreferenceProfiles.get_linear_order_catalog((:a, :b, :c); cache = cache)
 
     @test length(cat_abc.orders) == factorial(3)
     @test length(cat_abd.orders) == factorial(3)
@@ -58,7 +58,7 @@ const EX_RHHI = sqrt(EX_R * EX_HHI)
 
     for k in 2:7
         tup = Tuple(Symbol("c$i") for i in 1:k)
-        cat = PrefPol.Preferences.get_linear_order_catalog(tup; cache = cache)
+        cat = PrefPol.PreferenceProfiles.get_linear_order_catalog(tup; cache = cache)
         @test length(cat.orders) == factorial(k)
         @test cat.max_kendall == binomial(k, 2)
     end
@@ -69,16 +69,16 @@ end
 # Tests for: nested global measure dispatch
 # ---------------------------------------------------------------------------
 
-@testset "nested global measures delegate directly to Preferences" begin
+@testset "nested global measures delegate directly to PreferenceProfiles" begin
     profile = profile_from_counts(example_counts)
     df = DataFrame(profile = profile)
     metadata!(df, "candidates", [:a, :b, :c])
     metadata!(df, "profile_kind", "linearized")
-    bundle = PrefPol.Preferences.dataframe_to_annotated_profile(df)
-    strict_profile = PrefPol.Preferences.strict_profile(bundle)
+    bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(df)
+    strict_profile = PrefPol.PreferenceProfiles.strict_profile(bundle)
 
     @test PrefPol._global_measure_value(:Psi, bundle) ==
-          PrefPol.Preferences.can_polarization(strict_profile)
+          PrefPol.PreferenceProfiles.can_polarization(strict_profile)
     @test isapprox(PrefPol._global_measure_value(:R, bundle), EX_R; atol=1e-12)
     @test isapprox(PrefPol._global_measure_value(:HHI, bundle), EX_HHI; atol=1e-12)
     @test isapprox(PrefPol._global_measure_value(:RHHI, bundle), EX_RHHI; atol=1e-12)
@@ -88,7 +88,7 @@ end
     nopair_df = DataFrame(profile = prof_nopair)
     metadata!(nopair_df, "candidates", [:a, :b, :c])
     metadata!(nopair_df, "profile_kind", "linearized")
-    nopair_bundle = PrefPol.Preferences.dataframe_to_annotated_profile(nopair_df)
+    nopair_bundle = PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(nopair_df)
 
     @test PrefPol._global_measure_value(:R, nopair_bundle) == 0.0
     @test PrefPol._global_measure_value(:HHI, nopair_bundle) == 0.0
@@ -104,7 +104,7 @@ end
     # One-profile group → consensus should be that ranking
     prof = [ranking_dict([:a,:b,:c])]
     subdf = DataFrame(profile = prof)
-    out = PrefPol.Preferences.consensus_for_group(subdf)
+    out = PrefPol.PreferenceProfiles.consensus_for_group(subdf)
 
     @test out.consensus_ranking == prof[1]
 
@@ -112,22 +112,22 @@ end
     r1 = ranking_dict([:a,:b,:c])
     r2 = ranking_dict([:a,:c,:b])
     r3 = ranking_dict([:c,:b,:a])
-    @test PrefPol.Preferences.kendall_tau_dict(r1,r1) == 0
-    @test PrefPol.Preferences.kendall_tau_dict(r1,r3) == 3   # all three pairs discordant for m=3
+    @test PrefPol.PreferenceProfiles.kendall_tau_dict(r1,r1) == 0
+    @test PrefPol.PreferenceProfiles.kendall_tau_dict(r1,r3) == 3   # all three pairs discordant for m=3
 
     # average_normalized_distance
-    @test PrefPol.Preferences.average_normalized_distance(prof, r1) == 0.0
-    @test PrefPol.Preferences.average_normalized_distance(fill(r3, 5), r1) == 1.0
+    @test PrefPol.PreferenceProfiles.average_normalized_distance(prof, r1) == 0.0
+    @test PrefPol.PreferenceProfiles.average_normalized_distance(fill(r3, 5), r1) == 1.0
 
     # group_avg_distance → (avg_distance, group_coherence)
-    gad = PrefPol.Preferences.group_avg_distance(subdf)
+    gad = PrefPol.PreferenceProfiles.group_avg_distance(subdf)
     @test gad.avg_distance == 0.0
     @test gad.group_coherence == 1.0
 
     # weighted_coherence over two groups
     results_distance = DataFrame(group = ["G1","G2"], group_coherence = [1.0, 0.5])
     propmap = Dict("G1"=>0.5, "G2"=>0.5)
-    @test PrefPol.Preferences.weighted_coherence(results_distance, propmap, :group) == 0.75
+    @test PrefPol.PreferenceProfiles.weighted_coherence(results_distance, propmap, :group) == 0.75
 end
 
 @testset "brute-force consensus metadata and tie handling" begin
@@ -137,8 +137,8 @@ end
         ([:a, :c, :b], 1),
         ([:b, :a, :c], 1),
     ])
-    strict_unique = PrefPol.Preferences.strict_profile(prof_unique)
-    res_unique = PrefPol.Preferences.consensus_kendall(strict_unique, (:a, :b, :c))
+    strict_unique = PrefPol.PreferenceProfiles.strict_profile(prof_unique)
+    res_unique = PrefPol.PreferenceProfiles.consensus_kendall(strict_unique, (:a, :b, :c))
 
     @test res_unique.consensus_ranking == ranking_dict([:a, :b, :c])
     @test res_unique.consensus_perm == SA[0x01, 0x02, 0x03]
@@ -149,23 +149,23 @@ end
     @test res_unique.tie_rule == :unique
     @test res_unique.all_minimizers == [SA[0x01, 0x02, 0x03]]
 
-    gad_unique = PrefPol.Preferences.group_avg_distance(DataFrame(profile = prof_unique))
+    gad_unique = PrefPol.PreferenceProfiles.group_avg_distance(DataFrame(profile = prof_unique))
     @test gad_unique.avg_distance == res_unique.avg_normalized_distance
     @test gad_unique.group_coherence == 1.0 - res_unique.avg_normalized_distance
     @test gad_unique.min_total_distance == res_unique.min_total_distance
 
     # Tied minimizers for two opposite 2-candidate ballots
     prof_tie = [ranking_dict([:a, :b]), ranking_dict([:b, :a])]
-    strict_tie = PrefPol.Preferences.strict_profile(prof_tie)
-    res_tie = PrefPol.Preferences.consensus_kendall(strict_tie, (:a, :b))
-    res_tie_repeat = PrefPol.Preferences.consensus_kendall(strict_tie, (:a, :b))
-    res_tie_key_alt = PrefPol.Preferences.consensus_kendall(
+    strict_tie = PrefPol.PreferenceProfiles.strict_profile(prof_tie)
+    res_tie = PrefPol.PreferenceProfiles.consensus_kendall(strict_tie, (:a, :b))
+    res_tie_repeat = PrefPol.PreferenceProfiles.consensus_kendall(strict_tie, (:a, :b))
+    res_tie_key_alt = PrefPol.PreferenceProfiles.consensus_kendall(
         strict_tie,
         (:a, :b);
         tie_break_key = (case = :alt, replicate = 2),
     )
-    res_tie_rng_1 = PrefPol.Preferences.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(1))
-    res_tie_rng_2 = PrefPol.Preferences.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(2))
+    res_tie_rng_1 = PrefPol.PreferenceProfiles.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(1))
+    res_tie_rng_2 = PrefPol.PreferenceProfiles.consensus_kendall(strict_tie, (:a, :b); rng = MersenneTwister(2))
 
     @test res_tie.consensus_perm in (SA[0x01, 0x02], SA[0x02, 0x01])
     @test res_tie.min_total_distance == 1.0
@@ -183,7 +183,7 @@ end
     @test res_tie_rng_1.all_minimizers == res_tie.all_minimizers
     @test res_tie_rng_2.all_minimizers == res_tie.all_minimizers
 
-    out_tie = PrefPol.Preferences.consensus_for_group(DataFrame(profile = prof_tie))
+    out_tie = PrefPol.PreferenceProfiles.consensus_for_group(DataFrame(profile = prof_tie))
     @test out_tie.consensus_perm == res_tie.consensus_perm
     @test out_tie.consensus_set == [SA[0x01, 0x02], SA[0x02, 0x01]]
     @test out_tie.is_tied_minimizer
@@ -192,18 +192,18 @@ end
 end
 
 @testset "weighted brute-force consensus matches expanded profile" begin
-    pool = PrefPol.Preferences.CandidatePool([:a, :b, :c])
-    abc = PrefPol.Preferences.StrictRank(pool, [:a, :b, :c])
-    cba = PrefPol.Preferences.StrictRank(pool, [:c, :b, :a])
+    pool = PrefPol.PreferenceProfiles.CandidatePool([:a, :b, :c])
+    abc = PrefPol.PreferenceProfiles.StrictRank(pool, [:a, :b, :c])
+    cba = PrefPol.PreferenceProfiles.StrictRank(pool, [:c, :b, :a])
 
-    weighted = PrefPol.Preferences.WeightedProfile(
-        PrefPol.Preferences.Profile(pool, [abc, cba]),
+    weighted = PrefPol.PreferenceProfiles.WeightedProfile(
+        PrefPol.PreferenceProfiles.Profile(pool, [abc, cba]),
         [2.0, 1.0],
     )
-    expanded = PrefPol.Preferences.Profile(pool, [abc, abc, cba])
+    expanded = PrefPol.PreferenceProfiles.Profile(pool, [abc, abc, cba])
 
-    res_weighted = PrefPol.Preferences.consensus_kendall(weighted, (:a, :b, :c))
-    res_expanded = PrefPol.Preferences.consensus_kendall(expanded, (:a, :b, :c))
+    res_weighted = PrefPol.PreferenceProfiles.consensus_kendall(weighted, (:a, :b, :c))
+    res_expanded = PrefPol.PreferenceProfiles.consensus_kendall(expanded, (:a, :b, :c))
 
     @test res_weighted.consensus_perm == res_expanded.consensus_perm
     @test res_weighted.min_total_distance == res_expanded.min_total_distance
@@ -222,28 +222,28 @@ end
     profB = fill(consB, 6)
     m = 3
 
-    @test PrefPol.Preferences.pairwise_group_divergence(profA, consB, m) == 1.0
-    @test PrefPol.Preferences.pairwise_group_divergence(profB, consA, m) == 1.0
+    @test PrefPol.PreferenceProfiles.pairwise_group_divergence(profA, consB, m) == 1.0
+    @test PrefPol.PreferenceProfiles.pairwise_group_divergence(profB, consA, m) == 1.0
 
     group_profiles = Dict(:A => profA, :B => profB)
     consensus_map  = Dict(:A => consA, :B => consB)
-    @test PrefPol.Preferences.overall_divergence(group_profiles, consensus_map) == 1.0
-    @test PrefPol.Preferences.overall_divergence_median(group_profiles, consensus_map) == 1.0
-    @test PrefPol.Preferences.overall_overlap(group_profiles) == 0.0
-    @test PrefPol.Preferences.overall_separation(group_profiles, consensus_map) == 1.0
+    @test PrefPol.PreferenceProfiles.overall_divergence(group_profiles, consensus_map) == 1.0
+    @test PrefPol.PreferenceProfiles.overall_divergence_median(group_profiles, consensus_map) == 1.0
+    @test PrefPol.PreferenceProfiles.overall_overlap(group_profiles) == 0.0
+    @test PrefPol.PreferenceProfiles.overall_separation(group_profiles, consensus_map) == 1.0
 
     # Wrapper that uses DataFrames
     whole_df = vcat(DataFrame(group=:A, profile=profA),
                     DataFrame(group=:B, profile=profB))
     grouped_consensus = DataFrame(group=[:A,:B], consensus_ranking=Any[consA, consB])
-    @test PrefPol.Preferences.overall_divergences(grouped_consensus, whole_df, :group) == 1.0
-    @test PrefPol.Preferences.overall_divergences_median(grouped_consensus, whole_df, :group) == 1.0
-    @test PrefPol.Preferences.overall_overlaps(grouped_consensus, whole_df, :group) == 0.0
-    @test PrefPol.Preferences.overall_separations(grouped_consensus, whole_df, :group) == 1.0
+    @test PrefPol.PreferenceProfiles.overall_divergences(grouped_consensus, whole_df, :group) == 1.0
+    @test PrefPol.PreferenceProfiles.overall_divergences_median(grouped_consensus, whole_df, :group) == 1.0
+    @test PrefPol.PreferenceProfiles.overall_overlaps(grouped_consensus, whole_df, :group) == 0.0
+    @test PrefPol.PreferenceProfiles.overall_separations(grouped_consensus, whole_df, :group) == 1.0
 end
 
 @testset "cleaned S and legacy S_old wrappers" begin
-    @test isapprox(PrefPol.Preferences.S(0.8, 0.6), 0.5; atol = 1e-12)
+    @test isapprox(PrefPol.PreferenceProfiles.S(0.8, 0.6), 0.5; atol = 1e-12)
 
     abc = ranking_dict([:a, :b, :c])
     cba = ranking_dict([:c, :b, :a])
@@ -253,7 +253,7 @@ end
     )
     group_sizes = Dict(:A => 3.0, :B => 3.0)
 
-    @test isapprox(PrefPol.Preferences.S_old(group_profiles, group_sizes), 1.0; atol = 1e-12)
+    @test isapprox(PrefPol.PreferenceProfiles.S_old(group_profiles, group_sizes), 1.0; atol = 1e-12)
 end
 
 # ---------------------------------------------------------------------------
@@ -267,17 +267,17 @@ end
     df = vcat(DataFrame(group=:A, profile=fill(consA, 4)),
               DataFrame(group=:B, profile=fill(consB, 6)))
 
-    C, D = PrefPol.Preferences.compute_group_metrics(df, :group)
+    C, D = PrefPol.PreferenceProfiles.compute_group_metrics(df, :group)
     @test isapprox(C, 1.0; atol=1e-12)   # within-group coherence
     @test isapprox(D, 1.0; atol=1e-12)   # strong between-group divergence
-    @test isapprox(PrefPol.Preferences.S(C, D), 1.0; atol = 1e-12)
+    @test isapprox(PrefPol.PreferenceProfiles.S(C, D), 1.0; atol = 1e-12)
 
     # Bootstrap over two "replicates" per variant
     bt_profiles = Dict(
         :mice => [df, df],
         :rand => [df]
     )
-    res = PrefPol.Preferences.bootstrap_group_metrics(bt_profiles, :group)
+    res = PrefPol.PreferenceProfiles.bootstrap_group_metrics(bt_profiles, :group)
     @test Set(keys(res)) == Set([:mice, :rand])
     @test res[:mice][:C] == fill(1.0, 2)
     @test res[:mice][:D] == fill(1.0, 2)
@@ -314,8 +314,8 @@ end
         ranking_dict([:c, :b, :a]),
     ])
 
-    @test PrefPol.Preferences.overall_divergences_median(pure_grouped, pure_df, :grp) == 1.0
-    @test PrefPol.Preferences.overall_divergences_median(
+    @test PrefPol.PreferenceProfiles.overall_divergences_median(pure_grouped, pure_df, :grp) == 1.0
+    @test PrefPol.PreferenceProfiles.overall_divergences_median(
         DataFrame(grp = [:A, :B], consensus_ranking = Any[
             ranking_dict([:a, :b, :c]),
             ranking_dict([:a, :b, :c]),
@@ -335,12 +335,12 @@ end
     metadata!(noisy_bundle_df, "profile_kind", "linearized")
 
     pure_details = PrefPol.compute_group_measure_details(
-        PrefPol.Preferences.dataframe_to_annotated_profile(pure_bundle_df),
+        PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(pure_bundle_df),
         :grp;
         tie_policy = :average,
     )
     noisy_details = PrefPol.compute_group_measure_details(
-        PrefPol.Preferences.dataframe_to_annotated_profile(noisy_bundle_df),
+        PrefPol.PreferenceProfiles.dataframe_to_annotated_profile(noisy_bundle_df),
         :grp;
         tie_policy = :average,
     )

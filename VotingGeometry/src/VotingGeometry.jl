@@ -2,7 +2,7 @@ module VotingGeometry
 
 using LinearAlgebra
 using StaticArrays
-using Preferences
+using PreferenceProfiles
 using PythonPlot
 
 include("canonical_orders.jl")
