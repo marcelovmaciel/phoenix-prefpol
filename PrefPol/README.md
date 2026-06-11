@@ -1,17 +1,127 @@
-# PrefPol Brazil/ESEB Replication
+# PrefPol Brazil/ESEB Replication Package
 
-`PrefPol` is the applied ESEB/Brazil replication package in this repository. It
-loads the survey waves, applies the article's candidate-set and preprocessing
-rules, runs bootstrap/imputation/linearization, computes the paper measures, and
-collects the paper-facing figures and tables. Formal preference representations
-and social-choice definitions live in the sibling `PreferenceProfiles` package.
+## Purpose
 
-From the repository root, reproduce the Brazil polarization article with:
+`PrefPol` is the applied replication package for the article on the structure of
+political dissent in Brazilian multiparty candidate preferences. It reproduces
+the article's ESEB-based empirical workflow: construction of ranked preference
+profiles, stochastic treatment of missingness and ties, computation of profile
+measures, and collection of manuscript-facing figures and tables.
+
+The empirical object is not a one-dimensional ideology distribution. The package
+studies ranked-preference profiles constructed from respondents' feeling
+thermometer evaluations of candidates and political leaders. The formal
+preference, profile, ranking, aggregation, and measure primitives live in the
+sibling `PreferenceProfiles/` package; `PrefPol` applies those primitives to the
+Brazil/ESEB replication design.
+
+## Empirical Object
+
+The units are ESEB survey respondents. The replicated waves are 2006, 2018, and
+2022. The raw inputs are candidate or leader thermometer scores in the year
+survey files.
+
+For each configured year and candidate set, the workflow first constructs weak
+preference orders over the selected candidates. Equal thermometer scores produce
+ties. The stochastic linearization stages then convert complete weak profiles
+into strict rankings so that measures defined on rankings can be computed.
+
+The construction uses within-person ordinal information: who a respondent ranks
+above whom, including ties before linearization. It does not treat thermometer
+distances as interpersonally comparable quantities, and it does not interpret
+absolute score gaps as cardinal utilities shared across respondents.
+
+## Data Sources
+
+Each election year is configured by a TOML file in `PrefPol/config/`. Within
+each year TOML, the `data_file` field points to the raw dataset on disk. Obtain
+the datasets from CESOP:
+
+- 2006: <https://www.cesop.unicamp.br/por/banco_de_dados/v/1583>
+- 2018: <https://www.cesop.unicamp.br/por/banco_de_dados/v/4538>
+- 2022: <https://www.cesop.unicamp.br/por/banco_de_dados/v/4680>
+
+Copy the downloaded `.sav` files to a convenient local location and update the
+`data_file` paths used by the year configs. Do not commit raw survey files or
+machine-specific data paths. Local data provenance is therefore supplied through
+the year TOML configs, not through checked-in raw data.
+
+## Candidate Sets and Preference Construction
+
+Candidate sets are year-specific and substantively selected. They are not
+mechanically chosen only by lowest missingness. The publication configuration
+uses forced candidate-set scenarios for the ESEB waves and evaluates the main
+replication across `m = 2, 3, 4, 5`.
+
+Changing `m` changes the ranking space. Larger candidate sets include more
+preference relations, but they also become increasingly sparse because more
+respondents have missing scores or tied evaluations among at least one selected
+candidate. For that reason, results for larger `m` depend more visibly on the
+configured imputation and linearization design.
+
+## Measurement Strategy
+
+The main global measures describe the structure of opposition in the profile:
+
+- `Psi`: pairwise antagonism across rankings.
+- `R`: exact reversal mass, or the share of ranking mass opposed by exact
+  reversals.
+- `HHI` and kappa: concentration of reversal opposition.
+- `RHHI`: a conjunctive summary that combines opposition mass and
+  concentration.
+
+The group measures describe how configured partitions relate to ranking
+structure:
+
+- `C`: within-group coherence around group consensus rankings.
+- `D`: distance from each group to other groups' consensus rankings.
+
+Groupings are diagnostic partitions of the profile. They are not causal
+treatments, and differences across groups should not be read as estimates of
+causal effects.
+
+## Stochastic Replication Design
+
+`PrefPol/config/publication.toml` defines the nested stochastic replication
+design used for the article. The active publication settings are `B = 30`,
+`R = 10`, and `K = 10`.
+
+- `B`: weighted bootstrap pseudo-profiles drawn from each configured survey
+  target.
+- `R`: imputation replicates inside each bootstrap branch.
+- `K`: stochastic strict linearizations inside each imputed weak profile.
+
+For the current publication config, the active imputation backends are `mice`
+and `zero`. The active linearizers are `pattern_conditional` and `random_ties`.
+Primary manuscript artifacts default to the `mice` imputer plus the
+`pattern_conditional` linearizer.
+
+The nested design is part of the replication provenance. It records how much of
+the reported descriptive variation is induced by bootstrap resampling,
+imputation, and tie linearization within the configured workflow.
+
+## What the Main Run Reproduces
+
+The publication run reproduces the article-facing empirical artifacts:
+
+- Figures and tables for global profile measures.
+- Group heatmaps for `C` and `D`.
+- Effective-ranking and effective-reversal summaries.
+- Variance-decomposition outputs for the nested stochastic pipeline.
+- Collected manuscript-facing outputs under `paper_artifacts/`.
+
+These outputs are generated from the configured survey files and the
+publication TOML settings. They should be interpreted as a reproducible
+measurement exercise for the article, not as a stand-alone causal model of
+Brazilian electoral behavior.
+
+## How to Reproduce the Article
+
+Run commands from the repository root. First instantiate the `PrefPol`
+environment:
 
 ```bash
-julia +1.11.9 --project=PrefPol \
-  PrefPol/composable_running/run_all_paper.jl \
-  --config PrefPol/config/publication.toml
+julia +1.11.9 --project=PrefPol -e 'using Pkg; Pkg.instantiate()'
 ```
 
 To validate the publication configuration before a full run:
@@ -22,108 +132,63 @@ julia +1.11.9 --project=PrefPol \
   --config PrefPol/config/publication.toml
 ```
 
-## Dependencies
+To reproduce the Brazil polarization article:
 
-- **Julia 1.11.9**. `PrefPol/Manifest.toml` records this version for the
-  publication environment. Instantiate it before reproducing the workflow:
-  ```bash
-  julia +1.11.9 --project=PrefPol -e 'using Pkg; Pkg.instantiate()'
-  ```
-- **R on `PATH`**. `PrefPol` uses `RCall` for SPSS loading and, when configured,
-  MICE imputation. Run `R --version` from the same shell that starts Julia.
-- **R packages used by the active workflow**:
-  ```r
-  install.packages(c("haven", "mice"))
-  ```
-  `haven` reads the raw SPSS `.sav` survey files. `mice` powers the `:mice`
-  imputation backend used in the publication configuration. `PerMallows` is not
-  used by the active publication workflow in this repository; install it only
-  for legacy or experimental scripts that explicitly require it.
+```bash
+julia +1.11.9 --project=PrefPol \
+  PrefPol/composable_running/run_all_paper.jl \
+  --config PrefPol/config/publication.toml
+```
 
-Plotting stages run under `PrefPol/running/plotting_env` through
-`run_all_paper.jl`, so the wrapper is the preferred public entry point for
-figures. That environment should provide `CairoMakie` and related plotting
-dependencies.
+`PrefPol/composable_running/run_all_paper.jl` is the preferred public entry
+point. It runs validation, bootstrap, imputation, linearization, measure,
+plotting, table, extra-measure, extra-plot, and artifact-collection stages in
+the intended order. Plotting uses `PrefPol/running/plotting_env`, which should
+provide `CairoMakie` and related plotting dependencies.
 
-## Data
+Use individual stage scripts only when diagnosing a failed or partial run. For
+normal reproduction, use the wrapper so plotting and artifact collection happen
+with the intended environments and arguments.
 
-Each election year is configured by a TOML file in `PrefPol/config/`. Within
-each year TOML, the `data_file` field points to the raw dataset on disk. Obtain
-the datasets from:
+## Expected Outputs
 
-- 2006: <https://www.cesop.unicamp.br/por/banco_de_dados/v/1583>
-- 2018: <https://www.cesop.unicamp.br/por/banco_de_dados/v/4538>
-- 2022: <https://www.cesop.unicamp.br/por/banco_de_dados/v/4680>
+The publication config writes generated files under
+`PrefPol/composable_running/output/publication/`.
 
-Copy the downloaded `.sav` files to a convenient local location and update the
-`data_file` paths used by the year configs. Do not commit raw survey files or
-machine-specific data paths.
+| Path under output root | Scientific role |
+| --- | --- |
+| `cache/` | Cached bootstrap, imputation, and linearization products for the nested profile pipeline. |
+| `measures/` | Global and group measure outputs used to make tables, figures, and diagnostics. |
+| `plots/global/` | Global profile-measure figures for manuscript and review. |
+| `plots/group/` | Group heatmaps and related visual summaries for `C` and `D`. |
+| `extra_measures/` | Effective-ranking, effective-reversal, and auxiliary summary measures. |
+| `extra_plots/` | Additional figures derived from the extra-measure outputs. |
+| `tables/` | Generated tables for the publication workflow. |
+| `paper_artifacts/` | Reviewer-facing collected figures and tables for the article. |
+| `manifests/` | Stage manifests recording products, config provenance, and paths for diagnosis. |
 
-## How the Workflow Works
+When looking for final article outputs, start with `paper_artifacts/`. When
+diagnosing a failed or partial run, start with `manifests/` and then follow the
+recorded paths into `cache/`, `measures/`, `plots/`, `tables/`, or
+`extra_measures/`.
 
-The year configs (`2006.toml`, `2018.toml`, and `2022.toml`) define raw data
-loaders, `.sav` paths, candidates, demographic groupings, score variables, and
-forced candidate-set scenarios. `PrefPol/config/publication.toml` selects the
-public reproduction targets, `m_values = [2, 3, 4, 5]`, `B = 30`, `R = 10`,
-`K = 10`, imputation backends, linearizer policies, measures, cache root, and
-output root.
+## Interpreting the Outputs
 
-The uncertainty tree is nested:
+The bootstrap, imputation, and linearization summaries are descriptive
+replication diagnostics. They do not define a causal model and should not be
+read as estimates of treatment effects or structural parameters.
 
-- `B` draws weighted bootstrap resamples from each configured survey target.
-- `R` creates imputation replicates within each bootstrap branch.
-- `K` creates strict linearizations for each imputed weak score profile.
+The variance-decomposition outputs partition simulation variability induced by
+the configured pipeline. They help show whether variation in an artifact is
+mainly associated with resampling, imputation, or tie linearization under the
+specified design.
 
-For the current publication config, the backends are `mice` and `zero`, and the
-linearizers are `pattern_conditional` and `random_ties`. The primary collected
-paper artifacts default to `mice` with `pattern_conditional`.
+Comparisons across `m` require care because changing `m` changes the ranking
+space. A result for `m = 5` is not a simple refinement of a result for `m = 2`;
+it is computed over a different candidate set, a different set of possible
+rankings, and usually a different pattern of missingness and ties.
 
-## Staged Workflow
-
-`PrefPol/composable_running/run_all_paper.jl` runs the stages in order:
-
-1. `00_validate_configs.jl` validates publication, year, plot, table, and
-   artifact configs.
-2. `01_bootstrap.jl` loads survey data, applies candidate-set logic, and draws
-   weighted resamples.
-3. `02_impute.jl` fills score missingness using `mice`, `zero`, or `random`
-   when those backends are configured.
-4. `03_linearize.jl` converts complete weak score profiles to strict rankings
-   with `pattern_conditional` or `random_ties`.
-5. `04_measures.jl` computes global and group measures plus variance
-   decomposition outputs.
-6. `05_plot_global.jl` and `06_plot_group.jl` produce publication plots in the
-   plotting environment.
-7. `07_extra_measures.jl`, `08_tables.jl`, and `09_extra_plots.jl` produce
-   effective-count summaries, tables, and extra plots.
-8. `10_lambda_table.jl` runs only when `[lambda_table] enabled = true` in the
-   orchestration config.
-9. `11_collect_paper_artifacts.jl` collects the reviewer-facing paper artifacts
-   unless plots or collection are explicitly skipped.
-
-Use individual stage scripts when debugging a failed run. For normal
-reproduction, use the wrapper so plotting and collection happen with the
-intended environments and arguments.
-
-## Outputs and Navigation
-
-The publication config writes generated files under:
-
-- `PrefPol/composable_running/output/publication/` for the main generated root.
-- `PrefPol/composable_running/output/publication/cache/` for cached nested
-  pipeline artifacts.
-- `PrefPol/composable_running/output/publication/paper_artifacts/` for the
-  reviewer-facing collected figures and tables.
-- `PrefPol/composable_running/output/publication/manifests/` for run metadata.
-
-The manifest directory records stage products and provenance, including config,
-bootstrap, imputation, linearization, measure, plot, group plot, extra measure,
-extra plot, table, and paper artifact manifests. When looking for final paper
-outputs, start with `paper_artifacts/`; when diagnosing a failed or partial run,
-start with `manifests/` and then follow the recorded paths into `cache/`,
-`measures/`, `plots/`, `tables/`, or `extra_measures/`.
-
-## Maintainer Orientation
+## Repository Structure
 
 - `PrefPol/src/preprocessing_general.jl` contains SPSS/R integration, R-backed
   MICE imputation helpers, generic score preprocessing, and linearization
@@ -135,8 +200,30 @@ start with `manifests/` and then follow the recorded paths into `cache/`,
 - `PrefPol/src/survey_config.jl` parses year configs, builds survey-wave
   configs, resolves candidate sets, loads raw survey data, and keeps the raw
   profile helper entry points used by tests and the pipeline.
-- `PreferenceProfiles/` owns the formal preference, profile, ranking, aggregation, and
-  measure primitives used by `PrefPol`.
+- `PreferenceProfiles/` owns the formal preference, profile, ranking,
+  aggregation, and measure primitives used by `PrefPol`.
+
+Root `intermediate_data/`, package-local output folders, and
+`PrefPol/composable_running/output/` should be treated as generated artifacts
+unless a change is intentionally updating checked-in results.
+
+## Requirements
+
+- **Julia 1.11.9**. `PrefPol/Manifest.toml` records this version for the
+  publication environment. Use `julia +1.11.9` for validation and reproduction.
+- **R on `PATH`**. `PrefPol` uses `RCall` for SPSS loading and, when configured,
+  MICE imputation. Run `R --version` from the same shell that starts Julia.
+- **R packages used by the active workflow**:
+  ```r
+  install.packages(c("haven", "mice"))
+  ```
+  `haven` reads the raw SPSS `.sav` survey files. `mice` powers the `:mice`
+  imputation backend used in the publication configuration. `PerMallows` is not
+  used by the active publication workflow in this repository; install it only
+  for legacy or experimental scripts that explicitly require it.
+- **Plotting environment**. Plotting stages run through
+  `PrefPol/running/plotting_env`, which should provide `CairoMakie` and related
+  plotting dependencies.
 
 ## Troubleshooting
 
