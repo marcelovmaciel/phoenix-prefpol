@@ -31,7 +31,7 @@ function parse_replot_args(args)
     if any(arg -> arg in ("--help", "-h"), args)
         println("""
         Usage:
-          julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/12_replot_manuscript_figures.jl [--config PATH] [--output-root PATH] [--writing-imgs-root PATH] [--dry-run]
+          julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/12_replot_manuscript_figures.jl [--config PATH] [--output-root PATH] [--writing-imgs-root PATH] [--dry-run] [--only-global-group]
 
         Replots manuscript-facing figures from cached PipelineResult files
         without rerunning bootstrap, imputation, linearization, or measure computation.
@@ -44,6 +44,7 @@ function parse_replot_args(args)
         "output-root" => DEFAULT_REPLOT_OUTPUT_ROOT,
         "writing-imgs-root" => DEFAULT_WRITING_IMGS_ROOT,
         "dry-run" => false,
+        "only-global-group" => false,
     )
 
     i = 1
@@ -51,6 +52,8 @@ function parse_replot_args(args)
         arg = args[i]
         if arg == "--dry-run"
             opts["dry-run"] = true
+        elseif arg == "--only-global-group"
+            opts["only-global-group"] = true
         elseif arg in ("--config", "--output-root", "--writing-imgs-root")
             i == length(args) && error("$(arg) requires a value.")
             opts[arg[3:end]] = args[i + 1]
@@ -73,6 +76,7 @@ function replot_settings(opts)
         output_root = output_root,
         writing_imgs_root = resolve_path(String(opts["writing-imgs-root"])),
         dry_run = Bool(opts["dry-run"]),
+        only_global_group = Bool(opts["only-global-group"]),
     )
 end
 
@@ -414,7 +418,6 @@ end
 function main(args = ARGS)
     opts = parse_replot_args(args)
     settings = replot_settings(opts)
-    candidate_labels = candidate_labels_by_year(settings.output_root)
     run_manifest = replot_run_manifest(settings.output_root)
     results = settings.dry_run ? nothing : load_results_from_manifest(run_manifest)
     groupings_by_year = load_groupings_by_year()
@@ -423,6 +426,7 @@ function main(args = ARGS)
     println("  output_root=", settings.output_root)
     println("  writing_imgs_root=", settings.writing_imgs_root)
     println("  dry_run=", settings.dry_run)
+    println("  only_global_group=", settings.only_global_group)
 
     outputs = String[]
     for year in (2006, 2018, 2022)
@@ -434,8 +438,11 @@ function main(args = ARGS)
             push!(outputs, replot_group(year, settings, results, groupings_by_year))
         end
     end
-    push!(outputs, replot_effective(settings, candidate_labels))
-    push!(outputs, replot_variance(settings))
+    if !settings.only_global_group
+        candidate_labels = candidate_labels_by_year(settings.output_root)
+        push!(outputs, replot_effective(settings, candidate_labels))
+        push!(outputs, replot_variance(settings))
+    end
 
     println("Replotted manuscript figures:")
     foreach(path -> println("  ", path), outputs)
