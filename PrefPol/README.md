@@ -183,11 +183,6 @@ the configured pipeline. They help show whether variation in an artifact is
 mainly associated with resampling, imputation, or tie linearization under the
 specified design.
 
-Comparisons across `m` require care because changing `m` changes the ranking
-space. A result for `m = 5` is not a simple refinement of a result for `m = 2`;
-it is computed over a different candidate set, a different set of possible
-rankings, and usually a different pattern of missingness and ties.
-
 ## Repository Structure
 
 - `PrefPol/src/preprocessing_general.jl` contains SPSS/R integration, R-backed
