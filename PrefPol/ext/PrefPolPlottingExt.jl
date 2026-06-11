@@ -206,12 +206,17 @@ function _candidate_sequence_note(candidate_label::AbstractString; prefix_note::
     return text
 end
 
+function _wrapped_text(text::AbstractString; width::Int = 80)
+    wrapped = TextWrap.wrap(text; width = width)
+    return wrapped isa AbstractString ? String(wrapped) : join(wrapped, "\n")
+end
+
 function _wrapped_candidate_sequence_note(candidate_label::AbstractString;
                                           width::Int = 80,
                                           prefix_note::Bool = true)
     text = _candidate_sequence_note(candidate_label; prefix_note = prefix_note)
     isempty(text) && return ""
-    return join(TextWrap.wrap(text; width = width), "\n")
+    return _wrapped_text(text; width = width)
 end
 
 function _candidate_label_text(candidate_label::AbstractString;
@@ -220,7 +225,7 @@ function _candidate_label_text(candidate_label::AbstractString;
                                prefix_note::Bool = true)
     text = _candidate_sequence_note(candidate_label; prefix_note = prefix_note)
     return wrap_candidates ?
-           join(TextWrap.wrap(text; width = candidate_wrap_width), "\n") :
+           _wrapped_text(text; width = candidate_wrap_width) :
            text
 end
 
@@ -538,7 +543,7 @@ function plot_group_demographics_lines(all_gm,
     colgap!(fig.layout, 24)
 
     fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :left)
-    fig[2, 1:ncol] = Label(fig, join(TextWrap.wrap("$cand_lbl"; width = clist_size)); fontsize = 14, halign = :left)
+    fig[2, 1:ncol] = Label(fig, _wrapped_text("$cand_lbl"; width = clist_size); fontsize = 14, halign = :left)
     header_rows = 2
 
     legend_handles = Any[]
@@ -681,7 +686,7 @@ function plot_group_demographics_heatmap(all_gm,
     colgap!(fig.layout, 24)
 
     fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :left)
-    fig[2, 1:ncol] = Label(fig, join(TextWrap.wrap("$cand_lbl"; width = clist_size)); fontsize = 14, halign = :left)
+    fig[2, 1:ncol] = Label(fig, _wrapped_text("$cand_lbl"; width = clist_size); fontsize = 14, halign = :left)
     header_rows = 2
 
     hm_ref = nothing
@@ -899,7 +904,7 @@ function plot_pipeline_group_lines(result_or_results;
     fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :left)
     fig[2, 1:ncol] = Label(
         fig,
-        join(TextWrap.wrap(data.candidate_label; width = clist_size));
+        _wrapped_text(data.candidate_label; width = clist_size);
         fontsize = 14,
         halign = :left,
     )
@@ -1030,7 +1035,7 @@ function plot_pipeline_group_heatmap(result_or_results;
     fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :left)
     fig[2, 1:ncol] = Label(
         fig,
-        join(TextWrap.wrap(data.candidate_label; width = clist_size));
+        _wrapped_text(data.candidate_label; width = clist_size);
         fontsize = 14,
         halign = :left,
     )
@@ -1141,7 +1146,7 @@ function plot_pipeline_group_triplet_panel(result_or_results;
     fig[1, 1:4] = Label(fig, title_txt; fontsize = 20, halign = :left)
     fig[2, 1:4] = Label(
         fig,
-        join(TextWrap.wrap(data.candidate_label; width = clist_size));
+        _wrapped_text(data.candidate_label; width = clist_size);
         fontsize = 14,
         halign = :left,
     )
@@ -1253,22 +1258,13 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
 
     fig_width = max(980, 360 * ncol + 160)
     fig_height = max(540, 220 + 210 * nrow + 30 * length(group_syms))
-    fig = Figure(size = (fig_width, fig_height))
-    rowgap!(fig.layout, 22)
+    fig = Figure(size = (fig_width, fig_height + 84), figure_padding = 10)
+    rowgap!(fig.layout, 12)
     colgap!(fig.layout, 22)
-    fig[1, 1:ncol] = Label(fig, title_txt; fontsize = 20, halign = :center)
-    fig[2, 1:ncol] = Label(
-        fig,
-        _candidate_label_text(
-            data.candidate_label;
-            wrap_candidates = true,
-            candidate_wrap_width = max(candidate_wrap_width, 112),
-        );
-        fontsize = _PAPER_NOTE_FONTSIZE,
-        halign = :left,
-        justification = :left,
-        tellwidth = false,
-    )
+    fig[1, 1:ncol] = Label(fig, ""; fontsize = 1)
+    fig[2, 1:ncol] = Label(fig, "\n\n" * title_txt; fontsize = 20, halign = :center, valign = :bottom)
+    rowsize!(fig.layout, 1, Fixed(30))
+    rowsize!(fig.layout, 2, Fixed(72))
     header_rows = 2
 
     hm_ref = nothing
@@ -1313,10 +1309,28 @@ function plot_pipeline_group_paper_heatmap(result_or_results;
         )
         colsize!(fig.layout, ncol + 1, Relative(0.10))
     end
+    footer_cols = hm_ref === nothing ? ncol : ncol + 1
+    footer_text = _candidate_label_text(
+        data.candidate_label;
+        wrap_candidates = true,
+        candidate_wrap_width = max(candidate_wrap_width, 112),
+    )
+    fig[header_rows + nrow + 1, 1:footer_cols] = Label(
+        fig,
+        footer_text;
+        fontsize = _PAPER_NOTE_FONTSIZE,
+        halign = :left,
+        valign = :top,
+        justification = :left,
+    )
     for col in 1:ncol
         colsize!(fig.layout, col, Relative(0.90 / ncol))
     end
+    bottom_spacer_row = header_rows + nrow + 2
+    fig[bottom_spacer_row, 1:footer_cols] = Label(fig, ""; fontsize = 1)
     rowsize!(fig.layout, header_rows + 1, Relative(1.0))
+    rowsize!(fig.layout, header_rows + nrow + 1, Fixed(58))
+    rowsize!(fig.layout, bottom_spacer_row, Fixed(40))
 
     return fig
 end

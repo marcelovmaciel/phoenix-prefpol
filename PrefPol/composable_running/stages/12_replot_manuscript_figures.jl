@@ -19,10 +19,6 @@ Base.get_extension(PrefPol, :PrefPolPlottingExt) === nothing && throw(ArgumentEr
     "PrefPolPlottingExt is not active. Run with Julia 1.11.9 and the plotting environment."
 ))
 
-using Printf
-using Statistics: quantile
-using TextWrap
-
 const Makie = CairoMakie.Makie
 const DEFAULT_REPLOT_OUTPUT_ROOT = "PrefPol/composable_running/output/paper_b30_r10_k10"
 const DEFAULT_WRITING_IMGS_ROOT = "writing/imgs"
@@ -37,8 +33,8 @@ function parse_replot_args(args)
         Usage:
           julia +1.11.9 --project=PrefPol/running/plotting_env PrefPol/composable_running/stages/12_replot_manuscript_figures.jl [--config PATH] [--output-root PATH] [--writing-imgs-root PATH] [--dry-run]
 
-        Replots manuscript-facing figures from compact paper plot CSVs without
-        rerunning bootstrap, imputation, linearization, or measure computation.
+        Replots manuscript-facing figures from cached PipelineResult files
+        without rerunning bootstrap, imputation, linearization, or measure computation.
         """)
         exit(0)
     end
@@ -80,60 +76,6 @@ function replot_settings(opts)
     )
 end
 
-function measure_label(measure::Symbol)
-    measure === :Psi && return Makie.LaTeXString(raw"$\Psi$")
-    measure === :HHI && return Makie.LaTeXString(raw"$\kappa$")
-    measure === :D_median && return "D"
-    return String(measure)
-end
-
-function grouping_label(group)
-    sym = Symbol(group)
-    sym === :LulaScoreGroup && return "Lula's score"
-    return String(group)
-end
-
-function candidate_sequence_from_label(label)
-    text = strip(String(label))
-    text = replace(text, r"^Candidates:\s*" => "")
-    return text
-end
-
-function candidate_sequence_note(label; width = 86)
-    sequence = candidate_sequence_from_label(label)
-    isempty(sequence) && return ""
-    text = "Candidate sequence: $(sequence)."
-    return join(TextWrap.wrap(text; width = width), "\n")
-end
-
-function candidate_labels_by_year(output_root::AbstractString)
-    manifest_path = joinpath(output_root, "manifests", "run_manifest.csv")
-    isfile(manifest_path) || return Dict{Int,String}()
-    manifest = CSV.read(manifest_path, DataFrame)
-    out = Dict{Int,String}()
-    for year in sort(unique(Int.(manifest.year)))
-        rows = manifest[Int.(manifest.year) .== year, :]
-        :analysis_role in propertynames(rows) && (rows = rows[string.(rows.analysis_role) .== "main", :])
-        :imputer_backend in propertynames(rows) && (rows = rows[string.(rows.imputer_backend) .== "mice", :])
-        :linearizer_policy in propertynames(rows) && (rows = rows[string.(rows.linearizer_policy) .== "pattern_conditional", :])
-        isempty(rows) && continue
-        mcol = :m in propertynames(rows) ? :m : :n_candidates
-        row = rows[argmax(Int.(rows[!, mcol])), :]
-        label = :candidate_label in propertynames(rows) && !ismissing(row.candidate_label) ?
-                String(row.candidate_label) : PrefPol.describe_candidate_set(split(String(row.active_candidates_key), '|'))
-        out[year] = label
-    end
-    return out
-end
-
-function matching_file(dir::AbstractString; prefix::AbstractString, suffix::AbstractString)
-    isdir(dir) || error("Directory not found: $(dir)")
-    matches = sort([joinpath(dir, file) for file in readdir(dir)
-                    if startswith(file, prefix) && endswith(file, suffix)])
-    isempty(matches) && error("No file under $(dir) matched $(prefix)*$(suffix)")
-    return last(matches)
-end
-
 function copy_for_manuscript(src::AbstractString, settings, destination_filename::AbstractString)
     destinations = [
         joinpath(settings.output_root, "paper_artifacts", destination_filename),
@@ -157,10 +99,140 @@ function save_png(fig, path::AbstractString, settings)
     return path
 end
 
-function global_plot_data_path(output_root::AbstractString, year::Int)
-    dir = joinpath(output_root, "plots", "global", string(year), "main_$(year)")
-    prefix = "global_measures_year-$(year)_scenario-main_$(year)_backend-mice_linearizer-pattern_conditional"
-    return matching_file(dir; prefix = prefix, suffix = "_plot_data.csv")
+const _PLOT_EXT = Base.get_extension(PrefPol, :PrefPolPlottingExt)
+const REPLOT_BACKEND = :mice
+const REPLOT_LINEARIZER = :pattern_conditional
+const REPLOT_ANALYSIS_ROLE = "main"
+const REPLOT_M_VALUES = 2:5
+const REPLOT_GLOBAL_MEASURES = [:Psi, :R, :HHI, :RHHI]
+const REPLOT_GROUP_MEASURES = [:C, :D]
+const REPLOT_GROUP_LABELS = Dict(:C => "C", :D => "D")
+
+function candidate_sequence_from_label(label)
+    text = strip(String(label))
+    text = replace(text, r"^Candidates:\s*" => "")
+    return text
+end
+
+function candidate_labels_by_year(output_root::AbstractString)
+    manifest_path = joinpath(output_root, "manifests", "run_manifest.csv")
+    isfile(manifest_path) || return Dict{Int,String}()
+    manifest = CSV.read(manifest_path, DataFrame)
+    out = Dict{Int,String}()
+    for year in sort(unique(Int.(manifest.year)))
+        rows = manifest[Int.(manifest.year) .== year, :]
+        :analysis_role in propertynames(rows) && (rows = rows[string.(rows.analysis_role) .== REPLOT_ANALYSIS_ROLE, :])
+        :imputer_backend in propertynames(rows) && (rows = rows[Symbol.(rows.imputer_backend) .== REPLOT_BACKEND, :])
+        :linearizer_policy in propertynames(rows) && (rows = rows[Symbol.(rows.linearizer_policy) .== REPLOT_LINEARIZER, :])
+        isempty(rows) && continue
+        mcol = :m in propertynames(rows) ? :m : :n_candidates
+        row = rows[argmax(Int.(rows[!, mcol])), :]
+        label = :candidate_label in propertynames(rows) && !ismissing(row.candidate_label) ?
+                String(row.candidate_label) : PrefPol.describe_candidate_set(split(String(row.active_candidates_key), '|'))
+        out[year] = label
+    end
+    return out
+end
+
+function parse_manifest_columns!(manifest::DataFrame)
+    for col in (:year, :m, :B, :R, :K, :n_candidates, :batch_index)
+        col in propertynames(manifest) || continue
+        manifest[!, col] = Int.(manifest[!, col])
+    end
+    return manifest
+end
+
+function successful_run_manifest(path::AbstractString)
+    isfile(path) || error("Run manifest not found: $(path)")
+    manifest = parse_manifest_columns!(CSV.read(path, DataFrame))
+    :status in propertynames(manifest) || return manifest
+    return manifest[string.(manifest.status) .== "success", :]
+end
+
+function replot_run_manifest(output_root::AbstractString)
+    manifest = successful_run_manifest(joinpath(output_root, "manifests", "run_manifest.csv"))
+    rows = manifest[
+        (string.(manifest.analysis_role) .== REPLOT_ANALYSIS_ROLE) .&
+        (Symbol.(manifest.imputer_backend) .== REPLOT_BACKEND) .&
+        (Symbol.(manifest.linearizer_policy) .== REPLOT_LINEARIZER) .&
+        in.(Int.(manifest.m), Ref(Set(REPLOT_M_VALUES))),
+        :,
+    ]
+    isempty(rows) && error("No cached main/mice/pattern_conditional results found for manuscript replotting.")
+    return rows
+end
+
+function metadata_from_manifest_row(row)
+    allowed = [
+        :year, :scenario_name, :m, :analysis_role, :scenario_dir,
+        :base_scenario_dir, :is_diagnostic, :active_candidates,
+        :candidate_label,
+    ]
+    pairs = Pair{Symbol,Any}[]
+    for key in allowed
+        key in propertynames(row) || continue
+        push!(pairs, key => row[key])
+    end
+    return (; pairs...)
+end
+
+function load_results_from_manifest(manifest::DataFrame)
+    items = pp.StudyBatchItem[]
+    results = pp.PipelineResult[]
+    metadata = NamedTuple[]
+
+    for row in eachrow(manifest)
+        result_path = existing_manifest_path(row.result_path; label = "Cached PipelineResult")
+        result = pp.load_pipeline_result(result_path)
+        :spec_hash in propertynames(row) && string(row.spec_hash) != basename(result.cache_dir) && error(
+            "Manifest/result hash mismatch for $(String(row.result_path)) resolved to $(result_path).",
+        )
+        meta = metadata_from_manifest_row(row)
+        push!(items, pp.StudyBatchItem(result.spec; meta...))
+        push!(results, result)
+        push!(metadata, meta)
+    end
+
+    return pp.BatchRunResult(pp.StudyBatchSpec(items), results, metadata)
+end
+
+function subset_results(results::pp.BatchRunResult;
+                        wave_id,
+                        scenario_name,
+                        analysis_role = REPLOT_ANALYSIS_ROLE,
+                        imputer_backend = REPLOT_BACKEND,
+                        linearizer_policy = REPLOT_LINEARIZER,
+                        m_values = REPLOT_M_VALUES)
+    items = pp.StudyBatchItem[]
+    subset = pp.PipelineResult[]
+    metadata = NamedTuple[]
+    mset = Set(Int.(m_values))
+
+    for (idx, item) in enumerate(results.batch.items)
+        spec = item.spec
+        meta = results.metadata[idx]
+        spec.wave_id != string(wave_id) && continue
+        (!hasproperty(meta, :scenario_name) || string(meta.scenario_name) != string(scenario_name)) && continue
+        (!hasproperty(meta, :analysis_role) || string(meta.analysis_role) != string(analysis_role)) && continue
+        spec.imputer_backend != Symbol(imputer_backend) && continue
+        spec.linearizer_policy != Symbol(linearizer_policy) && continue
+        (!hasproperty(meta, :m) || Int(meta.m) ∉ mset) && continue
+
+        push!(items, item)
+        push!(subset, results.results[idx])
+        push!(metadata, meta)
+    end
+
+    isempty(items) && error("No cached results matched $(wave_id)/$(scenario_name) for manuscript replotting.")
+    return pp.BatchRunResult(pp.StudyBatchSpec(items), subset, metadata)
+end
+
+function matching_file(dir::AbstractString; prefix::AbstractString, suffix::AbstractString)
+    isdir(dir) || error("Directory not found: $(dir)")
+    matches = sort([joinpath(dir, file) for file in readdir(dir)
+                    if startswith(file, prefix) && endswith(file, suffix)])
+    isempty(matches) && error("No file under $(dir) matched $(prefix)*$(suffix)")
+    return last(matches)
 end
 
 function global_plot_output_path(output_root::AbstractString, year::Int)
@@ -169,159 +241,68 @@ function global_plot_output_path(output_root::AbstractString, year::Int)
     return matching_file(dir; prefix = prefix, suffix = ".png")
 end
 
-function ungrouped_mask(df::DataFrame)
-    :grouping in propertynames(df) || return trues(nrow(df))
-    return [ismissing(value) || isempty(strip(String(value))) for value in df.grouping]
-end
-
-function plot_global_from_table(df::DataFrame; candidate_label::AbstractString)
-    rows = df[ungrouped_mask(df), :]
-    rows[!, :measure_sym] = Symbol.(String.(rows.measure))
-    wanted = [:Psi, :R, :HHI, :RHHI]
-    rows = rows[in.(rows.measure_sym, Ref(Set(wanted))), :]
-    m_values = sort(unique(Int.(rows.n_candidates)))
-    palette = Makie.wong_colors()
-
-    fig = Figure(size = (780, 560), fontsize = 14)
-    Label(fig[1, 1:2]; text = "Global measures • Year = $(first(rows.year))",
-          fontsize = 16, halign = :center, tellwidth = false)
-    Label(fig[2, 1:2]; text = candidate_sequence_note(candidate_label; width = 95),
-          fontsize = PAPER_NOTE_FONTSIZE, halign = :left, justification = :left,
-          tellwidth = false)
-    ax = Axis(
-        fig[3, 1];
-        xlabel = "m",
-        ylabel = "value",
-        xticks = (m_values, string.(m_values)),
-        xlabelsize = PAPER_AXIS_LABELSIZE,
-        ylabelsize = PAPER_AXIS_LABELSIZE,
-        xticklabelsize = PAPER_TICK_LABELSIZE,
-        yticklabelsize = PAPER_TICK_LABELSIZE,
-    )
-    ticks = collect(0.0:0.1:1.0)
-    ax.yticks[] = (ticks, [@sprintf("%.1f", tick) for tick in ticks])
-
-    handles = Any[]
-    labels = Any[]
-    for (idx, measure) in enumerate(wanted)
-        sub = sort(rows[rows.measure_sym .== measure, :], :n_candidates)
-        isempty(sub) && continue
-        color = palette[(idx - 1) % length(palette) + 1]
-        xs = Float64.(sub.n_candidates)
-        q05 = Float64.(sub.q05)
-        q25 = Float64.(sub.q25)
-        q75 = Float64.(sub.q75)
-        q95 = Float64.(sub.q95)
-        estimate = Float64.(sub.estimate)
-        rangebars!(ax, xs, q05, q95; direction = :y, color = (color, 0.55), linewidth = 1.5, whiskerwidth = 10)
-        rangebars!(ax, xs, q25, q75; direction = :y, color = (color, 0.9), linewidth = 3.0, whiskerwidth = 6)
-        sc = scatter!(ax, xs, estimate; color = color, markersize = 9)
-        lines!(ax, xs, estimate; color = color, linewidth = 1.5)
-        push!(handles, sc)
-        push!(labels, measure_label(measure))
-    end
-    Legend(fig[3, 2], handles, labels; labelsize = PAPER_LEGEND_FONTSIZE)
-    colsize!(fig.layout, 1, Relative(0.80))
-    colsize!(fig.layout, 2, Relative(0.20))
-    rowsize!(fig.layout, 3, Relative(1.0))
-    return fig
-end
-
-function replot_global(year::Int, settings, candidate_labels)
-    data_path = global_plot_data_path(settings.output_root, year)
-    output_path = global_plot_output_path(settings.output_root, year)
-    df = CSV.read(data_path, DataFrame)
-    label = get(candidate_labels, year, df[argmax(Int.(df.n_candidates)), :candidate_label])
-    fig = plot_global_from_table(df; candidate_label = String(label))
-    save_png(fig, output_path, settings)
-    copy_for_manuscript(output_path, settings, "$(year)_global_main.png")
-    return output_path
-end
-
-function group_table_path(output_root::AbstractString, year::Int)
-    return joinpath(
-        output_root,
-        "plots", "group", string(year), "main_$(year)",
-        "paper_group_heatmap_panel_C_D_table_mice_pattern_conditional.csv",
-    )
-end
-
 function group_plot_output_path(output_root::AbstractString, year::Int)
     dir = joinpath(output_root, "plots", "group", string(year), "main_$(year)")
     prefix = "paper_group_heatmap_panel_C_D_year-$(year)_scenario-main_$(year)_backend-mice_linearizer-pattern_conditional"
     return matching_file(dir; prefix = prefix, suffix = ".png")
 end
 
-function heatmap_matrix(rows::DataFrame, measure::Symbol, m_values, group_values)
-    z = fill(Float32(NaN), length(m_values), length(group_values))
-    for (mi, m) in enumerate(m_values), (gi, group) in enumerate(group_values)
-        sub = rows[(Int.(rows.m) .== m) .& (String.(rows.grouping) .== group) .&
-                   (Symbol.(String.(rows.measure)) .== measure), :]
-        isempty(sub) || (z[mi, gi] = Float32(sub[1, :value]))
-    end
-    return z
+function load_groupings_by_year()
+    specs_path = joinpath(DEFAULT_CONFIG_DIR, "plot_specs.toml")
+    isfile(specs_path) || return Dict{Int,Vector{Symbol}}()
+    specs = TOML.parsefile(specs_path)
+    group_cfg = get(get(specs, "group_plots", Dict{String,Any}()), "groupings_by_wave", Dict{String,Any}())
+    return Dict(parse(Int, String(year)) => Symbol.(String.(groups)) for (year, groups) in group_cfg)
 end
 
-function overlay_heatmap_values!(ax, xs_m, n_groups::Int, z)
-    xs = repeat(xs_m, inner = n_groups)
-    ys = repeat(collect(1:n_groups), outer = length(xs_m))
-    labels = [isnan(z[i, j]) ? "NA" : @sprintf("%.3f", z[i, j])
-              for i in 1:length(xs_m) for j in 1:n_groups]
-    text!(ax, xs, ys; text = labels, align = (:center, :center), color = :black, fontsize = 9)
-    return nothing
+function replot_global(year::Int, settings, results)
+    output_path = global_plot_output_path(settings.output_root, year)
+    combo_results = subset_results(
+        results;
+        wave_id = string(year),
+        scenario_name = "main_$(year)",
+    )
+    fig = _PLOT_EXT.plot_pipeline_scenario(
+        combo_results;
+        wave_id = string(year),
+        scenario_name = "main_$(year)",
+        imputer_backend = REPLOT_BACKEND,
+        measures = REPLOT_GLOBAL_MEASURES,
+        figsize = (780, 560),
+        plot_kind = :dotwhisker,
+        connect_lines = true,
+        ytick_step = 0.1,
+    )
+    save_png(fig, output_path, settings)
+    copy_for_manuscript(output_path, settings, "$(year)_global_main.png")
+    return output_path
 end
 
-function plot_group_from_table(df::DataFrame; candidate_label::AbstractString)
-    rows = df[in.(Symbol.(String.(df.measure)), Ref(Set([:C, :D]))), :]
-    measures = [:C, :D]
-    m_values = sort(unique(Int.(rows.m)))
-    xs_m = Float32.(m_values)
-    group_values = unique(String.(rows.grouping))
-    group_labels = grouping_label.(group_values)
-    matrices = Dict(measure => clamp.(heatmap_matrix(rows, measure, m_values, group_values), 0.0f0, 1.0f0)
-                    for measure in measures)
-
-    fig = Figure(size = (1020, max(560, 260 + 30 * length(group_values))), fontsize = 14)
-    fig[1, 1:2] = Label(fig, "Group diagnostics • Year = $(first(rows.year))"; fontsize = 20, halign = :center)
-    fig[2, 1:2] = Label(fig, candidate_sequence_note(candidate_label; width = 112);
-                         fontsize = PAPER_NOTE_FONTSIZE, halign = :left,
-                         justification = :left, tellwidth = false)
-
-    hm_ref = nothing
-    for (idx, measure) in enumerate(measures)
-        ax = Axis(
-            fig[3, idx];
-            title = String(measure),
-            xlabel = "m",
-            ylabel = idx == 1 ? "grouping" : "",
-            xticks = (xs_m, string.(m_values)),
-            yticks = (1:length(group_values), group_labels),
-            xlabelsize = PAPER_AXIS_LABELSIZE,
-            ylabelsize = PAPER_AXIS_LABELSIZE,
-            xticklabelsize = PAPER_TICK_LABELSIZE,
-            yticklabelsize = PAPER_TICK_LABELSIZE,
-            titlesize = PAPER_AXIS_LABELSIZE,
-        )
-        hm = heatmap!(ax, xs_m, 1:length(group_values), matrices[measure];
-                      colormap = Makie.Reverse(:RdBu), colorrange = (0.0f0, 1.0f0))
-        overlay_heatmap_values!(ax, xs_m, length(group_values), matrices[measure])
-        hm_ref === nothing && (hm_ref = hm)
-    end
-    Colorbar(fig[3, 3], hm_ref; label = "median", ticks = 0.0:0.2:1.0,
-             labelsize = PAPER_AXIS_LABELSIZE, ticklabelsize = PAPER_TICK_LABELSIZE)
-    colsize!(fig.layout, 1, Relative(0.45))
-    colsize!(fig.layout, 2, Relative(0.45))
-    colsize!(fig.layout, 3, Relative(0.10))
-    rowsize!(fig.layout, 3, Relative(1.0))
-    return fig
-end
-
-function replot_group(year::Int, settings, candidate_labels)
-    table_path = group_table_path(settings.output_root, year)
+function replot_group(year::Int, settings, results, groupings_by_year)
     output_path = group_plot_output_path(settings.output_root, year)
-    df = CSV.read(table_path, DataFrame)
-    label = get(candidate_labels, year, "")
-    fig = plot_group_from_table(df; candidate_label = label)
+    combo_results = subset_results(
+        results;
+        wave_id = string(year),
+        scenario_name = "main_$(year)",
+    )
+    fig = _PLOT_EXT.plot_pipeline_group_paper_heatmap(
+        combo_results;
+        wave_id = string(year),
+        scenario_name = "main_$(year)",
+        imputer_backend = REPLOT_BACKEND,
+        measures = REPLOT_GROUP_MEASURES,
+        statistic = :median,
+        groupings = get(groupings_by_year, year, nothing),
+        complement_measures = Symbol[],
+        measure_labels = REPLOT_GROUP_LABELS,
+        maxcols = 2,
+        colormap = Makie.Reverse(:RdBu),
+        fixed_colorrange_limits = (0.0, 1.0),
+        show_values = true,
+        colorbar_label = "median",
+        clist_size = 60,
+        candidate_wrap_width = 112,
+    )
     save_png(fig, output_path, settings)
     copy_for_manuscript(output_path, settings, "$(year)_group_C_D.png")
     return output_path
@@ -401,20 +382,6 @@ function replot_effective(settings, candidate_labels)
 end
 
 
-function replot_global_group_with_matplotlib(settings)
-    script = joinpath(@__DIR__, "12_replot_manuscript_global_group.py")
-    isfile(script) || error("Global/group replot helper not found: $(script)")
-    cmd = `python3 $script --output-root $(settings.output_root) --writing-imgs-root $(settings.writing_imgs_root)`
-    settings.dry_run && (cmd = `python3 $script --output-root $(settings.output_root) --writing-imgs-root $(settings.writing_imgs_root) --dry-run`)
-    run(cmd)
-    outputs = String[]
-    for year in (2006, 2018, 2022)
-        push!(outputs, joinpath(settings.output_root, "plots", "global", string(year), "main_$(year)"))
-        push!(outputs, joinpath(settings.output_root, "plots", "group", string(year), "main_$(year)"))
-    end
-    return outputs
-end
-
 function replot_variance(settings)
     table_path = joinpath(settings.output_root, "measures", "decomposition_table.csv")
     isfile(table_path) || error("Variance decomposition source not found: $(table_path)")
@@ -448,6 +415,9 @@ function main(args = ARGS)
     opts = parse_replot_args(args)
     settings = replot_settings(opts)
     candidate_labels = candidate_labels_by_year(settings.output_root)
+    run_manifest = replot_run_manifest(settings.output_root)
+    results = settings.dry_run ? nothing : load_results_from_manifest(run_manifest)
+    groupings_by_year = load_groupings_by_year()
 
     println("Manuscript figure replot plan:")
     println("  output_root=", settings.output_root)
@@ -455,7 +425,15 @@ function main(args = ARGS)
     println("  dry_run=", settings.dry_run)
 
     outputs = String[]
-    append!(outputs, replot_global_group_with_matplotlib(settings))
+    for year in (2006, 2018, 2022)
+        if settings.dry_run
+            push!(outputs, global_plot_output_path(settings.output_root, year))
+            push!(outputs, group_plot_output_path(settings.output_root, year))
+        else
+            push!(outputs, replot_global(year, settings, results))
+            push!(outputs, replot_group(year, settings, results, groupings_by_year))
+        end
+    end
     push!(outputs, replot_effective(settings, candidate_labels))
     push!(outputs, replot_variance(settings))
 
