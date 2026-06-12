@@ -1,4 +1,4 @@
-# phoenix-prefpol
+# The form of dissent 
 
 This monorepo contains modular Julia packages and manuscript material for the
 Brazil/ESEB preference-polarization replication.
