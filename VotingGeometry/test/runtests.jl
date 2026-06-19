@@ -1035,6 +1035,12 @@ end
     @test ax4b !== nothing
     ax4c = plot_profile_tetrahedron_proportions(fill(1 / 24, 24))
     @test ax4c !== nothing
+    ax4c_numeric_sizes = [
+        parse(Float64, string(text.get_fontsize())) for text in collect(ax4c.texts)
+        if string(text.get_text()) == "0.04"
+    ]
+    @test length(ax4c_numeric_sizes) == 24
+    @test all(size -> isapprox(size, 5.0; atol = 1e-12), ax4c_numeric_sizes)
     ax4d = plot_profile_tetrahedron_proportions(collect(1.0:24.0); normalize = true)
     @test ax4d !== nothing
     @test_throws ArgumentError plot_profile_tetrahedron_proportions([-1.0; ones(23)])

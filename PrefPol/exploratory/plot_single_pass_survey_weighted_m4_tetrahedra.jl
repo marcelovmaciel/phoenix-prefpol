@@ -46,22 +46,40 @@ standard_source_path(year::Integer) = repo_path(STANDARD_SOURCE_RELATIVE_PATHS[I
 # %% 2. Main scenario candidate sets
 const YEAR_ORDER = [2006, 2018, 2022]
 
+const DISPLAY_LABEL_OVERRIDES = Dict{String,String}(
+    "Jair_Bolsonaro" => "Bolsonaro",
+    "Jair Bolsonaro" => "Bolsonaro",
+    "BOLSONARO" => "Bolsonaro",
+    "LULA" => "Lula",
+    "CIRO_GOMES" => "Ciro Gomes",
+    "SIMONE_TEBET" => "Simone Tebet",
+)
+
+display_candidate_label(x) = get(
+    DISPLAY_LABEL_OVERRIDES,
+    string(x),
+    replace(string(x), "_" => " "),
+)
+
 const YEAR_SPECS = Dict(
     2006 => (
         scenario_name = "main_2006",
         candidates = ["Lula", "Geraldo_Alckmin", "Heloísa_Helena", "José_Serra"],
+        display_labels = ("Lula", "Geraldo Alckmin", "Heloísa Helena", "José Serra"),
         title = "2006 survey-weighted profile, m = 4",
         figure = "opened_tetrahedron_single_pass_survey_weighted_m4_2006.png",
     ),
     2018 => (
         scenario_name = "main_2018",
         candidates = ["Fernando_Haddad", "Jair_Bolsonaro", "Ciro_Gomes", "Geraldo_Alckmin"],
+        display_labels = ("Fernando Haddad", "Bolsonaro", "Ciro Gomes", "Geraldo Alckmin"),
         title = "2018 survey-weighted profile, m = 4",
         figure = "opened_tetrahedron_single_pass_survey_weighted_m4_2018.png",
     ),
     2022 => (
         scenario_name = "main_2022",
         candidates = ["LULA", "BOLSONARO", "CIRO_GOMES", "SIMONE_TEBET"],
+        display_labels = ("Lula", "Bolsonaro", "Ciro Gomes", "Simone Tebet"),
         title = "2022 survey-weighted profile, m = 4",
         figure = "opened_tetrahedron_single_pass_survey_weighted_m4_2022.png",
     ),
@@ -183,6 +201,10 @@ function load_and_validate_one_survey(year::Integer)
 
     source_df = PrefPol.load_wave_data(wcfg)
     candidate_columns = _resolve_candidate_columns(source_df, wcfg, spec.candidates)
+    display_candidate_labels = Tuple(display_candidate_label.(candidate_columns))
+    display_candidate_labels == spec.display_labels || throw(ArgumentError(
+        "Display labels $(display_candidate_labels) do not match expected labels $(spec.display_labels).",
+    ))
     weight_col = _resolve_weight_column(source_df)
     weight_summary = _weight_validation(source_df[!, weight_col])
 
@@ -210,6 +232,7 @@ function load_and_validate_one_survey(year::Integer)
         retained_table = retained_table,
         retained_row_ids = retained_row_ids,
         candidate_columns = candidate_columns,
+        display_candidate_labels = display_candidate_labels,
         weight_col = weight_col,
         survey_weight_vector = survey_weight_vector,
         weight_summary = weight_summary,
@@ -404,7 +427,7 @@ function calculate_24_survey_weighted_proportions(state)
     @assert isapprox(manual_totals, survey_weighted_totals; atol = 1e-8, rtol = 1e-10)
     @assert isapprox(manual_proportions, survey_weighted_proportions; atol = 1e-10, rtol = 1e-10)
 
-    ranking_labels = VotingGeometry.ranking_labels(basis; sep = " > ")
+    ranking_labels = _display_ranking_labels(basis, state.display_candidate_labels; sep = " > ")
     @info "Calculated weighted ranking-type distribution" year = state.year total_weight = sum(survey_weighted_totals) proportion_sum = sum(survey_weighted_proportions)
     return merge(
         state,
@@ -421,8 +444,14 @@ function calculate_24_survey_weighted_proportions(state)
 end
 
 # %% 10. Plot the opened tetrahedron
-function _plot_labels(profile)
-    return Tuple(String.(PreferenceProfiles.candidates(profile.pool)))
+function _display_ranking_labels(basis, display_labels; sep = " > ")
+    label_vec = collect(display_labels)
+    length(label_vec) == 4 || throw(ArgumentError("four display labels are required"))
+    return [join((label_vec[id] for id in perm), sep) for perm in basis.permutations]
+end
+
+function _plot_labels(state)
+    return state.display_candidate_labels
 end
 
 function plot_opened_tetrahedron(state)
@@ -430,11 +459,11 @@ function plot_opened_tetrahedron(state)
     fig_path = joinpath(OUTPUT_ROOT, state.figure)
     ax = VotingGeometry.plot_profile_tetrahedron_proportions(
         state.survey_weighted_proportions;
-        labels = _plot_labels(state.weighted_strict_profile),
+        labels = _plot_labels(state),
         normalize = false,
         plot_percentages = true,
         digits = 2,
-        textsize = 8,
+        textsize = 5.0,
         title = state.title,
     )
     ax.figure.savefig(String(fig_path); dpi = 220, bbox_inches = "tight")

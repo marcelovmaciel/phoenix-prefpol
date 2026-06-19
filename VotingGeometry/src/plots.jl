@@ -130,8 +130,19 @@ function draw_opened_tetrahedron(ax = nothing; labels = ("A", "B", "C", "D"))
     ax.text(vertices.A[1] - 0.04, vertices.A[2] - 0.04, _as_label(labels[1]), ha = "right", va = "top")
     ax.text(vertices.B[1] + 0.04, vertices.B[2] - 0.04, _as_label(labels[2]), ha = "left", va = "top")
     ax.text(vertices.C[1], vertices.C[2] + 0.05, _as_label(labels[3]), ha = "center", va = "bottom")
-    for dpos in (vertices.D_left, vertices.D_right, vertices.D_bottom)
-        ax.text(dpos[1], dpos[2], _as_label(labels[4]), ha = "center", va = "center")
+    d_label_specs = (
+        (vertices.D_left, (-0.02, 0.055), "right", "center"),
+        (vertices.D_right, (0.02, 0.055), "left", "center"),
+        (vertices.D_bottom, (0.0, -0.035), "center", "top"),
+    )
+    for (dpos, offset, ha, va) in d_label_specs
+        ax.text(
+            dpos[1] + offset[1],
+            dpos[2] + offset[2],
+            _as_label(labels[4]),
+            ha = ha,
+            va = va,
+        )
     end
     ax.set_xlim(-0.62, 1.62)
     ax.set_ylim(-0.98, 1.0)
@@ -171,7 +182,7 @@ end
 
 """
     plot_profile_tetrahedron_proportions(p4; ax=nothing, labels=("A", "B", "C", "D"),
-        normalize=false, plot_percentages=false, digits=2, textsize=9, title="")
+        normalize=false, plot_percentages=false, digits=2, textsize=5.0, title="")
 
 Annotate the opened tetrahedron with a 24-entry profile proportion vector.
 
@@ -187,7 +198,7 @@ function plot_profile_tetrahedron_proportions(
     normalize::Bool = false,
     plot_percentages::Bool = false,
     digits::Integer = 2,
-    textsize = 9,
+    textsize = 5.0,
     title = "",
 )
     v = validate_profile_counts(p4, 24)
