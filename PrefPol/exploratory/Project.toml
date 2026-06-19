@@ -1,0 +1,24 @@
+name = "PrefPolSinglePassExploratory"
+uuid = "14f8a6e2-7b19-4c5b-8d14-0b871f7ab4c2"
+version = "0.1.0"
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+PrefPol = "bbc7be70-a2bd-43e6-84e6-8ca7df355e3e"
+PreferenceProfiles = "78ad0eaf-fdc4-4874-a73a-02f105b78749"
+PythonPlot = "274fc56d-3b97-40fa-a1cd-1b4a50311bf9"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+VotingGeometry = "f032bc9d-12d6-4777-8b8d-910da1b9e9f6"
+
+[sources]
+PrefPol = {path = ".."}
+PreferenceProfiles = {path = "../../PreferenceProfiles"}
+VotingGeometry = {path = "../../VotingGeometry"}
+
+[compat]
+julia = "1.11.9"

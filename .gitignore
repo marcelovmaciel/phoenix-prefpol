@@ -11,6 +11,7 @@ PrefPol/.CondaPkg/
 PreferencePlots/.CondaPkg/
 VotingGeometry/.CondaPkg/
 PrefPol/running/plotting_env/.CondaPkg/
+PrefPol/exploratory/.CondaPkg/
 Preferences/.julia_depot/
 Preferences/.juliaup/
 
@@ -25,6 +26,7 @@ replication_package_reboot.zip
 # Generated intermediate data and figures
 intermediate_data/
 PrefPol/intermediate_data/
+PrefPol/exploratory/output/
 PrefPol/old_+group/
 nb/
 nb/output/
