@@ -165,6 +165,53 @@ function plot_profile_tetrahedron_freqs(p4; ax = nothing, coerce_to_int = true, 
     return ax
 end
 
+function _format_profile_proportion(x::Real, digits::Integer)
+    return string(round(Float64(x); digits = Int(digits)))
+end
+
+"""
+    plot_profile_tetrahedron_proportions(p4; ax=nothing, labels=("A", "B", "C", "D"),
+        normalize=false, plot_percentages=false, digits=2, textsize=9, title="")
+
+Annotate the opened tetrahedron with a 24-entry profile proportion vector.
+
+When `normalize=true`, the supplied nonnegative values are normalized before
+display. Otherwise the vector is treated as already proportional. If
+`plot_percentages=true`, annotations display `100 * proportion` without a
+percent sign.
+"""
+function plot_profile_tetrahedron_proportions(
+    p4;
+    ax = nothing,
+    labels = ("A", "B", "C", "D"),
+    normalize::Bool = false,
+    plot_percentages::Bool = false,
+    digits::Integer = 2,
+    textsize = 9,
+    title = "",
+)
+    v = validate_profile_counts(p4, 24)
+    mass = sum(v)
+    mass > 0 || throw(ArgumentError("profile proportions must have positive total mass"))
+    proportions = normalize ? v ./ mass : v
+    scale = plot_percentages ? 100.0 : 1.0
+
+    ax = draw_opened_tetrahedron(ax; labels = labels)
+    for i in 1:24
+        pos = TETRAHEDRON_TEXT_POSITIONS[i]
+        ax.text(
+            pos[1],
+            pos[2],
+            _format_profile_proportion(scale * proportions[i], digits),
+            ha = "center",
+            va = "center",
+            fontsize = textsize,
+        )
+    end
+    !isempty(title) && ax.set_title(title)
+    return ax
+end
+
 const _COMPONENT_GROUP_ORDER = (
     :departure_differentials,
     :subset_departures,

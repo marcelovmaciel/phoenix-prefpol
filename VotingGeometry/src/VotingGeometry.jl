@@ -93,6 +93,7 @@ export
     draw_opened_tetrahedron,
     plot_opened_representation_tetrahedron,
     plot_profile_tetrahedron_freqs,
+    plot_profile_tetrahedron_proportions,
     plot_profile_on_opened_tetrahedron,
     plot_signed_profile_tetrahedron,
     plot_decomposition_coefficients,
