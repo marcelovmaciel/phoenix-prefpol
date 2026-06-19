@@ -2,6 +2,7 @@ ENV["MPLBACKEND"] = "Agg"
 
 using Test
 using LinearAlgebra
+using Random
 using StaticArrays
 using PreferenceProfiles
 using SHA
@@ -204,6 +205,52 @@ end
     @test v[1] == 1.0
     @test v[6] == 5.0
     @test sum(v) == 6.0
+end
+
+@testset "Weighted profile-vector proportions and linearization" begin
+    pool = PreferenceProfiles.CandidatePool([:A, :B, :C, :D])
+    abcd = PreferenceProfiles.StrictRank(pool, [:A, :B, :C, :D])
+    bacd = PreferenceProfiles.StrictRank(pool, [:B, :A, :C, :D])
+    ballots = [abcd, bacd]
+    weights = [2.0, 4.0]
+    profile = PreferenceProfiles.Profile(pool, ballots)
+    weighted = PreferenceProfiles.WeightedProfile(pool, ballots, weights)
+    basis = SaariBasis4(pool)
+    idx_abcd = basis.index[SVector{4,Int}(PreferenceProfiles.perm(abcd))]
+    idx_bacd = basis.index[SVector{4,Int}(PreferenceProfiles.perm(bacd))]
+
+    totals = profile_vector(weighted, basis; normalize = false)
+    proportions = profile_vector(weighted, basis; normalize = true)
+    unweighted_proportions = profile_vector(profile, basis; normalize = true)
+
+    @test totals[idx_abcd] == 2.0
+    @test totals[idx_bacd] == 4.0
+    @test sum(totals) == 6.0
+    @test proportions[idx_abcd] ≈ 1 / 3
+    @test proportions[idx_bacd] ≈ 2 / 3
+    @test sum(proportions) ≈ 1.0
+    @test unweighted_proportions[idx_abcd] ≈ 1 / 2
+    @test unweighted_proportions[idx_bacd] ≈ 1 / 2
+    @test proportions[idx_abcd] != unweighted_proportions[idx_abcd]
+
+    weak_ballots = [
+        PreferenceProfiles.WeakRank(pool, [1, 2, 3, 4]),
+        PreferenceProfiles.WeakRank(pool, [1, 1, 2, 3]),
+    ]
+    weak_weighted = PreferenceProfiles.WeightedProfile(pool, weak_ballots, weights)
+    linearizer = PreferenceProfiles.PatternConditionalLinearizer(
+        weak_weighted;
+        alpha = 0.5,
+        fallback = :uniform,
+    )
+    strict_weighted = PreferenceProfiles.linearize(
+        weak_weighted;
+        tie_break = linearizer,
+        rng = Random.MersenneTwister(9),
+        incomplete_policy = :error,
+    )
+    @test strict_weighted isa PreferenceProfiles.WeightedProfile{<:PreferenceProfiles.StrictRank}
+    @test PreferenceProfiles.weights(strict_weighted) == weights
 end
 
 @testset "Profile vector validators" begin
@@ -983,8 +1030,26 @@ end
     @test ax3b !== nothing
     ax4 = plot_profile_tetrahedron_freqs(ones(24))
     @test ax4 !== nothing
+    @test "1" in _axis_text_strings(ax4)
     ax4b = plot_profile_on_opened_tetrahedron(ones(24))
     @test ax4b !== nothing
+    ax4c = plot_profile_tetrahedron_proportions(fill(1 / 24, 24))
+    @test ax4c !== nothing
+    ax4d = plot_profile_tetrahedron_proportions(collect(1.0:24.0); normalize = true)
+    @test ax4d !== nothing
+    @test_throws ArgumentError plot_profile_tetrahedron_proportions([-1.0; ones(23)])
+    @test_throws ArgumentError plot_profile_tetrahedron_proportions(zeros(24))
+    percentage_profile = [0.25; fill(0.75 / 23, 23)]
+    ax4e = plot_profile_tetrahedron_proportions(
+        percentage_profile;
+        labels = ("Lula", "Bolsonaro", "Ciro", "Tebet"),
+        plot_percentages = true,
+        digits = 1,
+    )
+    annotation_texts = _axis_text_strings(ax4e)
+    @test "25.0" in annotation_texts
+    @test all(!occursin("%", text) for text in annotation_texts)
+    @test issubset(Set(["Lula", "Bolsonaro", "Ciro", "Tebet"]), Set(annotation_texts))
     ax5 = plot_candidate_tally_tetrahedron()
     @test ax5 !== nothing
     ax5b = plot_saari_tetrahedron3d()
